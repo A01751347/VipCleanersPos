@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       page,
       pageSize
     });
+    console.log("clientsdasd",clients);
     return NextResponse.json(clients, { status: 200 });
   } catch (error) {
     console.error('Error al obtener clientes:', error);

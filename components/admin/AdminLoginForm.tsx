@@ -87,7 +87,7 @@ const AdminLoginForm: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full py-3 pl-10 pr-4 border border-[#e0e6e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
-                placeholder="admin@vipcleaners.com"
+                placeholder="admin@kickclean.com"
               />
             </div>
           </div>
