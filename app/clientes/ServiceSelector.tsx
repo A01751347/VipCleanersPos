@@ -1,7 +1,7 @@
 'use client'
 // components/admin/pos/ServiceSelector.tsx
 import React, { useState, useEffect } from 'react';
-import { Brush, Shield, PlusCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Brush, Shield, PlusCircle, Loader2, AlertCircle, Play } from 'lucide-react';
 
 // Interfaz para servicio
 interface Service {
@@ -27,19 +27,24 @@ interface ServiceSelectorProps {
     descripcion?: string;
   }) => void;
   searchTerm: string;
+  onAddShoesService?: (serviceId: number, serviceName: string, servicePrice: number) => void; // 🆕 Nueva prop opcional
 }
 
-const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onAddToCart, searchTerm }) => {
+const ServiceSelector: React.FC<ServiceSelectorProps> = ({ 
+  onAddToCart, 
+  searchTerm, 
+  onAddShoesService 
+}) => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showSneakerModal, setShowSneakerModal] = useState(false);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
   
-  // Campos para detalles del calzado
-  const [sneakerBrand, setSneakerBrand] = useState('');
-  const [sneakerModel, setSneakerModel] = useState('');
-  const [sneakerDescription, setSneakerDescription] = useState('');
+  // 🚫 Eliminar estados del modal anterior (ya no se usan)
+  // const [showSneakerModal, setShowSneakerModal] = useState(false);
+  // const [selectedService, setSelectedService] = useState<Service | null>(null);
+  // const [sneakerBrand, setSneakerBrand] = useState('');
+  // const [sneakerModel, setSneakerModel] = useState('');
+  // const [sneakerDescription, setSneakerDescription] = useState('');
   
   useEffect(() => {
     const fetchServices = async () => {
@@ -71,41 +76,64 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onAddToCart, searchTe
     service.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const handleAddServiceClick = (service: Service) => {
-    setSelectedService(service);
-    setShowSneakerModal(true);
+  // 🆕 Función para detectar si es un servicio de tenis y decidir qué modal usar
+  const isShoeService = (service: Service): boolean => {
+    const shoesKeywords = ['limpieza', 'restauracion', 'tenis', 'sneaker', 'zapato', 'calzado'];
+    const serviceName = service.nombre.toLowerCase();
+    const serviceDescription = service.descripcion.toLowerCase();
+    
+    return shoesKeywords.some(keyword => 
+      serviceName.includes(keyword) || serviceDescription.includes(keyword)
+    );
   };
   
-  const handleAddToCart = () => {
-    if (!selectedService) return;
-    
-    onAddToCart({
-      id: selectedService.servicio_id,
-      tipo: 'servicio',
-      nombre: selectedService.nombre,
-      precio: selectedService.precio,
-      cantidad: 1,
-      marca: sneakerBrand || undefined,
-      modelo: sneakerModel || undefined,
-      descripcion: sneakerDescription || undefined
-    });
-    
-    // Reset form
-    setShowSneakerModal(false);
-    setSelectedService(null);
-    setSneakerBrand('');
-    setSneakerModel('');
-    setSneakerDescription('');
+  // 🆕 Función actualizada para manejar agregar servicio
+  const handleAddServiceClick = (service: Service) => {
+    // Si es un servicio de tenis y tenemos la función del modal mejorado
+    if (isShoeService(service) && onAddShoesService) {
+      onAddShoesService(service.servicio_id, service.nombre, service.precio);
+    } else {
+      // Para servicios normales, agregar directamente al carrito
+      onAddToCart({
+        id: service.servicio_id,
+        tipo: 'servicio',
+        nombre: service.nombre,
+        precio: service.precio,
+        cantidad: 1
+      });
+    }
   };
+  
+  // 🚫 Eliminar función antigua del modal (ya no se usa)
+  // const handleAddToCart = () => { ... }
   
   // Renderizar un servicio
   const renderServiceCard = (service: Service) => {
     const getServiceIcon = () => {
-      // Asignar iconos según tipo de servicio - esto dependerá de tu lógica de negocio
+      // 🆕 Agregar icono especial para servicios de tenis
+      if (isShoeService(service)) {
+        return <Play size={18} className="mr-2 text-[#78f3d3]" />;
+      }
       if (service.nombre.toLowerCase().includes('premium')) {
         return <Shield size={18} className="mr-2" />;
       }
       return <Brush size={18} className="mr-2" />;
+    };
+
+    // 🆕 Función para obtener el texto del botón
+    const getButtonText = () => {
+      if (isShoeService(service) && onAddShoesService) {
+        return "Agregar Detalles";
+      }
+      return "Agregar";
+    };
+
+    // 🆕 Función para obtener el color del botón
+    const getButtonStyle = () => {
+      if (isShoeService(service) && onAddShoesService) {
+        return "flex items-center text-sm text-white bg-[#78f3d3] hover:bg-[#4de0c0] rounded-lg px-3 py-1.5 font-medium";
+      }
+      return "flex items-center text-sm text-[#313D52] bg-[#f5f9f8] hover:bg-[#e0e6e5] rounded-lg px-3 py-1";
     };
     
     return (
@@ -118,29 +146,42 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onAddToCart, searchTe
             <h3 className="font-medium text-[#313D52] flex items-center">
               {getServiceIcon()}
               {service.nombre}
+              {/* 🆕 Indicador visual para servicios de tenis */}
+              {isShoeService(service) && onAddShoesService && (
+                <span className="ml-2 px-2 py-0.5 bg-[#78f3d3] text-white text-xs rounded-full">
+                  Detalles
+                </span>
+              )}
             </h3>
             <p className="text-sm text-[#6c7a89] mt-1">{service.descripcion}</p>
             
-            {service.requiere_identificacion ? (
+            {/* 🆕 Mensaje informativo para servicios de tenis */}
+            {isShoeService(service) && onAddShoesService && (
+              <div className="mt-2 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded inline-flex items-center">
+                <Play size={12} className="mr-1" />
+                Requiere información del calzado
+              </div>
+            )}
+            
+            {service.requiere_identificacion && (
               <div className="mt-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-flex items-center">
                 <AlertCircle size={12} className="mr-1" />
                 Requiere identificación
               </div>
-            ):(null)}
+            )}
           </div>
           <div className="text-[#313D52] font-bold">
-  ${Number(service.precio).toFixed(2)}
-</div>
-
+            ${Number(service.precio).toFixed(2)}
+          </div>
         </div>
         
         <div className="mt-4 flex justify-end">
           <button
             onClick={() => handleAddServiceClick(service)}
-            className="flex items-center text-sm text-[#313D52] bg-[#f5f9f8] hover:bg-[#e0e6e5] rounded-lg px-3 py-1"
+            className={getButtonStyle()}
           >
-            <PlusCircle size={16} className="mr-1 text-[#78f3d3]" />
-            Agregar
+            <PlusCircle size={16} className="mr-1" />
+            {getButtonText()}
           </button>
         </div>
       </div>
@@ -175,6 +216,11 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onAddToCart, searchTe
       {filteredServices.length === 0 ? (
         <div className="text-center py-8 text-[#6c7a89]">
           <p>No se encontraron servicios</p>
+          {searchTerm && (
+            <p className="text-sm mt-2">
+              Búsqueda: "{searchTerm}"
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -182,77 +228,8 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onAddToCart, searchTe
         </div>
       )}
       
-      {/* Modal para detalles del calzado */}
-      {showSneakerModal && selectedService && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-[#313D52] mb-4">
-                Detalles del Calzado para {selectedService.nombre}
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="brand" className="block text-sm font-medium text-[#6c7a89] mb-1">
-                    Marca
-                  </label>
-                  <input
-                    id="brand"
-                    type="text"
-                    value={sneakerBrand}
-                    onChange={(e) => setSneakerBrand(e.target.value)}
-                    placeholder="Ej. Nike, Adidas, etc."
-                    className="w-full px-3 py-2 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="model" className="block text-sm font-medium text-[#6c7a89] mb-1">
-                    Modelo
-                  </label>
-                  <input
-                    id="model"
-                    type="text"
-                    value={sneakerModel}
-                    onChange={(e) => setSneakerModel(e.target.value)}
-                    placeholder="Ej. Air Force 1, Yeezy, etc."
-                    className="w-full px-3 py-2 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-[#6c7a89] mb-1">
-                    Descripción Adicional
-                  </label>
-                  <textarea
-                    id="description"
-                    value={sneakerDescription}
-                    onChange={(e) => setSneakerDescription(e.target.value)}
-                    placeholder="Color, tamaño, detalles especiales..."
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] resize-none"
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowSneakerModal(false)}
-                  className="px-4 py-2 border border-[#e0e6e5] text-[#6c7a89] rounded-lg hover:bg-[#f5f9f8]"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleAddToCart}
-                  className="px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0]"
-                >
-                  Agregar al Carrito
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🚫 Eliminar modal anterior - ahora se usa el modal mejorado del POS */}
+      {/* Modal para detalles del calzado - ELIMINADO */}
     </div>
   );
 };

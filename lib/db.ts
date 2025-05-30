@@ -3671,3 +3671,344 @@ export async function getSystemConfig() {
   const keys = ['notificaciones_email', 'backup_automatico', 'formato_fecha', 'idioma'];
   return await getConfigValues(keys);
 }
+
+// ===============================================
+// FUNCIONES ADICIONALES PARA lib/db.ts
+// Agregar estas funciones al final del archivo
+// ===============================================
+
+// Función para asignar ubicaciones de almacenamiento
+export async function assignStorageLocations(
+  locations: {
+    detalleServicioId: number;
+    ordenId: number;
+    cajaAlmacenamiento: string;
+    codigoUbicacion: string;
+    notasEspeciales?: string;
+    empleadoId: number;
+  }[]
+): Promise<void> {
+  try {
+    // Procesar cada ubicación
+    for (const location of locations) {
+      await executeQuery({
+        query: `CALL AsignarUbicacionAlmacenamiento(?, ?, ?, ?, ?, ?)`,
+        values: [
+          location.detalleServicioId,
+          location.ordenId,
+          location.cajaAlmacenamiento,
+          location.codigoUbicacion,
+          location.notasEspeciales || null,
+          location.empleadoId
+        ]
+      });
+    }
+  } catch (error) {
+    console.error('Error asignando ubicaciones:', error);
+    throw error;
+  }
+}
+
+// Función para buscar tenis por ubicación
+export async function searchShoesByLocation(busqueda: string) {
+  try {
+    const result = await executeQuery<any[]>({
+      query: `CALL BuscarTenisPorUbicacion(?)`,
+      values: [busqueda]
+    });
+    
+    // Los procedimientos almacenados devuelven un array anidado
+    return result[0] || [];
+  } catch (error) {
+    console.error('Error buscando por ubicación:', error);
+    throw error;
+  }
+}
+
+// Función para obtener el mapa de ubicaciones
+export async function getStorageLocationMap() {
+  try {
+    const result = await executeQuery<any[]>({
+      query: `SELECT * FROM vw_mapa_ubicaciones ORDER BY caja_almacenamiento, codigo_ubicacion`,
+      values: []
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error obteniendo mapa de ubicaciones:', error);
+    throw error;
+  }
+}
+
+// Función para obtener servicios pendientes de ubicación
+export async function getServicesWithoutLocation(ordenId?: number) {
+  let query = `
+    SELECT 
+      dos.detalle_servicio_id,
+      dos.orden_id,
+      o.codigo_orden,
+      s.nombre AS servicio_nombre,
+      dos.marca,
+      dos.modelo,
+      dos.descripcion_calzado,
+      dos.cantidad,
+      CONCAT(c.nombre, ' ', c.apellidos) AS cliente,
+      c.telefono,
+      o.fecha_recepcion,
+      es.nombre AS estado_orden
+    FROM detalles_orden_servicios dos
+    JOIN ordenes o ON dos.orden_id = o.orden_id
+    JOIN clientes c ON o.cliente_id = c.cliente_id
+    JOIN servicios s ON dos.servicio_id = s.servicio_id
+    JOIN estados_servicio es ON o.estado_actual_id = es.estado_id
+    WHERE 
+      dos.caja_almacenamiento IS NULL 
+      AND dos.codigo_ubicacion IS NULL
+      AND (dos.marca IS NOT NULL OR dos.modelo IS NOT NULL)
+      AND es.nombre != 'Entregado'
+  `;
+  
+  const values: any[] = [];
+  
+  if (ordenId) {
+    query += ` AND dos.orden_id = ?`;
+    values.push(ordenId);
+  }
+  
+  query += ` ORDER BY o.fecha_recepcion DESC`;
+  
+  try {
+    const result = await executeQuery<any[]>({
+      query,
+      values
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error obteniendo servicios sin ubicación:', error);
+    throw error;
+  }
+}
+
+// Función para generar código de ubicación automático
+export async function generateLocationCode(caja: string): Promise<string> {
+  try {
+    const result = await executeQuery<any[]>({
+      query: `SELECT GenerarCodigoUbicacion(?) as codigo`,
+      values: [caja]
+    });
+    
+    return result[0]?.codigo || '';
+  } catch (error) {
+    console.error('Error generando código de ubicación:', error);
+    throw error;
+  }
+}
+
+// Función para obtener historial de ubicaciones de un par de tenis
+export async function getLocationHistory(detalleServicioId: number) {
+  try {
+    const result = await executeQuery<any[]>({
+      query: `
+        SELECT 
+          hu.*,
+          CONCAT(e.nombre, ' ', e.apellidos) AS empleado_nombre,
+          o.codigo_orden
+        FROM historial_ubicaciones hu
+        JOIN empleados e ON hu.empleado_id = e.empleado_id
+        JOIN ordenes o ON hu.orden_id = o.orden_id
+        WHERE hu.detalle_servicio_id = ?
+        ORDER BY hu.fecha_asignacion DESC
+      `,
+      values: [detalleServicioId]
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error obteniendo historial de ubicaciones:', error);
+    throw error;
+  }
+}
+
+// Función para obtener estadísticas de almacenamiento
+export async function getStorageStatistics() {
+  try {
+    // Total de pares almacenados
+    const [totalStored] = await executeQuery<[{total: number}]>({
+      query: `
+        SELECT COUNT(*) as total
+        FROM detalles_orden_servicios dos
+        JOIN ordenes o ON dos.orden_id = o.orden_id
+        JOIN estados_servicio es ON o.estado_actual_id = es.estado_id
+        WHERE 
+          dos.caja_almacenamiento IS NOT NULL 
+          AND dos.codigo_ubicacion IS NOT NULL
+          AND es.nombre != 'Entregado'
+      `,
+      values: []
+    });
+    
+    // Pares sin ubicación asignada
+    const [pendingLocation] = await executeQuery<[{total: number}]>({
+      query: `
+        SELECT COUNT(*) as total
+        FROM detalles_orden_servicios dos
+        JOIN ordenes o ON dos.orden_id = o.orden_id
+        JOIN estados_servicio es ON o.estado_actual_id = es.estado_id
+        WHERE 
+          (dos.caja_almacenamiento IS NULL OR dos.codigo_ubicacion IS NULL)
+          AND (dos.marca IS NOT NULL OR dos.modelo IS NOT NULL)
+          AND es.nombre != 'Entregado'
+      `,
+      values: []
+    });
+    
+    // Tiempo promedio de almacenamiento
+    const [avgStorageTime] = await executeQuery<[{promedio: number}]>({
+      query: `
+        SELECT AVG(TIMESTAMPDIFF(DAY, dos.fecha_almacenamiento, NOW())) as promedio
+        FROM detalles_orden_servicios dos
+        JOIN ordenes o ON dos.orden_id = o.orden_id
+        JOIN estados_servicio es ON o.estado_actual_id = es.estado_id
+        WHERE 
+          dos.fecha_almacenamiento IS NOT NULL
+          AND es.nombre != 'Entregado'
+      `,
+      values: []
+    });
+    
+    // Cajas más utilizadas
+    const topBoxes = await executeQuery<any[]>({
+      query: `
+        SELECT 
+          caja_almacenamiento,
+          COUNT(*) as total_pares
+        FROM detalles_orden_servicios dos
+        JOIN ordenes o ON dos.orden_id = o.orden_id
+        JOIN estados_servicio es ON o.estado_actual_id = es.estado_id
+        WHERE 
+          dos.caja_almacenamiento IS NOT NULL
+          AND es.nombre != 'Entregado'
+        GROUP BY caja_almacenamiento
+        ORDER BY total_pares DESC
+        LIMIT 5
+      `,
+      values: []
+    });
+    
+    return {
+      totalAlmacenados: totalStored.total,
+      pendientesUbicacion: pendingLocation.total,
+      tiempoPromedioAlmacenamiento: Math.round(avgStorageTime.promedio || 0),
+      cajasMasUtilizadas: topBoxes
+    };
+  } catch (error) {
+    console.error('Error obteniendo estadísticas de almacenamiento:', error);
+    throw error;
+  }
+}
+
+// Función actualizada para crear orden POS con soporte para ubicaciones
+export async function createPosOrderWithLocations({
+  clienteId,
+  empleadoId,
+  servicios = [],
+  productos = [],
+  requiereIdentificacion = false,
+  tieneIdentificacionRegistrada = false,
+  fechaEntregaEstimada,
+  metodoPago,
+  monto,
+  notasOrder = null,
+  subtotal,
+  iva,
+  total,
+  ubicaciones = [] // Nuevo parámetro para ubicaciones
+}: {
+  clienteId: number;
+  empleadoId: number;
+  servicios: {
+    servicioId: number;
+    cantidad: number;
+    modeloId?: number | null;
+    marca?: string | null;
+    modelo?: string | null;
+    descripcion?: string | null;
+  }[];
+  productos: {
+    productoId: number;
+    cantidad: number;
+  }[];
+  requiereIdentificacion?: boolean;
+  tieneIdentificacionRegistrada?: boolean;
+  fechaEntregaEstimada: Date;
+  metodoPago: 'efectivo' | 'tarjeta' | 'transferencia' | 'mercado_pago';
+  monto: number;
+  notasOrder?: string | null;
+  subtotal: number;
+  iva: number;
+  total: number;
+  ubicaciones?: {
+    tempId: string;
+    cajaAlmacenamiento: string;
+    codigoUbicacion: string;
+    notasEspeciales?: string;
+  }[];
+}) {
+  try {
+    // Crear la orden principal usando la función existente
+    const { ordenId, codigoOrden } = await createPosOrder({
+      clienteId,
+      empleadoId,
+      servicios,
+      productos,
+      requiereIdentificacion,
+      tieneIdentificacionRegistrada,
+      fechaEntregaEstimada,
+      metodoPago,
+      monto,
+      notasOrder,
+      subtotal,
+      iva,
+      total
+    });
+    
+    // Si hay ubicaciones especificadas, asignarlas
+    if (ubicaciones.length > 0) {
+      // Obtener los detalles de servicios recién creados
+      const serviciosCreados = await executeQuery<any[]>({
+        query: `
+          SELECT detalle_servicio_id, marca, modelo, descripcion_calzado
+          FROM detalles_orden_servicios 
+          WHERE orden_id = ? AND (marca IS NOT NULL OR modelo IS NOT NULL)
+        `,
+        values: [ordenId]
+      });
+      
+      // Mapear ubicaciones con los servicios creados (esto requiere lógica adicional)
+      // Por ahora, asumimos que las ubicaciones están en el mismo orden que los servicios
+      const ubicacionesParaAsignar = [];
+      
+      for (let i = 0; i < Math.min(ubicaciones.length, serviciosCreados.length); i++) {
+        ubicacionesParaAsignar.push({
+          detalleServicioId: serviciosCreados[i].detalle_servicio_id,
+          ordenId,
+          cajaAlmacenamiento: ubicaciones[i].cajaAlmacenamiento,
+          codigoUbicacion: ubicaciones[i].codigoUbicacion,
+          notasEspeciales: ubicaciones[i].notasEspeciales,
+          empleadoId
+        });
+      }
+      
+      // Asignar las ubicaciones
+      if (ubicacionesParaAsignar.length > 0) {
+        await assignStorageLocations(ubicacionesParaAsignar);
+      }
+    }
+    
+    return { ordenId, codigoOrden };
+  } catch (error) {
+    console.error('Error creando orden POS con ubicaciones:', error);
+    throw error;
+  }
+}

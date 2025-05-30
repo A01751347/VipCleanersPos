@@ -1,0 +1,44 @@
+# Node modules
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local env files
+.env*
+!.env.example
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Optional: VSCode settings
+.vscode/
+
+# Optional: Mac system files
+*.DS_Store
+
+# Optional: Local build output
+dist/
+build/
+
+# Optional: Coverage reports
+coverage/
+
+# Optional: next.config.js or custom server output
+*.local
+
+# Optional: editor swap files
+*.swp
+*.swo
+
+# Optional: production logs
+logs/
+*.log

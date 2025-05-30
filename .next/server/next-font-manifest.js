@@ -1,1 +1,0 @@
-self.__NEXT_FONT_MANIFEST='{"pages":{},"app":{"/Users/santiserrano/Documents/GitHub/VipCleanersPos/app/admin/layout":["static/media/e4af272ccee01ff0-s.p.woff2"],"/Users/santiserrano/Documents/GitHub/VipCleanersPos/app/admin/pos/layout":["static/media/e4af272ccee01ff0-s.p.woff2"]},"appUsingSizeAdjust":true,"pagesUsingSizeAdjust":false}';
