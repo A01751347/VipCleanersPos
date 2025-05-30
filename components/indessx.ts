@@ -1,0 +1,22 @@
+// src/components/index.ts
+export { default as Hero } from './Hero';
+export { default as Services } from './Services';
+export { default as HowItWorks } from './HowItWorks';
+export { default as BeforeAfter } from './BeforeAfter';
+export { default as Pricing } from './Pricing';
+export { default as Testimonials } from './Testimonials';
+export { default as Contact } from './Contact';
+export { default as Footer } from './Footer';
+export { default as Navbar } from './Navbar';
+export { default as BookingButton } from './BookingButton';
+export { default as BookingModal } from './BookingModal';
+export { default as FAQ } from "./FAQ";
+export { default as BlogSection } from "./BlogSection";
+export { default as Gallery } from "./Gallery";
+export { default as DetailedReviews } from "./DetailedReviews";
+export { default as TrustBadges } from "./TrustBadges";
+export { default as AnimateOnScroll } from "./AnimateOnScroll";
+export { default as SmoothScroll } from "./SmoothScroll";
+export { default as Logo } from "./Logo";
+export { default as Map } from "./Map";
+export { default as CallToAction } from "./CallToAction";
