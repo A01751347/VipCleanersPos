@@ -1,7 +1,7 @@
 'use client'
 // components/admin/pos/ServiceSelector.tsx
 import React, { useState, useEffect } from 'react';
-import { Brush, Shield, PlusCircle, Loader2, AlertCircle, Play } from 'lucide-react';
+import { Brush, Shield, PlusCircle, Loader2, AlertCircle, Play, Footprints } from 'lucide-react';
 
 // Interfaz para servicio
 interface Service {
@@ -38,14 +38,6 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // 🚫 Eliminar estados del modal anterior (ya no se usan)
-  // const [showSneakerModal, setShowSneakerModal] = useState(false);
-  // const [selectedService, setSelectedService] = useState<Service | null>(null);
-  // const [sneakerBrand, setSneakerBrand] = useState('');
-  // const [sneakerModel, setSneakerModel] = useState('');
-  // const [sneakerDescription, setSneakerDescription] = useState('');
-  
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -112,7 +104,7 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
     const getServiceIcon = () => {
       // 🆕 Agregar icono especial para servicios de tenis
       if (isShoeService(service)) {
-        return <Play size={18} className="mr-2 text-[#78f3d3]" />;
+        return <Footprints size={18} className="mr-2 text-[#78f3d3]" />;
       }
       if (service.nombre.toLowerCase().includes('premium')) {
         return <Shield size={18} className="mr-2" />;
@@ -146,29 +138,15 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
             <h3 className="font-medium text-[#313D52] flex items-center">
               {getServiceIcon()}
               {service.nombre}
-              {/* 🆕 Indicador visual para servicios de tenis */}
-              {isShoeService(service) && onAddShoesService && (
-                <span className="ml-2 px-2 py-0.5 bg-[#78f3d3] text-white text-xs rounded-full">
-                  Detalles
-                </span>
-              )}
             </h3>
             <p className="text-sm text-[#6c7a89] mt-1">{service.descripcion}</p>
             
-            {/* 🆕 Mensaje informativo para servicios de tenis */}
-            {isShoeService(service) && onAddShoesService && (
-              <div className="mt-2 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded inline-flex items-center">
-                <Play size={12} className="mr-1" />
-                Requiere información del calzado
-              </div>
-            )}
-            
-            {service.requiere_identificacion && (
+            {service.requiere_identificacion ? (
               <div className="mt-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-flex items-center">
                 <AlertCircle size={12} className="mr-1" />
                 Requiere identificación
               </div>
-            )}
+            ) : null}
           </div>
           <div className="text-[#313D52] font-bold">
             ${Number(service.precio).toFixed(2)}
@@ -223,7 +201,7 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {filteredServices.map(renderServiceCard)}
         </div>
       )}

@@ -13,7 +13,11 @@ import {
   BarChart2,
   Users,
   CreditCard,
-  Wrench
+  Wrench,
+  Warehouse,
+  Bubbles,
+  Box,
+  Archive
 } from 'lucide-react';
 import LogoutButton from './LogoutButton';
 
@@ -30,7 +34,10 @@ const AdminSidebar = () => {
     { name: 'Pagos', href: '/admin/payments', icon: CreditCard },
     { name: 'Reportes', href: '/admin/reports', icon: BarChart2 },
     { name: 'Configuración', href: '/admin/settings', icon: Settings },
-    { name: 'Diagnóstico', href: '/admin/debug', icon: Wrench },
+    { name: 'Almacenamiento', href: '/admin/warehouse', icon: Warehouse },
+    { name: 'Servicios ', href: '/admin/services', icon: Bubbles },
+    { name: 'Productos', href: '/admin/products', icon: Box },
+    { name: 'Inventario', href: '/admin/inventory', icon: Archive },
   ];
 
   const isActive = (href: string) => {
