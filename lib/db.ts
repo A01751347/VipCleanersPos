@@ -292,6 +292,557 @@ export async function getModelsByBrand(brandId: number, onlyActive: boolean = tr
 
 // Reservaciones
 
+
+// lib/db.ts - Funciones adicionales para bookings mejorados
+
+// Función mejorada para crear reservación con pickup
+export async function createReservationWithPickup(
+  clienteId: number,
+  servicioId: number,
+  modeloId: number | null,
+  marca: string | null,
+  modelo: string | null,
+  descripcionCalzado: string | null,
+  fechaReservacion: Date,
+  fechaEntregaEstimada: Date,
+  notas: string | null,
+  direccionId: number | null = null,
+  requierePickup: boolean = false,
+  fechaSolicitudPickup: Date | null = null,
+  costoPickup: number = 0,
+  zonaPickup: string | null = null
+) {
+  try {
+    // Primero crear la reservación básica
+    const { id, code } = await createReservation(
+      clienteId,
+      servicioId,
+      modeloId,
+      marca,
+      modelo,
+      descripcionCalzado,
+      fechaReservacion,
+      fechaEntregaEstimada,
+      notas,
+      direccionId,
+      requierePickup,
+      fechaSolicitudPickup
+    );
+
+    // Si hay pickup, actualizar con información adicional
+    if (requierePickup) {
+      await executeQuery({
+        query: `
+          UPDATE reservaciones 
+          SET costo_pickup = ?, zona_pickup = ?
+          WHERE reservacion_id = ?
+        `,
+        values: [costoPickup, zonaPickup, id]
+      });
+    }
+
+    return { id, code };
+  } catch (error) {
+    console.error('Error creando reservación con pickup:', error);
+    throw error;
+  }
+}
+
+// Función para obtener reservación con detalles completos incluyendo dirección
+export async function getReservationWithDetails(reservacionId: number) {
+  try {
+    const query = `
+      SELECT 
+        r.*,
+        c.nombre as cliente_nombre,
+        c.apellidos as cliente_apellidos,
+        c.telefono as cliente_telefono,
+        c.email as cliente_email,
+        s.nombre as servicio_nombre,
+        s.precio as servicio_precio,
+        s.descripcion as servicio_descripcion,
+        s.tiempo_estimado_minutos,
+        m.nombre as modelo_nombre,
+        ma.nombre as marca_nombre,
+        d.calle,
+        d.numero_exterior,
+        d.numero_interior,
+        d.colonia,
+        d.municipio_delegacion,
+        d.ciudad,
+        d.estado,
+        d.codigo_postal,
+        d.telefono_contacto,
+        d.destinatario,
+        d.instrucciones_entrega,
+        d.ventana_hora_inicio,
+        d.ventana_hora_fin
+      FROM reservaciones r
+      JOIN clientes c ON r.cliente_id = c.cliente_id
+      JOIN servicios s ON r.servicio_id = s.servicio_id
+      LEFT JOIN modelos_calzado m ON r.modelo_id = m.modelo_id
+      LEFT JOIN marcas ma ON m.marca_id = ma.marca_id
+      LEFT JOIN direcciones d ON r.direccion_id = d.direccion_id
+      WHERE r.reservacion_id = ?
+    `;
+    
+    const result = await executeQuery<any[]>({
+      query,
+      values: [reservacionId]
+    });
+    
+    return result.length > 0 ? result[0] : null;
+  } catch (error) {
+    console.error('Error obteniendo reservación con detalles:', error);
+    throw error;
+  }
+}
+
+// Función para obtener reservación por código con detalles completos
+export async function getReservationByCodeWithDetails(code: string) {
+  try {
+    const query = `
+      SELECT 
+        r.*,
+        c.nombre as cliente_nombre,
+        c.apellidos as cliente_apellidos,
+        c.telefono as cliente_telefono,
+        c.email as cliente_email,
+        s.nombre as servicio_nombre,
+        s.precio as servicio_precio,
+        s.descripcion as servicio_descripcion,
+        s.tiempo_estimado_minutos,
+        m.nombre as modelo_nombre,
+        ma.nombre as marca_nombre,
+        d.calle,
+        d.numero_exterior,
+        d.numero_interior,
+        d.colonia,
+        d.municipio_delegacion,
+        d.ciudad,
+        d.estado,
+        d.codigo_postal,
+        d.telefono_contacto,
+        d.destinatario,
+        d.instrucciones_entrega,
+        d.ventana_hora_inicio,
+        d.ventana_hora_fin
+      FROM reservaciones r
+      JOIN clientes c ON r.cliente_id = c.cliente_id
+      JOIN servicios s ON r.servicio_id = s.servicio_id
+      LEFT JOIN modelos_calzado m ON r.modelo_id = m.modelo_id
+      LEFT JOIN marcas ma ON m.marca_id = ma.marca_id
+      LEFT JOIN direcciones d ON r.direccion_id = d.direccion_id
+      WHERE r.codigo_reservacion = ?
+    `;
+    
+    const result = await executeQuery<any[]>({
+      query,
+      values: [code]
+    });
+    
+    if (result.length === 0) return null;
+
+    const reservation = result[0];
+    
+    // Agregar información formateada de dirección si existe
+    if (reservation.calle) {
+      reservation.direccion_completa = `${reservation.calle} ${reservation.numero_exterior}${
+        reservation.numero_interior ? ` ${reservation.numero_interior}` : ''
+      }, ${reservation.colonia}, ${reservation.ciudad}, ${reservation.estado} ${reservation.codigo_postal}`;
+    }
+
+    return reservation;
+  } catch (error) {
+    console.error('Error obteniendo reservación por código:', error);
+    throw error;
+  }
+}
+
+// Función para convertir reservación a orden
+export async function convertReservationToOrder(
+  reservacionId: number,
+  empleadoId: number,
+  notasAdicionales: string | null = null
+) {
+  try {
+    // Obtener datos de la reservación
+    const reservacion = await getReservationWithDetails(reservacionId);
+    
+    if (!reservacion) {
+      throw new Error('Reservación no encontrada');
+    }
+
+    if (!reservacion.activo) {
+      throw new Error('La reservación no está activa');
+    }
+
+    // Crear la orden basada en la reservación
+    const { id: ordenId, code: codigoOrden } = await createOrder(
+      reservacion.cliente_id,
+      empleadoId,
+      reservacionId,
+      new Date(reservacion.fecha_entrega_estimada),
+      notasAdicionales || reservacion.notas
+    );
+
+    // Agregar el servicio a la orden
+    await executeQuery({
+      query: `
+        INSERT INTO detalles_orden_servicios (
+          orden_id, 
+          servicio_id, 
+          cantidad, 
+          precio_unitario, 
+          descuento, 
+          subtotal,
+          modelo_id,
+          marca,
+          modelo,
+          descripcion_calzado
+        ) VALUES (?, ?, 1, ?, 0.00, ?, ?, ?, ?, ?)
+      `,
+      values: [
+        ordenId,
+        reservacion.servicio_id,
+        reservacion.servicio_precio,
+        reservacion.servicio_precio,
+        reservacion.modelo_id,
+        reservacion.marca,
+        reservacion.modelo,
+        reservacion.descripcion_calzado
+      ]
+    });
+
+    // Calcular totales
+    const subtotal = reservacion.servicio_precio + (reservacion.costo_pickup || 0);
+    const iva = subtotal * 0.16;
+    const total = subtotal + iva;
+
+    // Actualizar la orden con los totales
+    await executeQuery({
+      query: `
+        UPDATE ordenes 
+        SET subtotal = ?, impuestos = ?, total = ?, estado_pago = 'pendiente'
+        WHERE orden_id = ?
+      `,
+      values: [subtotal, iva, total, ordenId]
+    });
+
+    // Marcar la reservación como procesada
+    await executeQuery({
+      query: `
+        UPDATE reservaciones 
+        SET estado = 'procesada', orden_id = ?, fecha_actualizacion = NOW()
+        WHERE reservacion_id = ?
+      `,
+      values: [ordenId, reservacionId]
+    });
+
+    return { ordenId, codigoOrden, total };
+  } catch (error) {
+    console.error('Error convirtiendo reservación a orden:', error);
+    throw error;
+  }
+}
+
+// Función para obtener reservaciones pendientes de pickup
+export async function getReservationsPendingPickup() {
+  try {
+    const query = `
+      SELECT 
+        r.*,
+        c.nombre as cliente_nombre,
+        c.apellidos as cliente_apellidos,
+        c.telefono as cliente_telefono,
+        c.email as cliente_email,
+        s.nombre as servicio_nombre,
+        d.calle,
+        d.numero_exterior,
+        d.colonia,
+        d.ciudad,
+        d.codigo_postal,
+        d.ventana_hora_inicio,
+        d.ventana_hora_fin,
+        d.instrucciones_entrega
+      FROM reservaciones r
+      JOIN clientes c ON r.cliente_id = c.cliente_id
+      JOIN servicios s ON r.servicio_id = s.servicio_id
+      JOIN direcciones d ON r.direccion_id = d.direccion_id
+      WHERE r.requiere_pickup = TRUE 
+        AND r.activo = TRUE
+        AND r.estado != 'completada'
+        AND DATE(r.fecha_solicitud_pickup) >= CURDATE()
+      ORDER BY r.fecha_solicitud_pickup ASC
+    `;
+    
+    const result = await executeQuery<any[]>({
+      query,
+      values: []
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error obteniendo reservaciones pendientes de pickup:', error);
+    throw error;
+  }
+}
+
+// Función para actualizar estado de pickup
+export async function updatePickupStatus(
+  reservacionId: number,
+  estado: 'pendiente' | 'en_camino' | 'recogido' | 'fallido',
+  empleadoId: number,
+  notas: string | null = null
+) {
+  try {
+    // Registrar el cambio de estado en una tabla de seguimiento
+    await executeQuery({
+      query: `
+        INSERT INTO seguimiento_pickup (
+          reservacion_id,
+          estado_pickup,
+          empleado_id,
+          notas,
+          fecha_cambio
+        ) VALUES (?, ?, ?, ?, NOW())
+      `,
+      values: [reservacionId, estado, empleadoId, notas]
+    });
+
+    // Si fue recogido exitosamente, actualizar la reservación
+    if (estado === 'recogido') {
+      await executeQuery({
+        query: `
+          UPDATE reservaciones 
+          SET estado_pickup = 'recogido', fecha_pickup_real = NOW()
+          WHERE reservacion_id = ?
+        `,
+        values: [reservacionId]
+      });
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error actualizando estado de pickup:', error);
+    throw error;
+  }
+}
+
+// Función para obtener historial de pickup
+export async function getPickupHistory(reservacionId: number) {
+  try {
+    const query = `
+      SELECT 
+        sp.*,
+        e.nombre as empleado_nombre,
+        e.apellidos as empleado_apellidos
+      FROM seguimiento_pickup sp
+      JOIN empleados e ON sp.empleado_id = e.empleado_id
+      WHERE sp.reservacion_id = ?
+      ORDER BY sp.fecha_cambio DESC
+    `;
+    
+    const result = await executeQuery<any[]>({
+      query,
+      values: [reservacionId]
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error obteniendo historial de pickup:', error);
+    throw error;
+  }
+}
+
+// Función para obtener estadísticas de pickup
+export async function getPickupStatistics(fechaInicio?: string, fechaFin?: string) {
+  try {
+    let whereClause = 'WHERE r.requiere_pickup = TRUE';
+    const values: any[] = [];
+    
+    if (fechaInicio) {
+      whereClause += ' AND DATE(r.fecha_solicitud_pickup) >= ?';
+      values.push(fechaInicio);
+    }
+    
+    if (fechaFin) {
+      whereClause += ' AND DATE(r.fecha_solicitud_pickup) <= ?';
+      values.push(fechaFin);
+    }
+    
+    const query = `
+      SELECT 
+        COUNT(*) as total_pickups,
+        SUM(CASE WHEN r.estado_pickup = 'recogido' THEN 1 ELSE 0 END) as exitosos,
+        SUM(CASE WHEN r.estado_pickup = 'fallido' THEN 1 ELSE 0 END) as fallidos,
+        SUM(CASE WHEN r.estado_pickup IS NULL OR r.estado_pickup = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
+        AVG(r.costo_pickup) as costo_promedio,
+        SUM(r.costo_pickup) as ingresos_pickup
+      FROM reservaciones r
+      ${whereClause}
+    `;
+    
+    const [result] = await executeQuery<any[]>({
+      query,
+      values
+    });
+    
+    return result || {
+      total_pickups: 0,
+      exitosos: 0,
+      fallidos: 0,
+      pendientes: 0,
+      costo_promedio: 0,
+      ingresos_pickup: 0
+    };
+  } catch (error) {
+    console.error('Error obteniendo estadísticas de pickup:', error);
+    throw error;
+  }
+}
+
+// Función para obtener zonas de pickup más populares
+export async function getPopularPickupZones(fechaInicio?: string, fechaFin?: string) {
+  try {
+    let whereClause = 'WHERE r.requiere_pickup = TRUE AND r.zona_pickup IS NOT NULL';
+    const values: any[] = [];
+    
+    if (fechaInicio) {
+      whereClause += ' AND DATE(r.fecha_solicitud_pickup) >= ?';
+      values.push(fechaInicio);
+    }
+    
+    if (fechaFin) {
+      whereClause += ' AND DATE(r.fecha_solicitud_pickup) <= ?';
+      values.push(fechaFin);
+    }
+    
+    const query = `
+      SELECT 
+        r.zona_pickup,
+        COUNT(*) as total_pickups,
+        AVG(r.costo_pickup) as costo_promedio,
+        SUM(CASE WHEN r.estado_pickup = 'recogido' THEN 1 ELSE 0 END) as exitosos
+      FROM reservaciones r
+      ${whereClause}
+      GROUP BY r.zona_pickup
+      ORDER BY total_pickups DESC
+    `;
+    
+    const result = await executeQuery<any[]>({
+      query,
+      values
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error obteniendo zonas populares:', error);
+    throw error;
+  }
+}
+
+// Función para validar si una dirección ya existe para un cliente
+export async function getClientAddressByDetails(
+  clienteId: number,
+  calle: string,
+  numeroExterior: string,
+  codigoPostal: string
+) {
+  try {
+    const query = `
+      SELECT * FROM direcciones
+      WHERE cliente_id = ? 
+        AND calle = ? 
+        AND numero_exterior = ? 
+        AND codigo_postal = ?
+        AND activo = TRUE
+      LIMIT 1
+    `;
+    
+    const result = await executeQuery<any[]>({
+      query,
+      values: [clienteId, calle, numeroExterior, codigoPostal]
+    });
+    
+    return result.length > 0 ? result[0] : null;
+  } catch (error) {
+    console.error('Error buscando dirección existente:', error);
+    throw error;
+  }
+}
+
+// Función para actualizar dirección existente
+export async function updateAddress(
+  direccionId: number,
+  {
+    calle,
+    numeroExterior,
+    numeroInterior,
+    colonia,
+    municipio,
+    ciudad,
+    estado,
+    codigoPostal,
+    telefono,
+    destinatario,
+    instrucciones,
+    ventanaInicio,
+    ventanaFin
+  }: {
+    calle?: string;
+    numeroExterior?: string;
+    numeroInterior?: string | null;
+    colonia?: string;
+    municipio?: string | null;
+    ciudad?: string;
+    estado?: string;
+    codigoPostal?: string;
+    telefono?: string | null;
+    destinatario?: string | null;
+    instrucciones?: string | null;
+    ventanaInicio?: string | null;
+    ventanaFin?: string | null;
+  }
+) {
+  try {
+    const query = `
+      UPDATE direcciones 
+      SET 
+        calle = COALESCE(?, calle),
+        numero_exterior = COALESCE(?, numero_exterior),
+        numero_interior = ?,
+        colonia = COALESCE(?, colonia),
+        municipio_delegacion = ?,
+        ciudad = COALESCE(?, ciudad),
+        estado = COALESCE(?, estado),
+        codigo_postal = COALESCE(?, codigo_postal),
+        telefono_contacto = ?,
+        destinatario = ?,
+        instrucciones_entrega = ?,
+        ventana_hora_inicio = ?,
+        ventana_hora_fin = ?,
+        fecha_actualizacion = NOW()
+      WHERE direccion_id = ?
+    `;
+    
+    await executeQuery({
+      query,
+      values: [
+        calle, numeroExterior, numeroInterior, colonia, municipio,
+        ciudad, estado, codigoPostal, telefono, destinatario,
+        instrucciones, ventanaInicio, ventanaFin, direccionId
+      ]
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error actualizando dirección:', error);
+    throw error;
+  }
+}
+
+
 // Función para crear una nueva reservación
 export async function createReservation(
   clienteId: number,
@@ -328,6 +879,8 @@ export async function createReservation(
     ]
   });
   
+
+
   // Extraer el ID y código de reservación de las variables OUT
   const { '@reservacion_id': reservacionId, '@codigo_reservacion': codigoReservacion } = result[0];
   
@@ -1228,19 +1781,17 @@ export async function createAddress(
   instrucciones: string | null = null,
   ventanaHoraInicio: string | null = null,
   ventanaHoraFin: string | null = null
-) {
-  // Usar el procedimiento almacenado CrearDireccion
+): Promise<number> {
   const query = `
-    CALL CrearDireccion(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @direccion_id);
-    SELECT @direccion_id;
+    CALL CrearDireccion(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
   `;
   
-  const [result] = await executeQuery<any[]>({
+  const result = await executeQuery<any[]>({
     query,
     values: [
       clienteId,
       tipo,
-      alias,
+      alias || 'Dirección sin alias',
       calle,
       numeroExterior,
       numeroInterior,
@@ -1248,10 +1799,10 @@ export async function createAddress(
       delegacionMunicipio,
       ciudad,
       estado,
-      'México', // país por defecto
+      'México',             // país fijo
       codigoPostal,
-      null, // latitud (se actualizaría después con geocoding)
-      null, // longitud (se actualizaría después con geocoding)
+      null,                 // latitud
+      null,                 // longitud
       telefonoContacto,
       destinatario,
       instrucciones,
@@ -1259,12 +1810,18 @@ export async function createAddress(
       ventanaHoraFin
     ]
   });
+
+  // ✅ Obtener el ID de la dirección del primer result set
   
-  // Extraer el ID de dirección de la variable OUT
-  const { '@direccion_id': direccionId } = result[0];
-  
+const direccionId = result?.[0]?.[0]?.direccion_id;
+
+  if (!direccionId || typeof direccionId !== 'number') {
+    throw new Error('No se pudo obtener el ID de la dirección');
+  }
+
   return direccionId;
 }
+
 
 // Función para obtener direcciones de un cliente
 export async function getClientAddresses(clienteId: number) {
