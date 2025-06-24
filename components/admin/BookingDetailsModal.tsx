@@ -13,7 +13,8 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Home
 } from 'lucide-react';
 
 interface BookingDetails {
@@ -24,9 +25,6 @@ interface BookingDetails {
   full_name: string;
   client_email: string;
   client_phone: string;
-  client_address: string;
-  client_city: string;
-  client_postal_code: string;
   service_name: string;
   service_description: string;
   service_price: number;
@@ -40,6 +38,20 @@ interface BookingDetails {
   status: string;
   created_at: string;
   updated_at: string;
+  // Address fields from getReservationWithDetails
+  calle?: string;
+  numero_exterior?: string;
+  numero_interior?: string;
+  colonia?: string;
+  municipio_delegacion?: string;
+  ciudad?: string;
+  estado?: string;
+  codigo_postal?: string;
+  telefono_contacto?: string;
+  destinatario?: string;
+  instrucciones_entrega?: string;
+  ventana_hora_inicio?: string;
+  ventana_hora_fin?: string;
 }
 
 interface BookingDetailsModalProps {
@@ -169,6 +181,50 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
     });
   };
 
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '';
+    return timeString.slice(0, 5); // Format HH:MM
+  };
+
+  const buildAddress = (booking: BookingDetails) => {
+    const addressParts = [];
+    
+    if (booking.calle) {
+      let street = booking.calle;
+      if (booking.numero_exterior) {
+        street += ` ${booking.numero_exterior}`;
+      }
+      if (booking.numero_interior) {
+        street += ` Int. ${booking.numero_interior}`;
+      }
+      addressParts.push(street);
+    }
+    
+    if (booking.colonia) {
+      addressParts.push(booking.colonia);
+    }
+    
+    const cityParts = [];
+    if (booking.municipio_delegacion) {
+      cityParts.push(booking.municipio_delegacion);
+    }
+    if (booking.ciudad && booking.ciudad !== booking.municipio_delegacion) {
+      cityParts.push(booking.ciudad);
+    }
+    if (booking.estado) {
+      cityParts.push(booking.estado);
+    }
+    if (booking.codigo_postal) {
+      cityParts.push(`CP ${booking.codigo_postal}`);
+    }
+    
+    if (cityParts.length > 0) {
+      addressParts.push(cityParts.join(', '));
+    }
+    
+    return addressParts.join('\n');
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -255,24 +311,69 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                       </div>
                     </div>
                     
-                    {booking.client_address && (
+                    {booking.telefono_contacto && booking.telefono_contacto !== booking.client_phone && (
                       <div>
-                        <label className="block text-xs font-medium text-[#6c7a89] mb-1">Dirección</label>
-                        <div className="flex items-start">
-                          <MapPin size={14} className="text-[#6c7a89] mr-2 mt-0.5" />
-                          <div>
-                            <p className="text-[#313D52]">{booking.client_address}</p>
-                            {booking.client_city && (
-                              <p className="text-xs text-[#6c7a89]">
-                                {booking.client_city}{booking.client_postal_code && `, ${booking.client_postal_code}`}
-                              </p>
-                            )}
-                          </div>
+                        <label className="block text-xs font-medium text-[#6c7a89] mb-1">Teléfono de Contacto</label>
+                        <div className="flex items-center">
+                          <Phone size={14} className="text-[#6c7a89] mr-2" />
+                          <a href={`tel:${booking.telefono_contacto}`} className="text-[#78f3d3] hover:underline">
+                            {booking.telefono_contacto}
+                          </a>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* Delivery Address */}
+                {(booking.calle || booking.destinatario) && (
+                  <div className="border border-[#e0e6e5] rounded-lg p-4">
+                    <div className="flex items-center mb-4">
+                      <Home size={18} className="text-[#78f3d3] mr-2" />
+                      <h3 className="font-semibold text-[#313D52]">Dirección de Entrega</h3>
+                    </div>
+                    
+                    <div className="space-y-3 text-sm">
+                      {booking.destinatario && (
+                        <div>
+                          <label className="block text-xs font-medium text-[#6c7a89] mb-1">Destinatario</label>
+                          <p className="text-[#313D52]">{booking.destinatario}</p>
+                        </div>
+                      )}
+                      
+                      {booking.calle && (
+                        <div>
+                          <label className="block text-xs font-medium text-[#6c7a89] mb-1">Dirección</label>
+                          <div className="flex items-start">
+                            <MapPin size={14} className="text-[#6c7a89] mr-2 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-[#313D52] whitespace-pre-line">{buildAddress(booking)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {(booking.ventana_hora_inicio || booking.ventana_hora_fin) && (
+                        <div>
+                          <label className="block text-xs font-medium text-[#6c7a89] mb-1">Ventana de Entrega</label>
+                          <div className="flex items-center">
+                            <Clock size={14} className="text-[#6c7a89] mr-2" />
+                            <p className="text-[#313D52]">
+                              {formatTime(booking.ventana_hora_inicio || '')} - {formatTime(booking.ventana_hora_fin || '')}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {booking.instrucciones_entrega && (
+                        <div>
+                          <label className="block text-xs font-medium text-[#6c7a89] mb-1">Instrucciones de Entrega</label>
+                          <p className="text-[#313D52] whitespace-pre-wrap">{booking.instrucciones_entrega}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Service Information */}
                 <div className="border border-[#e0e6e5] rounded-lg p-4">

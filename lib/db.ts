@@ -353,17 +353,38 @@ export async function getReservationWithDetails(reservacionId: number) {
   try {
     const query = `
       SELECT 
-        r.*,
-        c.nombre as cliente_nombre,
-        c.apellidos as cliente_apellidos,
-        c.telefono as cliente_telefono,
-        c.email as cliente_email,
-        s.nombre as servicio_nombre,
-        s.precio as servicio_precio,
-        s.descripcion as servicio_descripcion,
-        s.tiempo_estimado_minutos,
+        r.reservacion_id as id,
+        r.codigo_reservacion as booking_reference,
+        r.cliente_id,
+        c.nombre as client_name,
+        c.apellidos as client_lastname,
+        CONCAT(c.nombre, ' ', c.apellidos) as full_name,
+        c.email as client_email,
+        c.telefono as client_phone,
+        r.servicio_id,
+        s.nombre as service_name,
+        s.precio as service_price,
+        s.descripcion as service_description,
+        s.tiempo_estimado_minutos as service_duration,
+        r.modelo_id,
         m.nombre as modelo_nombre,
         ma.nombre as marca_nombre,
+        r.marca,
+        r.modelo,
+        r.descripcion_calzado as shoes_description,
+        r.fecha_reservacion as booking_date,
+        r.fecha_entrega_estimada as estimated_delivery,
+        r.notas as notes,
+        r.activo as is_active,
+        r.estado as status_raw,
+        CASE 
+          WHEN r.activo = FALSE THEN 'cancelled'
+          WHEN r.estado = 'completada' THEN 'completed'
+          WHEN r.fecha_reservacion > NOW() THEN 'pending'
+          ELSE 'pending'
+        END as status,
+        r.fecha_creacion as created_at,
+        r.fecha_actualizacion as updated_at,
         d.calle,
         d.numero_exterior,
         d.numero_interior,

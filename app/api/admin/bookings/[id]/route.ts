@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../auth';
-import { getBookingById } from '../../../../../lib/db';
+import { getBookingById, getReservationWithDetails } from '../../../../../lib/db';
 
 // Definir la interfaz correcta para Next.js 15
 interface RouteParams {
@@ -36,7 +36,7 @@ export async function GET(
     }
     
     // Obtener los detalles de la reservación
-    const booking = await getBookingById(bookingId);
+    const booking = await getReservationWithDetails(bookingId);
     
     if (!booking) {
       return NextResponse.json(
