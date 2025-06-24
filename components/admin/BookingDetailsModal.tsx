@@ -16,6 +16,7 @@ import {
   Loader2,
   Home
 } from 'lucide-react';
+import TransferBookingButton from './TransferBookingButton';
 
 interface BookingDetails {
   id: number;
@@ -137,6 +138,24 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
     }
   };
 
+  const handleTransferSuccess = (data: any) => {
+    // Mostrar mensaje de éxito
+    alert(`¡Reservación transferida exitosamente!\n\nCódigo de Orden: ${data.codigoOrden}\nTotal: $${data.total.toFixed(2)}`);
+    
+    // Refrescar los datos del booking
+    fetchBookingDetails();
+    
+    // Notificar al componente padre
+    if (onStatusUpdate) {
+      onStatusUpdate();
+    }
+    
+    // Opcionalmente cerrar el modal después de unos segundos
+    setTimeout(() => {
+      onClose();
+    }, 2000);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -145,6 +164,8 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
         return 'bg-green-100 text-green-800 border-green-200';
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'transferida_a_orden':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -158,6 +179,8 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
         return 'Completado';
       case 'cancelled':
         return 'Cancelado';
+      case 'transferida_a_orden':
+        return 'Transferida a Orden';
       default:
         return 'Desconocido';
     }
@@ -428,12 +451,47 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
               {/* Sidebar */}
               <div className="space-y-6">
+                {/* Transfer to Order - Solo mostrar si está pendiente y no transferida */}
+                {booking.status === 'pending' && (
+                  <div className="border border-[#e0e6e5] rounded-lg p-4">
+                    <h3 className="font-semibold text-[#313D52] mb-3">Procesar Reservación</h3>
+                    <p className="text-sm text-[#6c7a89] mb-4">
+                      Transferir esta reservación a una orden activa para comenzar el proceso de servicio.
+                    </p>
+                    <TransferBookingButton
+                      bookingId={booking.id}
+                      bookingReference={booking.booking_reference}
+                      onSuccess={handleTransferSuccess}
+                      disabled={isUpdating}
+                    />
+                  </div>
+                )}
+
+                {/* Status Information - Si ya fue transferida */}
+                {booking.status === 'transferida_a_orden' && (
+                  <div className="border border-[#e0e6e5] rounded-lg p-4">
+                    <div className="flex items-center mb-3">
+                      <CheckCircle size={18} className="text-green-500 mr-2" />
+                      <h3 className="font-semibold text-[#313D52]">Estado de la Reservación</h3>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded-md">
+                      <p className="text-sm text-blue-800 font-medium mb-1">
+                        ✓ Transferida a Orden
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        Esta reservación ha sido convertida exitosamente en una orden activa. 
+                        El proceso de servicio ya puede comenzar.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Status Actions */}
                 <div className="border border-[#e0e6e5] rounded-lg p-4">
-                  <h3 className="font-semibold text-[#313D52] mb-4">Acciones</h3>
+                  <h3 className="font-semibold text-[#313D52] mb-4">Cambiar Estado</h3>
                   
                   <div className="space-y-2">
-                    {booking.status !== 'pending' && (
+                    {booking.status !== 'pending' && booking.status !== 'transferida_a_orden' && (
                       <button
                         onClick={() => handleStatusUpdate('pending')}
                         disabled={isUpdating}
@@ -444,7 +502,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                       </button>
                     )}
                     
-                    {booking.status !== 'completed' && (
+                    {booking.status !== 'completed' && booking.status !== 'transferida_a_orden' && (
                       <button
                         onClick={() => handleStatusUpdate('completed')}
                         disabled={isUpdating}
@@ -455,7 +513,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                       </button>
                     )}
                     
-                    {booking.status !== 'cancelled' && (
+                    {booking.status !== 'cancelled' && booking.status !== 'transferida_a_orden' && (
                       <button
                         onClick={() => handleStatusUpdate('cancelled')}
                         disabled={isUpdating}
@@ -464,6 +522,12 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                         <XCircle size={14} className="mr-2" />
                         Cancelar
                       </button>
+                    )}
+                    
+                    {booking.status === 'transferida_a_orden' && (
+                      <div className="text-xs text-[#6c7a89] text-center py-2">
+                        No se puede cambiar el estado de una reservación transferida
+                      </div>
                     )}
                   </div>
                 </div>
