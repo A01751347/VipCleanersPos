@@ -95,17 +95,16 @@ export default function Home() {
       {/* Critical above-the-fold content */}
       <Navbar />
       <Hero />
+
+      <BeforeAfter />
       
+      <HowItWorks />
       {/* Trust signals - load immediately after hero */}
       <TrustBadges />
       
       {/* Core business sections - high priority */}
       <Services />
-      <HowItWorks />
       
-      <LazySection>
-        <BeforeAfter />
-      </LazySection>
       
       {/* Social proof sections */}
       <LazySection>

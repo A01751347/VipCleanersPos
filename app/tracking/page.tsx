@@ -232,10 +232,11 @@ const TrackingPage: React.FC = () => {
 // Hero section component
 const HeroSection: React.FC = () => (
   <section className="relative py-16 px-4 sm:px-6 lg:px-8">
-    <div className="max-w-4xl mx-auto text-center">
+    <div className="max-w-4xl mx-auto text-center flex flex-row">
       <div className="inline-flex items-center justify-center w-20 h-20 bg-[#78f3d3] bg-opacity-20 rounded-full mb-6">
         <Search size={40} className="text-[#313D52]" />
       </div>
+      <div>
       <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#313D52] mb-6">
         Rastrear mi <span className="text-[#78f3d3]">Pedido</span>
       </h1>
@@ -243,7 +244,7 @@ const HeroSection: React.FC = () => (
         Mantente informado sobre el estado de tu servicio de limpieza. 
         Introduce tu código de referencia para conocer cada paso del proceso.
       </p>
-    </div>
+    </div></div>
   </section>
 );
 

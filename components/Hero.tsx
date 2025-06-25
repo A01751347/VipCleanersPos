@@ -151,19 +151,16 @@ const RightContent: React.FC = () => (
       <div className="absolute inset-0 bg-gradient-to-br from-[#78f3d3] to-[#4de0c0] rounded-full blur-3xl opacity-20 scale-150" />
       
       {/* Main image */}
-      <div className="relative z-10">
-        <Image 
-          src="/assets/Logo_VIP.png" 
-          alt="Logo VIP"
-          width={600}
-          height={700}
-          className="w-full h-full transform hover:scale-105 transition-transform duration-500"
-          priority
-        />
-      </div>
+      <Image 
+  src="/assets/Logo_VIP.png" 
+  alt="Logo VIP"
+  width={500}
+  height={300}
+  className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg h-auto transform hover:scale-105 transition-transform duration-200"
+  priority
+/>
 
-      {/* Floating decorative elements */}
-      <FloatingElements />
+
     </div>
   </AnimateOnScroll>
 );

@@ -164,10 +164,10 @@ export async function POST(request: NextRequest) {
           lastName,
           phoneClean,
           email,
-          "null",  // direccion
-          "null",  // codigo_postal
-          "null",  // ciudad
-          "null"   // estado
+          "",  // direccion
+          "",  // codigo_postal
+          "",  // ciudad
+          ""   // estado
         );
         
         console.log('Nuevo cliente creado con ID:', clientId);
@@ -193,18 +193,18 @@ export async function POST(request: NextRequest) {
           'pickup',                                   // tipo
           address.street || '',                       // calle
           address.number || '',                       // numeroExterior
-          address.interior || 'null',                   // numeroInterior
-          address.neighborhood || 'null',               // colonia
-          address.municipality || 'Doremifasol',               // delegacionMunicipio
-          address.city || 'Santiago de Querétaro',   // ciudad
-          address.state || 'Querétaro',              // estado
+          address.interior || '',                   // numeroInterior
+          address.neighborhood || '',               // colonia
+          address.municipality || '',               // delegacionMunicipio
+          address.city || '',   // ciudad
+          address.state || 'CDMX',              // estado
           address.zipCode || '',                      // codigoPostal
           'Dirección de pickup para reserva',        // alias
           address.phone || phoneClean,               // telefonoContacto
           fullName,                                  // destinatario
-          address.instructions || null,              // instrucciones
-          address.timeWindowStart || null,           // ventanaHoraInicio
-          address.timeWindowEnd || null              // ventanaHoraFin
+          address.instructions || "",              // instrucciones
+          address.timeWindowStart || "",           // ventanaHoraInicio
+          address.timeWindowEnd || ""              // ventanaHoraFin
         );
         console.log('Dirección creada con ID:', addressId);
         
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
       estimatedDeliveryDate.setTime(
         estimatedDeliveryDate.getTime() + 
         (serviceInfo.tiempo_estimado_minutos * 60 * 1000) + 
-        (24 * 60 * 60 * 1000)
+        (72 * 60 * 60 * 1000)
       );
     } else {
       // Por defecto 3 días después
@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
       const generateBookingCode = () => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let result = 'RES';
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 8; i++) {
           result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return result;
