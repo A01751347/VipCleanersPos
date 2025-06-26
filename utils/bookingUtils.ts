@@ -1,4 +1,4 @@
-// utils/bookingUtils.ts
+// utils/bookingUtils.ts - Versión Corregida
 import { FormData, ServiceOption, ZoneInfo } from '../types/booking';
 
 // Validaciones por paso
@@ -111,7 +111,7 @@ export const calculateTotalPrice = (
   // Agregar costo de pickup si aplica
   let pickupCost = 0;
   if (deliveryMethod === 'pickup' && zoneInfo?.isSupported) {
-    pickupCost = zoneInfo.additionalCost || 0;
+    pickupCost = zoneInfo.additionalCost || zoneInfo.cost || 0;
   }
   
   return servicePrice + pickupCost;
@@ -170,12 +170,56 @@ export const formatTime = (timeString: string): string => {
   return `${displayHour}:${minutes} ${ampm}`;
 };
 
+// Función para validar zona de pickup
+export const validatePickupZone = async (zipCode: string): Promise<ZoneInfo | null> => {
+  try {
+    if (!/^\d{5}$/.test(zipCode)) {
+      return null;
+    }
+
+    const response = await fetch('/api/booking', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'validate-zone',
+        zipCode: zipCode
+      }),
+    });
+    
+    if (!response.ok) {
+      console.warn('Error validating zone:', response.statusText);
+      return null;
+    }
+
+    const result = await response.json();
+    
+    if (result.success && result.zoneInfo) {
+      return result.zoneInfo;
+    }
+    
+    return null;
+    
+  } catch (error) {
+    console.error('Error validating pickup zone:', error);
+    return null;
+  }
+};
+
 // Función para enviar la reserva
 export const submitBooking = async (
   formData: FormData,
   zoneInfo: ZoneInfo | null
 ): Promise<string> => {
   try {
+    console.log('🚀 Enviando reserva:', {
+      fullName: formData.fullName,
+      email: formData.email,
+      deliveryMethod: formData.deliveryMethod,
+      hasZoneInfo: !!zoneInfo
+    });
+
     // Preparar los datos para enviar
     const bookingData = {
       // Información personal
@@ -189,6 +233,7 @@ export const submitBooking = async (
       
       // Información de entrega
       deliveryMethod: formData.deliveryMethod,
+      requiresPickup: formData.deliveryMethod === 'pickup',
       
       // Dirección (solo si es pickup)
       address: formData.deliveryMethod === 'pickup' ? {
@@ -206,20 +251,26 @@ export const submitBooking = async (
         phone: formData.address.phone.trim()
       } : null,
       
-      // Fecha y hora
+      // Fecha y hora - combinar correctamente
       bookingDate: formData.bookingDate,
       bookingTime: formData.bookingTime,
       
       // Información de zona (para pickup)
-      zoneInfo: formData.deliveryMethod === 'pickup' ? zoneInfo : null,
+      pickupCost: formData.deliveryMethod === 'pickup' && zoneInfo ? (zoneInfo.additionalCost || zoneInfo.cost || 0) : 0,
+      pickupZone: formData.deliveryMethod === 'pickup' && zoneInfo ? zoneInfo.zone : null,
       
       // Metadata
       timestamp: new Date().toISOString(),
       source: 'booking_modal'
     };
 
+    console.log('📤 Datos a enviar:', {
+      ...bookingData,
+      address: bookingData.address ? 'Dirección incluida' : 'Sin dirección'
+    });
+
     // Hacer la petición al API
-    const response = await fetch('/api/bookings', {
+    const response = await fetch('/api/booking', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -229,20 +280,23 @@ export const submitBooking = async (
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+      console.error('❌ Error response:', errorData);
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
     }
 
     const result = await response.json();
     
     if (!result.success) {
-      throw new Error(result.message || 'Error al procesar la reserva');
+      throw new Error(result.error || 'Error al procesar la reserva');
     }
+
+    console.log('✅ Reserva creada exitosamente:', result);
 
     // Retornar el código de referencia
     return result.bookingReference || result.id || 'BOOKING_CONFIRMED';
     
   } catch (error) {
-    console.error('Error submitting booking:', error);
+    console.error('❌ Error submitting booking:', error);
     
     // Manejar diferentes tipos de errores
     if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -264,7 +318,16 @@ export const validateZipCode = async (zipCode: string): Promise<ZoneInfo | null>
       return null;
     }
 
-    const response = await fetch(`/api/zones/validate?zipCode=${zipCode}`);
+    const response = await fetch('/api/booking', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'validate-zone',
+        zipCode: zipCode
+      }),
+    });
     
     if (!response.ok) {
       return null;
@@ -272,13 +335,8 @@ export const validateZipCode = async (zipCode: string): Promise<ZoneInfo | null>
 
     const result = await response.json();
     
-    if (result.success) {
-      return {
-        zone: result.zone,
-        isSupported: result.isSupported,
-        additionalCost: result.additionalCost || 0,
-        estimatedTime: result.estimatedTime || '2-3 horas'
-      };
+    if (result.success && result.zoneInfo) {
+      return result.zoneInfo;
     }
     
     return null;
@@ -290,7 +348,7 @@ export const validateZipCode = async (zipCode: string): Promise<ZoneInfo | null>
 };
 
 // Función para validar zona de pickup con información completa de dirección
-export const validatePickupZone = async (address: {
+export const validatePickupZone_Complete = async (address: {
   street: string;
   number: string;
   neighborhood: string;
@@ -310,58 +368,16 @@ export const validatePickupZone = async (address: {
       };
     }
 
-    // Hacer la petición al API con toda la información de la dirección
-    const response = await fetch('/api/zones/validate-pickup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        address: {
-          street: address.street.trim(),
-          number: address.number.trim(),
-          neighborhood: address.neighborhood.trim(),
-          zipCode: address.zipCode.trim(),
-          municipality: address.municipality.trim(),
-          city: address.city.trim(),
-          state: address.state.trim()
-        }
-      }),
-    });
-    
-    if (!response.ok) {
-      // Si falla la validación completa, intentar solo con código postal
-      return await validateZipCode(address.zipCode);
-    }
-
-    const result = await response.json();
-    
-    if (result.success) {
-      return {
-        zone: result.zone || 'Zona determinada',
-        isSupported: result.isSupported ?? true,
-        additionalCost: result.additionalCost || 0,
-        estimatedTime: result.estimatedTime || '2-3 horas'
-      };
-    }
-    
-    // Fallback a validación por código postal si falla
+    // Primero intentar validar solo con código postal (más simple)
     return await validateZipCode(address.zipCode);
     
   } catch (error) {
     console.error('Error validating pickup zone:', error);
-    
-    // Fallback a validación por código postal en caso de error
-    return await validateZipCode(address.zipCode);
+    return null;
   }
 };
 
-// Función específica para validar solo el código postal (versión simplificada)
-export const validatePickupZone_Simple = async (zipCode: string): Promise<ZoneInfo | null> => {
-  return await validateZipCode(zipCode);
-};
-
-// Función para obtener información detallada de zona con coordenadas
+// Función para obtener información detallada de zona
 export const getZoneDetails = async (zipCode: string): Promise<{
   zone: string;
   isSupported: boolean;
@@ -372,7 +388,16 @@ export const getZoneDetails = async (zipCode: string): Promise<{
   availableTimeSlots?: string[];
 } | null> => {
   try {
-    const response = await fetch(`/api/zones/details?zipCode=${zipCode}`);
+    const response = await fetch('/api/booking', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'validate-zone',
+        zipCode: zipCode
+      }),
+    });
     
     if (!response.ok) {
       return null;
@@ -380,15 +405,15 @@ export const getZoneDetails = async (zipCode: string): Promise<{
 
     const result = await response.json();
     
-    if (result.success) {
+    if (result.success && result.zoneInfo) {
       return {
-        zone: result.zone,
-        isSupported: result.isSupported,
-        additionalCost: result.additionalCost || 0,
-        estimatedTime: result.estimatedTime || '2-3 horas',
-        coordinates: result.coordinates || null,
-        restrictions: result.restrictions || [],
-        availableTimeSlots: result.availableTimeSlots || []
+        zone: result.zoneInfo.zone,
+        isSupported: result.zoneInfo.isSupported,
+        additionalCost: result.zoneInfo.additionalCost || 0,
+        estimatedTime: result.zoneInfo.estimatedTime || '2-3 horas',
+        coordinates: {lat:0, lng:0},
+        restrictions: [],
+        availableTimeSlots: []
       };
     }
     
@@ -409,46 +434,34 @@ export const getMunicipalities = (): Array<{
 }> => {
   return [
     {
-      name: 'Querétaro',
+      name: 'Querétaro Centro',
       zipCodes: ['76000', '76010', '76020', '76030', '76040', '76050', '76060', '76070', '76080', '76090'],
       isSupported: true,
-      basePickupCost: 50
+      basePickupCost: 49
     },
     {
-      name: 'Corregidora',
-      zipCodes: ['76900', '76910', '76920', '76930', '76940', '76950'],
+      name: 'Querétaro Norte',
+      zipCodes: ['76100', '76110', '76120', '76130', '76140', '76150', '76160', '76170', '76180', '76190'],
       isSupported: true,
-      basePickupCost: 80
+      basePickupCost: 69
     },
     {
-      name: 'El Marqués',
-      zipCodes: ['76240', '76241', '76242', '76243', '76244', '76245', '76246', '76247', '76248', '76249'],
+      name: 'Querétaro Sur',
+      zipCodes: ['76200', '76210', '76220', '76230', '76240', '76250', '76260', '76270', '76280', '76290'],
       isSupported: true,
-      basePickupCost: 100
+      basePickupCost: 79
     },
     {
-      name: 'Huimilpan',
-      zipCodes: ['76850', '76851', '76852', '76853'],
-      isSupported: false,
-      basePickupCost: 0
-    },
-    {
-      name: 'Pedro Escobedo',
-      zipCodes: ['76700', '76701', '76702', '76703', '76704', '76705'],
+      name: 'Querétaro Este',
+      zipCodes: ['76300', '76310', '76320', '76330', '76340', '76350', '76360', '76370', '76380', '76390'],
       isSupported: true,
-      basePickupCost: 120
+      basePickupCost: 59
     },
     {
-      name: 'San Juan del Río',
-      zipCodes: ['76800', '76801', '76802', '76803', '76804', '76805', '76806', '76807', '76808', '76809'],
+      name: 'Querétaro Oeste',
+      zipCodes: ['76400', '76410', '76420', '76430', '76440', '76450', '76460', '76470', '76480', '76490'],
       isSupported: true,
-      basePickupCost: 150
-    },
-    {
-      name: 'Tequisquiapan',
-      zipCodes: ['76750', '76751', '76752', '76753', '76754'],
-      isSupported: false,
-      basePickupCost: 0
+      basePickupCost: 64
     }
   ];
 };
@@ -522,30 +535,12 @@ export const validatePickupTime = (time: string, zipCode: string): {
   const startTime = 9 * 60; // 9:00 AM
   const endTime = 18 * 60;  // 6:00 PM
   
-  // Horarios restringidos para zonas más alejadas
-  const restrictedMunicipalities = ['San Juan del Río', 'Pedro Escobedo'];
-  
-  if (restrictedMunicipalities.includes(municipality.name)) {
-    // Horario restringido: 10:00 AM - 4:00 PM
-    const restrictedStart = 10 * 60;
-    const restrictedEnd = 16 * 60;
-    
-    if (timeInMinutes < restrictedStart || timeInMinutes > restrictedEnd) {
-      return {
-        isValid: false,
-        message: `Para ${municipality.name}, el pickup está disponible de 10:00 AM a 4:00 PM`,
-        suggestedTimes: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00']
-      };
-    }
-  } else {
-    // Horario normal
-    if (timeInMinutes < startTime || timeInMinutes > endTime) {
-      return {
-        isValid: false,
-        message: 'El pickup está disponible de 9:00 AM a 6:00 PM',
-        suggestedTimes: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']
-      };
-    }
+  if (timeInMinutes < startTime || timeInMinutes > endTime) {
+    return {
+      isValid: false,
+      message: 'El pickup está disponible de 9:00 AM a 6:00 PM',
+      suggestedTimes: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']
+    };
   }
   
   return { isValid: true };
@@ -559,23 +554,12 @@ export const getAvailableTimeSlots = (zipCode: string): string[] => {
     return [];
   }
   
-  const restrictedMunicipalities = ['San Juan del Río', 'Pedro Escobedo'];
-  
-  if (restrictedMunicipalities.includes(municipality.name)) {
-    // Horario restringido: 10:00 AM - 4:00 PM
-    return [
-      '10:00', '10:30', '11:00', '11:30', 
-      '12:00', '12:30', '13:00', '13:30', 
-      '14:00', '14:30', '15:00', '15:30', '16:00'
-    ];
-  } else {
-    // Horario normal: 9:00 AM - 6:00 PM
-    return [
-      '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-      '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'
-    ];
-  }
+  // Horario normal: 9:00 AM - 6:00 PM
+  return [
+    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+    '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'
+  ];
 };
 
 // Función para validar el formulario completo
@@ -652,7 +636,7 @@ export const createBookingSummary = (
         telefono: formData.address.phone
       } : null,
       zona: zoneInfo?.zone || null,
-      costoAdicional: zoneInfo?.additionalCost || 0
+      costoAdicional: zoneInfo?.additionalCost || zoneInfo?.cost || 0
     },
     cita: {
       fecha: formData.bookingDate,
@@ -662,7 +646,7 @@ export const createBookingSummary = (
     },
     precio: {
       servicio: selectedService?.price || 0,
-      pickup: formData.deliveryMethod === 'pickup' ? (zoneInfo?.additionalCost || 0) : 0,
+      pickup: formData.deliveryMethod === 'pickup' ? (zoneInfo?.additionalCost || zoneInfo?.cost || 0) : 0,
       total: totalPrice
     }
   };
@@ -709,40 +693,6 @@ export const getNextBusinessDay = (): Date => {
   return date;
 };
 
-// Función para generar fechas disponibles (próximos 30 días hábiles)
-export const getAvailableDates = (daysAhead: number = 30): Array<{
-  date: string;
-  formatted: string;
-  dayOfWeek: string;
-}> => {
-  const dates: Array<{
-    date: string;
-    formatted: string;
-    dayOfWeek: string;
-  }> = [];
-  
-  let currentDate = getNextBusinessDay();
-  let count = 0;
-  
-  while (count < daysAhead) {
-    if (isBusinessDay(currentDate)) {
-      dates.push({
-        date: currentDate.toISOString().split('T')[0],
-        formatted: currentDate.toLocaleDateString('es-MX', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }),
-        dayOfWeek: currentDate.toLocaleDateString('es-MX', { weekday: 'long' })
-      });
-      count++;
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  
-  return dates;
-};
-
 // Función para debugging - mostrar estado del formulario
 export const debugFormData = (formData: FormData): void => {
   console.group('🔍 Form Data Debug');
@@ -780,78 +730,4 @@ export const logBookingError = (error: any, context: string): void => {
 // Función para generar ID único de sesión
 export const generateSessionId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
-};
-
-// Función para estimación de tiempo de servicio
-export const estimateServiceTime = (serviceType: string, serviceOptions: ServiceOption[]): string => {
-  const service = serviceOptions.find(s => s.id === serviceType);
-  
-  if (!service) return 'Tiempo no estimado';
-  
-  const duration = service.duration;
-  
-  if (duration <= 60) {
-    return `${duration} minutos`;
-  } else if (duration <= 120) {
-    const hours = Math.floor(duration / 60);
-    const minutes = duration % 60;
-    return minutes > 0 ? `${hours}h ${minutes}min` : `${hours} hora${hours > 1 ? 's' : ''}`;
-  } else {
-    const hours = Math.round(duration / 60);
-    return `${hours} hora${hours > 1 ? 's' : ''}`;
-  }
-};
-
-// Función para obtener configuración de zona por defecto
-export const getDefaultZoneConfig = (): ZoneInfo => {
-  return {
-    zone: 'Zona Central',
-    isSupported: true,
-    additionalCost: 50,
-    estimatedTime: '2-3 horas'
-  };
-};
-
-// Función para validar configuración completa antes del envío
-export const validateBookingConfiguration = (
-  formData: FormData,
-  serviceOptions: ServiceOption[],
-  zoneInfo: ZoneInfo | null
-): {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
-} => {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  
-  // Validar que existe el servicio seleccionado
-  const selectedService = serviceOptions.find(s => s.id === formData.serviceType);
-  if (!selectedService) {
-    errors.push('El servicio seleccionado no está disponible');
-  }
-  
-  // Validar zona para pickup
-  if (formData.deliveryMethod === 'pickup') {
-    if (!zoneInfo) {
-      errors.push('No se pudo validar la zona de pickup');
-    } else if (!zoneInfo.isSupported) {
-      errors.push('La zona seleccionada no está soportada para pickup');
-    }
-  }
-  
-  // Warnings
-  if (selectedService?.requiresIdentification) {
-    warnings.push('Este servicio requiere identificación oficial');
-  }
-  
-  if (formData.deliveryMethod === 'pickup' && zoneInfo?.additionalCost && zoneInfo.additionalCost > 100) {
-    warnings.push('El costo de pickup para esta zona es elevado');
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings
-  };
 };

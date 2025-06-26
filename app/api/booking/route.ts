@@ -1,4 +1,4 @@
-// app/api/booking/route.ts - Versión Completa Compatible
+// app/api/booking/route.ts - Versión Corregida y Completa
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   createClient, 
@@ -47,8 +47,13 @@ export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
     
-    // Debug: Log del cuerpo de la petición
-    console.log('Body completo recibido:', JSON.stringify(requestBody, null, 2));
+    console.log('📥 Booking request received:', {
+      hasFullName: !!requestBody.fullName,
+      hasEmail: !!requestBody.email,
+      hasPhone: !!requestBody.phone,
+      deliveryMethod: requestBody.deliveryMethod,
+      serviceType: requestBody.serviceType
+    });
     
     const {
       fullName,
@@ -58,26 +63,15 @@ export async function POST(request: NextRequest) {
       serviceType,
       deliveryMethod,
       bookingDate,
+      bookingTime,
       address,
       requiresPickup,
       pickupCost,
       pickupZone
     } = requestBody;
     
-    console.log('Datos de reserva recibidos:', {
-      fullName,
-      email,
-      phone,
-      shoesType,
-      serviceType,
-      deliveryMethod,
-      requiresPickup: !!requiresPickup,
-      pickupCost: pickupCost || 0,
-      hasAddress: !!address
-    });
-    
     // Validaciones básicas
-    if (!fullName || !email || !phone || !shoesType || !serviceType || !deliveryMethod || !bookingDate) {
+    if (!fullName || !email || !phone || !shoesType || !serviceType || !deliveryMethod || !bookingDate || !bookingTime) {
       return NextResponse.json(
         { error: 'Todos los campos básicos son requeridos' },
         { status: 400 }
@@ -140,7 +134,7 @@ export async function POST(request: NextRequest) {
     
     if (existingClient) {
       clientId = existingClient.cliente_id;
-      console.log('Cliente existente encontrado:', clientId);
+      console.log('✅ Cliente existente encontrado:', clientId);
       
       // Actualizar información del cliente si es necesario
       try {
@@ -152,12 +146,12 @@ export async function POST(request: NextRequest) {
           `,
           values: [phoneClean, firstName, lastName, clientId]
         });
-        console.log('Cliente actualizado exitosamente');
+        console.log('✅ Cliente actualizado exitosamente');
       } catch (updateError) {
-        console.log('Error actualizando cliente (no crítico):', updateError);
+        console.log('⚠️ Error actualizando cliente (no crítico):', updateError);
       }
     } else {
-      console.log('Creando nuevo cliente...');
+      console.log('🆕 Creando nuevo cliente...');
       try {
         clientId = await createClient(
           firstName,
@@ -170,23 +164,23 @@ export async function POST(request: NextRequest) {
           ""   // estado
         );
         
-        console.log('Nuevo cliente creado con ID:', clientId);
+        console.log('✅ Nuevo cliente creado con ID:', clientId);
       } catch (createError) {
-        console.error('Error creando cliente:', createError);
+        console.error('❌ Error creando cliente:', createError);
         throw new Error('Error al crear el cliente');
       }
     }
     
     // Verificar que clientId sea válido
     if (!clientId || typeof clientId !== 'number') {
-      console.error('Cliente ID inválido:', clientId, typeof clientId);
+      console.error('❌ Cliente ID inválido:', clientId, typeof clientId);
       throw new Error('Error al obtener ID de cliente válido');
     }
     
     // Crear dirección si es pickup
     let addressId = null;
     if (requiresPickup && address) {
-      console.log('Creando dirección de pickup...');
+      console.log('🏠 Creando dirección de pickup...');
       try {
         addressId = await createAddress(
           clientId,                                    // clienteId
@@ -196,8 +190,8 @@ export async function POST(request: NextRequest) {
           address.interior || '',                   // numeroInterior
           address.neighborhood || '',               // colonia
           address.municipality || '',               // delegacionMunicipio
-          address.city || '',   // ciudad
-          address.state || 'CDMX',              // estado
+          address.city || 'Santiago de Querétaro',   // ciudad
+          address.state || 'Querétaro',              // estado
           address.zipCode || '',                      // codigoPostal
           'Dirección de pickup para reserva',        // alias
           address.phone || phoneClean,               // telefonoContacto
@@ -206,13 +200,13 @@ export async function POST(request: NextRequest) {
           address.timeWindowStart || "",           // ventanaHoraInicio
           address.timeWindowEnd || ""              // ventanaHoraFin
         );
-        console.log('Dirección creada con ID:', addressId);
+        console.log('✅ Dirección creada con ID:', addressId);
         
         if (!addressId || typeof addressId !== 'number') {
           throw new Error('No se pudo crear la dirección correctamente');
         }
       } catch (error) {
-        console.error('Error creando dirección:', error);
+        console.error('❌ Error creando dirección:', error);
         return NextResponse.json(
           { error: 'Error al guardar la dirección: ' + (error instanceof Error ? error.message : 'Error desconocido') },
           { status: 500 }
@@ -220,8 +214,8 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Calcular fechas
-    const bookingDateTime = new Date(bookingDate);
+    // Combinar fecha y hora para crear un datetime completo
+    const bookingDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
     const estimatedDeliveryDate = new Date(bookingDateTime);
     
     // Obtener información del servicio para calcular tiempo de entrega
@@ -236,11 +230,11 @@ export async function POST(request: NextRequest) {
         serviceInfo = serviceResult[0];
       }
     } catch (error) {
-      console.log('Error obteniendo información del servicio:', error);
+      console.log('⚠️ Error obteniendo información del servicio:', error);
     }
     
     if (serviceInfo && serviceInfo.tiempo_estimado_minutos) {
-      // Agregar tiempo del servicio más 24 horas
+      // Agregar tiempo del servicio más 72 horas
       estimatedDeliveryDate.setTime(
         estimatedDeliveryDate.getTime() + 
         (serviceInfo.tiempo_estimado_minutos * 60 * 1000) + 
@@ -254,26 +248,26 @@ export async function POST(request: NextRequest) {
     // Crear notas con información adicional
     let notes = `Método de entrega: ${deliveryMethod || 'store'}`;
     if (requiresPickup && pickupZone) {
-      notes += `\nZona de pickup: ${pickupZone} (+${pickupCost || 0})`;
+      notes += `\nZona de pickup: ${pickupZone} (+$${pickupCost || 0})`;
     }
     if (address && address.instructions) {
       notes += `\nInstrucciones: ${address.instructions}`;
     }
     
-    console.log('Datos para createReservation:', {
+    console.log('📝 Datos para createReservation:', {
       clientId,
       serviceType: parseInt(serviceType),
       shoesType,
-      bookingDateTime,
-      estimatedDeliveryDate,
+      bookingDateTime: bookingDateTime.toISOString(),
+      estimatedDeliveryDate: estimatedDeliveryDate.toISOString(),
       notes,
       addressId,
       requiresPickup: !!requiresPickup
     });
     
-    // Crear la reservación directamente con INSERT en lugar del procedimiento almacenado
+    // Crear la reservación directamente con INSERT
     try {
-      console.log('Creando reservación con INSERT directo...');
+      console.log('💾 Creando reservación con INSERT directo...');
       
       // Generar código de reservación único
       const generateBookingCode = () => {
@@ -323,12 +317,12 @@ export async function POST(request: NextRequest) {
           !!requiresPickup,                  // requiere_pickup
           requiresPickup ? bookingDateTime : null, // fecha_solicitud_pickup
           codigoReservacion,                 // codigo_reservacion
-          'pendiente',                       // estado
+          'pending',                         // estado
           true                               // activo
         ]
       });
       
-      console.log('Reservación creada con ID:', insertResult.insertId);
+      console.log('✅ Reservación creada con ID:', insertResult.insertId);
       const code = codigoReservacion;
       
       // Si hay pickup, actualizar información adicional
@@ -342,13 +336,13 @@ export async function POST(request: NextRequest) {
             `,
             values: [pickupCost, pickupZone, insertResult.insertId]
           });
-          console.log('Datos de pickup actualizados');
+          console.log('✅ Datos de pickup actualizados');
         } catch (updateError) {
-          console.log('Error actualizando datos de pickup (no crítico):', updateError);
+          console.log('⚠️ Error actualizando datos de pickup (no crítico):', updateError);
         }
       }
       
-      console.log('Reserva creada exitosamente:', code);
+      console.log('🎉 Reserva creada exitosamente:', code);
       
       return NextResponse.json({ 
         success: true, 
@@ -364,7 +358,7 @@ export async function POST(request: NextRequest) {
       }, { status: 201 });
       
     } catch (reservationError) {
-      console.error('Error creando reservación:', reservationError);
+      console.error('❌ Error creando reservación:', reservationError);
       return NextResponse.json(
         { error: 'Error al crear la reservación: ' + (reservationError instanceof Error ? reservationError.message : 'Error desconocido') },
         { status: 500 }
@@ -372,7 +366,7 @@ export async function POST(request: NextRequest) {
     }
     
   } catch (error) {
-    console.error('Error en el endpoint de reserva:', error);
+    console.error('❌ Error en el endpoint de reserva:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor. Por favor, intenta nuevamente.' },
       { status: 500 }
@@ -386,7 +380,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const reference = searchParams.get('reference');
     
-    console.log('Tracking request for reference:', reference);
+    console.log('🔍 Tracking request for reference:', reference);
     
     if (!reference) {
       return NextResponse.json(
@@ -406,10 +400,10 @@ export async function GET(request: NextRequest) {
       if (orderData) {
         bookingData = orderData;
         type = 'order';
-        console.log('Found as order:', orderData.codigo_orden);
+        console.log('✅ Found as order:', orderData.codigo_orden);
       }
     } catch (error) {
-      console.log('Not found as order, trying reservation...');
+      console.log('ℹ️ Not found as order, trying reservation...');
     }
     
     // Si no es una orden, intentar como reservación
@@ -419,10 +413,10 @@ export async function GET(request: NextRequest) {
         if (reservationData) {
           bookingData = reservationData;
           type = 'reservation';
-          console.log('Found as reservation:', reservationData.codigo_reservacion);
+          console.log('✅ Found as reservation:', reservationData.codigo_reservacion);
         }
       } catch (error) {
-        console.log('Not found as reservation either');
+        console.log('ℹ️ Not found as reservation either');
       }
     }
     
@@ -447,7 +441,7 @@ export async function GET(request: NextRequest) {
             bookingData.direccion_pickup = addressInfo[0];
           }
         } catch (error) {
-          console.log('Error obteniendo dirección:', error);
+          console.log('⚠️ Error obteniendo dirección:', error);
         }
       }
     }
@@ -476,8 +470,8 @@ export async function GET(request: NextRequest) {
       shoes_type: bookingData.shoes_type || bookingData.modelo_calzado || bookingData.modelo,
       
       // Estado y fechas
-      status: bookingData.estado_actual || bookingData.estado || 'pendiente',
-      estado: bookingData.estado_actual || bookingData.estado || 'pendiente',
+      status: bookingData.estado_actual || bookingData.estado || 'pending',
+      estado: bookingData.estado_actual || bookingData.estado || 'pending',
       fecha_recepcion: bookingData.fecha_recepcion,
       fecha_reservacion: bookingData.fecha_reservacion,
       fecha_entrega_estimada: bookingData.fecha_entrega_estimada,
@@ -509,7 +503,7 @@ export async function GET(request: NextRequest) {
       })
     };
     
-    console.log('Returning normalized response:', {
+    console.log('✅ Returning normalized response:', {
       id: normalizedResponse.id,
       type: normalizedResponse.type,
       status: normalizedResponse.status,
@@ -522,7 +516,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Error al obtener la reserva:', error);
+    console.error('❌ Error al obtener la reserva:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor. Por favor, intenta nuevamente.' },
       { status: 500 }
@@ -547,7 +541,12 @@ export async function PUT(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        zoneInfo
+        zoneInfo: {
+          zone: zoneInfo.zone,
+          isSupported: zoneInfo.available,
+          additionalCost: zoneInfo.cost,
+          estimatedTime: zoneInfo.time
+        }
       }, { status: 200 });
     }
     
@@ -557,66 +556,7 @@ export async function PUT(request: NextRequest) {
     );
     
   } catch (error) {
-    console.error('Error en validación:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
-  }
-}
-
-// ============== PATCH - Actualizar reserva (opcional) ==============
-export async function PATCH(request: NextRequest) {
-  try {
-    const { code, updates } = await request.json();
-    
-    if (!code) {
-      return NextResponse.json(
-        { error: 'Código de reserva es requerido' },
-        { status: 400 }
-      );
-    }
-    
-    // Aquí puedes agregar lógica para actualizar reservas
-    // Por ejemplo: cambiar fecha, actualizar dirección, etc.
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Reserva actualizada exitosamente'
-    }, { status: 200 });
-    
-  } catch (error) {
-    console.error('Error actualizando reserva:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
-  }
-}
-
-// ============== DELETE - Cancelar reserva (opcional) ==============
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const code = searchParams.get('code');
-    
-    if (!code) {
-      return NextResponse.json(
-        { error: 'Código de reserva es requerido' },
-        { status: 400 }
-      );
-    }
-    
-    // Aquí puedes agregar lógica para cancelar reservas
-    // Por ejemplo: marcar como cancelada, enviar notificaciones, etc.
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Reserva cancelada exitosamente'
-    }, { status: 200 });
-    
-  } catch (error) {
-    console.error('Error cancelando reserva:', error);
+    console.error('❌ Error en validación:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

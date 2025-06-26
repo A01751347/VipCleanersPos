@@ -1,6 +1,5 @@
 // src/components/BeforeAfter.tsx
 "use client";
-// components/BeforeAfter.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -37,7 +36,28 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
       handleMove(e.touches[0].clientX);
     }
   };
-
+  const animateBackToCenter = () => {
+    let animationFrame: number;
+    const speed = 0.002; // velocidad de interpolación
+  
+    const step = () => {
+      setPosition(prev => {
+        const diff = 50 - prev;
+        const next = prev + diff * speed;
+  
+        if (Math.abs(diff) < 0.5) {
+          cancelAnimationFrame(animationFrame);
+          return 50;
+        }
+  
+        animationFrame = requestAnimationFrame(step);
+        return next;
+      });
+    };
+  
+    animationFrame = requestAnimationFrame(step);
+  };
+  
   useEffect(() => {
     const stopDragging = (): void => {
       setIsDragging(false);
@@ -53,7 +73,8 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
   }, []);
 
   return (
-    <div className="w-full max-w-3xl mx-auto mb-12">
+    <div className="w-full max-w-6xl mx-auto mb-12">
+
       {title && (
         <h3 className="text-lg font-semibold text-[#313D52] mb-2">{title}</h3>
       )}
@@ -61,10 +82,11 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
         <p className="text-[#64748B] mb-4">{description}</p>
       )}
       
-      <div className="rounded-xl overflow-hidden shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)]">
+      <div className="w-full h-[300px] sm:h-[400px] md:h-[700px] relative overflow-hidden cursor-col-resize">
+
         <div 
           ref={containerRef}
-          className="w-full h-[300px] sm:h-[400px] md:h-[500px] relative overflow-hidden cursor-col-resize"
+          className="w-full h-full relative"
           onMouseDown={(e) => {
             setIsDragging(true);
             handleMove(e.clientX);
@@ -73,7 +95,10 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
             setIsDragging(true);
             handleMove(e.touches[0].clientX);
           }}
-          onMouseMove={handleMouseMove}
+          onMouseMove={(e) => handleMove(e.clientX)}
+
+          onMouseLeave={animateBackToCenter}
+
           onTouchMove={handleTouchMove}
         >
           {/* After Image (Full Background) */}
@@ -81,7 +106,8 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
             className="absolute inset-0 bg-cover bg-center z-0"
             style={{ 
               backgroundImage: `url(${afterImage})`,
-              backgroundSize: 'cover' 
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat'
             }}
           />
 
@@ -90,7 +116,8 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
             className="absolute inset-0 bg-cover bg-center z-10"
             style={{ 
               backgroundImage: `url(${beforeImage})`,
-              backgroundSize: 'cover',
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
               clipPath: `polygon(0 0, ${position}% 0, ${position}% 100%, 0 100%)`,
             }}
           />
@@ -101,9 +128,9 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
             style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
           />
 
-          {/* Slider Button */}
+          {/* Slider Button with Pulse Animation */}
           <div 
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-30 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-30 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center animate-pulse"
             style={{ left: `${position}%` }}
           >
             <div className="flex items-center justify-center">
@@ -113,7 +140,7 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
           </div>
         </div>
 
-        <div className="flex justify-between px-4 py-2 bg-[#F1F5F9]">
+        <div className="flex justify-between px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-50">
           <div className="text-sm font-medium text-[#64748B]">Antes</div>
           <div className="text-sm font-medium text-[#78D5D3]">Después</div>
         </div>
@@ -130,23 +157,52 @@ interface ComparisonImage {
 }
 
 const BeforeAfter: React.FC = () => {
+  const [isVisible, setIsVisible] = useState<boolean>(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
   // Array of images for multiple comparisons
   const comparisonImages: ComparisonImage[] = [
     {
       before: '/assets/Ultraboost-Sucio.png',
       after: '/assets/Ultraboost-Limpio.png',
-      title: 'Adidas Ultraboost',
-      description: 'Limpieza profunda y restauración de la entresuela.'
     },
     // Add more comparison images as needed
   ];
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white" id="before-after">
+    <section className="pt-20 px-4 sm:px-6 lg:px-8 bg-white" id="before-after">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <span className="text-sm sm:text-base font-medium uppercase tracking-wider text-[#78D5D3]">Nuestros Resultados</span>
-          <h2 className="mt-2 text-3xl font-bold text-[#313D52] sm:text-4xl">El Antes y Después</h2>
+        <div 
+          ref={sectionRef}
+          className={`text-center mb-12 transition-all duration-2000 ease-out transform ${
+            isVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-12'
+          }`}
+        >
+          <span className="text-sm sm:text-base font-medium uppercase tracking-wider text-[#78D5D3]">
+            Nuestros Resultados
+          </span>
+          <h2 className="mt-2 text-3xl font-bold text-[#313D52] sm:text-4xl">
+            El Antes y Después
+          </h2>
           <p className="mt-4 max-w-2xl mx-auto text-[#64748B]">
             Observa la transformación por ti mismo. Nuestros resultados hablan más que las palabras.
             Desliza el control para ver la diferencia.

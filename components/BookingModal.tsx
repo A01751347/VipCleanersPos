@@ -1,4 +1,4 @@
-// components/BookingModal.tsx
+// components/BookingModal.tsx - Versión Corregida
 'use client'
 import React, { useEffect } from 'react';
 import { X, Loader2, CheckCircle, ChevronRight, AlertCircle } from 'lucide-react';
@@ -88,14 +88,21 @@ const BookingModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     });
     
     try {
+      console.log('🚀 Iniciando envío de booking...');
+      console.log('Form data:', formData);
+      console.log('Zone info:', zoneInfo);
+      
       const bookingReference = await submitBooking(formData, zoneInfo);
+      
+      console.log('✅ Booking enviado exitosamente:', bookingReference);
+      
       setFormStatus({
         status: 'success',
         message: '¡Reserva confirmada!',
         bookingReference
       });
     } catch (error) {
-      console.error('Error enviando reserva:', error);
+      console.error('❌ Error enviando reserva:', error);
       setFormStatus({
         status: 'error',
         message: error instanceof Error ? error.message : 'Hubo un error al procesar tu reserva'
@@ -137,7 +144,8 @@ const BookingModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         <button
           type="button"
           onClick={prevStep}
-          className="px-6 py-3 border border-[#e0e6e5] text-[#313D52] font-medium rounded-lg hover:bg-[#f5f9f8] transition-colors"
+          disabled={formStatus.status === 'submitting'}
+          className="px-6 py-3 border border-[#e0e6e5] text-[#313D52] font-medium rounded-lg hover:bg-[#f5f9f8] transition-colors disabled:opacity-50"
         >
           ← Atrás
         </button>
@@ -173,6 +181,17 @@ const BookingModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     </div>
   );
 
+  // Obtener el título del paso actual
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 1: return 'Información Personal';
+      case 2: return 'Servicio y Calzado';
+      case 3: return 'Método de Entrega';
+      case 4: return 'Fecha y Hora';
+      default: return 'Reserva tu Servicio';
+    }
+  };
+
   // Renderizar el paso actual
   const renderCurrentStep = () => {
     const stepProps = { onNext: nextStep, onPrev: prevStep };
@@ -195,11 +214,19 @@ const BookingModalContent: React.FC<{ onClose: () => void }> = ({ onClose }) => 
     <>
       {/* Header */}
       <div className="bg-[#313D52] p-6 text-white rounded-t-xl">
-        <h2 className="text-2xl font-bold pr-8">Reserva tu Servicio</h2>
-        <p className="opacity-90 mt-1">Agenda tu limpieza de calzado con pickup opcional</p>
-        
-        {/* Step indicator */}
-        <StepIndicator />
+        <h2 className="text-2xl font-bold pr-8">
+          {formStatus.status === 'success' ? '¡Reserva Exitosa!' : 'Reserva tu Servicio'}
+        </h2>
+        {formStatus.status !== 'success' && (
+          <>
+            <p className="opacity-90 mt-1">
+              {getStepTitle()} - Paso {currentStep} de 4
+            </p>
+            
+            {/* Step indicator */}
+            <StepIndicator />
+          </>
+        )}
       </div>
       
       {/* Form content */}

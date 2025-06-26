@@ -100,16 +100,16 @@ const MainTitle: React.FC = () => (
 // Description paragraph
 const Description: React.FC = () => (
   <p className="text-gray-300 text-lg mb-8 leading-relaxed">
-    Servicios premium de limpieza y restauración para zapatillas. 
-    Tratamos tus zapatos con el cuidado que merecen, utilizando técnicas de calidad 
-    profesional y productos ecológicos.
+    Servicios premium de limpieza para sneakers. 
+    Los tratamos con el cuidado que merecen, utilizando técnicas de calidad 
+    y equipo profesional.
   </p>
 );
 
 // Quick stats section
 const QuickStats: React.FC = () => (
   <div className="flex flex-wrap gap-6 mb-8">
-    <StatItem icon={CheckCircle} text="10K+ Pares Atendidos" />
+    <StatItem icon={CheckCircle} text="3K+ Pares Atendidos" />
     <StatItem icon={Clock} text="Entrega en 24-48hrs" />
   </div>
 );
