@@ -109,7 +109,7 @@ export default function BlogPage() {
             <div className="flex items-center justify-center mb-6">
               <div className="flex items-center bg-gradient-to-r from-[#78f3d3] to-[#4de0c0] text-[#313D52] px-6 py-3 rounded-full font-bold">
                 <BookOpen size={20} className="mr-2" />
-                Blog VIP Sneaker Care
+                Blog VIP Cleaners Sneaker Care
               </div>
             </div>
             
