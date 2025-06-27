@@ -43,7 +43,7 @@ const BlogSection: React.FC = () => {
     {
       title: "Guía completa para limpiar zapatillas blancas",
       excerpt: "Aprende los mejores trucos y técnicas para mantener tus zapatillas blancas impecables por más tiempo.",
-      image: "/assets/blog/white-sneakers.jpg",
+      image: "/assets/blog/white-sneakers.png",
       date: "12 abril, 2025",
       slug: "guia-limpiar-zapatillas-blancas"
     },

@@ -41,39 +41,6 @@ const TrustBadges: React.FC = () => {
                     </div>
                 </AnimateOnScroll>
 
-                <AnimateOnScroll delay={0.2}>
-                    <div className="flex flex-wrap justify-center items-center gap-6 mt-12">
-                        <div className="flex items-center bg-white p-4 rounded-lg shadow-sm">
-                            <div className="w-12 h-12 bg-[#78f3d3] rounded-full flex items-center justify-center mr-3">
-                                <span className="text-[#313D52] font-bold text-xl">5★</span>
-                            </div>
-                            <div>
-                                <p className="font-medium text-[#313D52]">Calificación de Clientes</p>
-                                <p className="text-sm text-[#6c7a89]">Más de 500 reseñas</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center bg-white p-4 rounded-lg shadow-sm">
-                            <div className="w-12 h-12 bg-[#78f3d3] rounded-full flex items-center justify-center mr-3 text-[#313D52] font-bold text-xl">
-                                <span>100%</span>
-                            </div>
-                            <div>
-                                <p className="font-medium text-[#313D52]">Satisfacción Garantizada</p>
-                                <p className="text-sm text-[#6c7a89]">O te devolvemos tu dinero</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center bg-white p-4 rounded-lg shadow-sm">
-                            <div className="w-12 h-12 bg-[#78f3d3] rounded-full flex items-center justify-center mr-3 text-[#313D52] font-bold text-xl">
-                                <span>10K+</span>
-                            </div>
-                            <div>
-                                <p className="font-medium text-[#313D52]">Pares Atendidos</p>
-                                <p className="text-sm text-[#6c7a89]">En los últimos 3 años</p>
-                            </div>
-                        </div>
-                    </div>
-                </AnimateOnScroll>
             </div>
         </section>
     );

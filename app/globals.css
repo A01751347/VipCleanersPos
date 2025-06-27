@@ -5,6 +5,16 @@
 /* ===== CUSTOM VARIANTS ===== */
 @custom-variant dark (&:is(.dark *));
 
+/* ===== Z-INDEX MANAGEMENT ===== */
+/* 
+Jerarquía de z-index para evitar conflictos:
+- Navbar: 40 (z-40)
+- Mobile Menu: 45 
+- Dropdowns/Tooltips: 50 (z-50)
+- Modals/Overlays: 9999
+- Notifications/Alerts: 10000
+*/
+
 /* ===== THEME CONFIGURATION ===== */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -159,6 +169,60 @@
   }
 }
 
+/* ===== Z-INDEX UTILITIES ===== */
+.z-navbar {
+  z-index: 40;
+}
+
+.z-mobile-menu {
+  z-index: 45;
+}
+
+.z-dropdown {
+  z-index: 50;
+}
+
+.z-modal {
+  z-index: 9999;
+}
+
+.z-notification {
+  z-index: 10000;
+}
+
+/* ===== MODAL SPECIFIC STYLES ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-height: 95vh;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* Prevenir scroll del body cuando modal está abierto */
+.modal-open {
+  overflow: hidden;
+  padding-right: 0px;
+}
+
 /* ===== COMPONENT STYLES ===== */
 
 /* ----- NAVBAR COMPONENTS ----- */
@@ -286,6 +350,75 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+@keyframes modal-fade-in {
+  from { 
+    opacity: 0; 
+  }
+  to { 
+    opacity: 1; 
+  }
+}
+
+@keyframes modal-scale-in {
+  from { 
+    opacity: 0;
+    transform: scale(0.9) translateY(20px); 
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1) translateY(0); 
+  }
+}
+
+.animate-modal-fade-in {
+  animation: modal-fade-in 0.2s ease-out;
+}
+
+.animate-modal-scale-in {
+  animation: modal-scale-in 0.3s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+.animate-accordion-down {
+  animation: accordion-down 0.2s ease-out;
+}
+
+.animate-accordion-up {
+  animation: accordion-up 0.2s ease-out;
+}
+
 /* ----- NAVBAR LINK EFFECTS ----- */
 .navbar-link {
   position: relative;
@@ -320,6 +453,7 @@
   font-weight: 700;
   display: flex;
   align-items: center;
+  transition: transform 0.2s ease;
 }
 
 .logo-link::after {
@@ -337,8 +471,275 @@
   width: 100%;
 }
 
+.logo-link:hover {
+  transform: scale(1.05);
+}
+
 /* ----- FOCUS STATES ----- */
 .focus-vip:focus {
   outline: none;
   box-shadow: 0 0 0 2px #78f3d3, 0 0 0 4px rgba(120, 243, 211, 0.3);
+}
+
+/* ----- BUTTON FOCUS STATES ----- */
+button:focus-visible {
+  outline: 2px solid #78f3d3;
+  outline-offset: 2px;
+}
+
+/* ----- FORM STYLES ----- */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #78f3d3;
+  box-shadow: 0 0 0 3px rgba(120, 243, 211, 0.1);
+}
+
+/* ----- LINE CLAMP UTILITIES ----- */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ----- RESPONSIVE MODAL STYLES ----- */
+@media (max-width: 640px) {
+  .modal-content {
+    margin: 0.5rem;
+    max-height: calc(100vh - 1rem);
+    border-radius: 0.5rem;
+  }
+  
+  .modal-overlay {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 0.5rem;
+    align-items: flex-start;
+    padding-top: 2rem;
+  }
+}
+
+/* ----- DARK MODE SPECIFIC STYLES ----- */
+.dark .modal-content {
+  background: oklch(0.205 0 0);
+  color: oklch(0.985 0 0);
+}
+
+.dark .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background-color: oklch(0.269 0 0);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #78f3d3;
+}
+
+/* ----- PRINT STYLES ----- */
+@media print {
+  .navbar,
+  .mobile-menu,
+  .modal-overlay,
+  .z-modal,
+  .z-notification {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* ----- ACCESSIBILITY IMPROVEMENTS ----- */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-pulse-soft,
+  .animate-modal-fade-in,
+  .animate-modal-scale-in,
+  .animate-slide-up,
+  .animate-accordion-down,
+  .animate-accordion-up {
+    animation: none;
+  }
+  
+  .navbar-link,
+  .logo-link,
+  .primary-button,
+  .secondary-button,
+  .desktop-cta-button {
+    transition: none;
+  }
+  
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ----- HIGH CONTRAST MODE ----- */
+@media (prefers-contrast: high) {
+  .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.9);
+  }
+  
+  .navbar-link::after,
+  .logo-link::after {
+    background-color: currentColor;
+  }
+  
+  .glass-effect {
+    background-color: rgba(255, 255, 255, 1);
+    backdrop-filter: none;
+  }
+}
+
+/* ----- FORCED COLORS MODE (Windows High Contrast) ----- */
+@media (forced-colors: active) {
+  .text-gradient {
+    background: none;
+    color: CanvasText;
+  }
+  
+  .bg-gradient-vip {
+    background: Canvas;
+  }
+  
+  .modal-overlay {
+    background: Canvas;
+    border: 2px solid CanvasText;
+  }
+}
+
+/* ----- SELECTION STYLES ----- */
+::selection {
+  background-color: rgba(120, 243, 211, 0.3);
+  color: #313D52;
+}
+
+::-moz-selection {
+  background-color: rgba(120, 243, 211, 0.3);
+  color: #313D52;
+}
+
+/* ----- ASPECT RATIO UTILITIES ----- */
+.aspect-w-16 {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 */
+}
+
+.aspect-w-4 {
+  position: relative;
+  padding-bottom: 75%; /* 4:3 */
+}
+
+.aspect-w-1 {
+  position: relative;
+  padding-bottom: 100%; /* 1:1 */
+}
+
+.aspect-w-16 > *,
+.aspect-w-4 > *,
+.aspect-w-1 > * {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+/* ----- CONTAINER QUERIES ----- */
+@container (min-width: 640px) {
+  .container\:text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+}
+
+/* ----- CUSTOM UTILITIES FOR COMPONENTS ----- */
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+}
+
+.backdrop-blur-lg {
+  backdrop-filter: blur(16px);
+}
+
+.min-h-screen-safe {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.h-screen-safe {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ----- GRID UTILITIES ----- */
+.grid-auto-fit {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.grid-auto-fill {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+/* ----- SPACE UTILITIES ----- */
+.space-y-px > * + * {
+  margin-top: 1px;
+}
+
+.space-x-px > * + * {
+  margin-left: 1px;
+}
+
+/* ----- DEBUGGING UTILITIES (remove in production) ----- */
+.debug-red {
+  border: 1px solid red !important;
+}
+
+.debug-blue {
+  border: 1px solid blue !important;
+}
+
+.debug-green {
+  border: 1px solid green !important;
+}
+
+html, body {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE */
+  overflow: auto;
+}
+
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+  display: none;               /* Chrome/Safari */
 }

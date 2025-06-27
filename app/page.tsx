@@ -102,21 +102,19 @@ export default function Home() {
       {/* Trust signals - load immediately after hero */}
       <TrustBadges />
       
-      {/* Core business sections - high priority */}
-      <Services />
-      
-      
       {/* Social proof sections */}
-      <LazySection>
-        <DetailedReviews />
-      </LazySection>
       
+      {/*
       <LazySection>
         <Testimonials />
       </LazySection>
-      
+      */}
       {/* Conversion sections */}
       <Pricing />
+
+      <LazySection>
+        <DetailedReviews />
+      </LazySection>
       
       {/* Support and content sections - lower priority */}
       <LazySection>
