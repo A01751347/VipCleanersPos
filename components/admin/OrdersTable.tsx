@@ -28,6 +28,7 @@ interface Order {
   cliente_apellidos: string;
   cliente_email: string;
   total: number;
+  estado_nombre: string;
   fecha_recepcion: string;
   fecha_entrega_estimada: string;
   estado_servicio_id: number;
@@ -76,7 +77,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({ orders = [], onStatusChange }
         return 'bg-yellow-100 text-yellow-800';
       case 'parcial':
         return 'bg-blue-100 text-blue-800';
-      case 'completado':
+      case 'pagado':
         return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -316,9 +317,9 @@ const getStatusIcon = (status?: string) => {
                     <span className="text-[#6c7a89] text-xs">Actualizando...</span>
                   </div>
                 ) : (
-                  <span className={`px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.estado_servicio)}`}>
-                    <span className="mr-1">{getStatusIcon(order.estado_servicio)}</span>
-                    {order.estado_servicio}
+                  <span className={`px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.estado_nombre)}`}>
+                    <span className="mr-1">{getStatusIcon(order.estado_nombre)}</span>
+                    {order.estado_nombre}
 
                   </span>
                 )}

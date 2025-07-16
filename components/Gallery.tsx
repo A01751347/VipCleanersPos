@@ -812,10 +812,7 @@ const Gallery: React.FC = () => {
                       <Share2 size={18} className="mr-2" />
                       Compartir
                     </button>
-                    <button className="px-6 py-3 border border-[#e0e6e5] text-[#313D52] font-medium rounded-lg hover:bg-[#f5f9f8] transition-colors flex items-center justify-center">
-                      <Download size={18} className="mr-2" />
-                      Descargar
-                    </button>
+                    
                   </div>
 
                   {/* Navigation indicators */}

@@ -1,4 +1,4 @@
-// app/api/booking/route.ts - Versión Corregida y Completa
+// app/api/booking/route.ts - Versión actualizada para múltiples servicios
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   createClient, 
@@ -18,6 +18,15 @@ const COVERAGE_ZONES = [
   { zipRange: ['76300', '76399'], zone: 'Este', cost: 59, time: '35-50 min' },
   { zipRange: ['76400', '76499'], zone: 'Oeste', cost: 64, time: '40-55 min' }
 ];
+
+// Tipos para múltiples servicios
+interface ServiceRequest {
+  serviceId: string;
+  quantity: number;
+  shoesType: string;
+  serviceName?: string;
+  servicePrice?: number;
+}
 
 // Función para validar zona de cobertura
 function validatePickupZone(zipCode: string) {
@@ -42,7 +51,7 @@ function validatePickupZone(zipCode: string) {
   return { available: false, zone: null, cost: 0, time: '' };
 }
 
-// ============== POST - Crear Reserva ==============
+// ============== POST - Crear Reserva con Múltiples Servicios ==============
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
@@ -52,15 +61,20 @@ export async function POST(request: NextRequest) {
       hasEmail: !!requestBody.email,
       hasPhone: !!requestBody.phone,
       deliveryMethod: requestBody.deliveryMethod,
-      serviceType: requestBody.serviceType
+      servicesCount: requestBody.services?.length || 0,
+      // Mantener compatibilidad con versión anterior
+      serviceType: requestBody.serviceType,
+      shoesType: requestBody.shoesType
     });
     
     const {
       fullName,
       email,
       phone,
-      shoesType,
-      serviceType,
+      services, // Array de servicios nuevo
+      serviceType, // Mantener compatibilidad
+      shoesType, // Mantener compatibilidad  
+      totalServiceCost,
       deliveryMethod,
       bookingDate,
       bookingTime,
@@ -71,9 +85,40 @@ export async function POST(request: NextRequest) {
     } = requestBody;
     
     // Validaciones básicas
-    if (!fullName || !email || !phone || !shoesType || !serviceType || !deliveryMethod || !bookingDate || !bookingTime) {
+    if (!fullName || !email || !phone || !deliveryMethod || !bookingDate || !bookingTime) {
       return NextResponse.json(
         { error: 'Todos los campos básicos son requeridos' },
+        { status: 400 }
+      );
+    }
+
+    // Validar servicios - priorizar el array de servicios, pero mantener compatibilidad
+    let servicesToProcess: ServiceRequest[] = [];
+    
+    if (services && Array.isArray(services) && services.length > 0) {
+      // Nueva estructura con múltiples servicios
+      servicesToProcess = services;
+      
+      // Validar cada servicio
+      for (let i = 0; i < servicesToProcess.length; i++) {
+        const service = servicesToProcess[i];
+        if (!service.serviceId || !service.shoesType || service.quantity < 1) {
+          return NextResponse.json(
+            { error: `Servicio ${i + 1}: Todos los campos son requeridos y la cantidad debe ser mayor a 0` },
+            { status: 400 }
+          );
+        }
+      }
+    } else if (serviceType && shoesType) {
+      // Compatibilidad con versión anterior
+      servicesToProcess = [{
+        serviceId: serviceType,
+        quantity: 1,
+        shoesType: shoesType
+      }];
+    } else {
+      return NextResponse.json(
+        { error: 'Debe especificar al menos un servicio' },
         { status: 400 }
       );
     }
@@ -218,46 +263,55 @@ export async function POST(request: NextRequest) {
     const bookingDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
     const estimatedDeliveryDate = new Date(bookingDateTime);
     
-    // Obtener información del servicio para calcular tiempo de entrega
-    let serviceInfo = null;
-    try {
-      const serviceResult = await executeQuery<any[]>({
-        query: 'SELECT tiempo_estimado_minutos FROM servicios WHERE servicio_id = ?',
-        values: [parseInt(serviceType)]
-      });
-      
-      if (serviceResult.length > 0) {
-        serviceInfo = serviceResult[0];
+    // Calcular tiempo total estimado basado en los servicios
+    let totalEstimatedMinutes = 0;
+    for (const service of servicesToProcess) {
+      try {
+        const serviceResult = await executeQuery<any[]>({
+          query: 'SELECT tiempo_estimado_minutos FROM servicios WHERE servicio_id = ?',
+          values: [parseInt(service.serviceId)]
+        });
+        
+        if (serviceResult.length > 0 && serviceResult[0].tiempo_estimado_minutos) {
+          totalEstimatedMinutes += serviceResult[0].tiempo_estimado_minutos * service.quantity;
+        } else {
+          // Tiempo por defecto si no se encuentra
+          totalEstimatedMinutes += 60 * service.quantity; // 1 hora por servicio por defecto
+        }
+      } catch (error) {
+        console.log('⚠️ Error obteniendo información del servicio:', error);
+        totalEstimatedMinutes += 60 * service.quantity; // Fallback
       }
-    } catch (error) {
-      console.log('⚠️ Error obteniendo información del servicio:', error);
     }
     
-    if (serviceInfo && serviceInfo.tiempo_estimado_minutos) {
-      // Agregar tiempo del servicio más 72 horas
-      estimatedDeliveryDate.setTime(
-        estimatedDeliveryDate.getTime() + 
-        (serviceInfo.tiempo_estimado_minutos * 60 * 1000) + 
-        (72 * 60 * 60 * 1000)
-      );
-    } else {
-      // Por defecto 3 días después
-      estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 3);
-    }
+    // Agregar tiempo estimado más 72 horas de procesamiento
+    estimatedDeliveryDate.setTime(
+      estimatedDeliveryDate.getTime() + 
+      (totalEstimatedMinutes * 60 * 1000) + 
+      (72 * 60 * 60 * 1000)
+    );
+    
+    // Crear descripción detallada de todos los servicios
+    const servicesDescription = servicesToProcess.map((service, index) => 
+      `${index + 1}. ${service.shoesType} (${service.quantity} par${service.quantity > 1 ? 'es' : ''})`
+    ).join('\n');
     
     // Crear notas con información adicional
     let notes = `Método de entrega: ${deliveryMethod || 'store'}`;
+    notes += `\nServicios solicitados:\n${servicesDescription}`;
     if (requiresPickup && pickupZone) {
       notes += `\nZona de pickup: ${pickupZone} (+$${pickupCost || 0})`;
     }
     if (address && address.instructions) {
       notes += `\nInstrucciones: ${address.instructions}`;
     }
+    if (totalServiceCost) {
+      notes += `\nCosto total servicios: $${totalServiceCost}`;
+    }
     
     console.log('📝 Datos para createReservation:', {
       clientId,
-      serviceType: parseInt(serviceType),
-      shoesType,
+      servicesCount: servicesToProcess.length,
       bookingDateTime: bookingDateTime.toISOString(),
       estimatedDeliveryDate: estimatedDeliveryDate.toISOString(),
       notes,
@@ -265,9 +319,9 @@ export async function POST(request: NextRequest) {
       requiresPickup: !!requiresPickup
     });
     
-    // Crear la reservación directamente con INSERT
+    // Crear las reservaciones - una por cada servicio único o una general
     try {
-      console.log('💾 Creando reservación con INSERT directo...');
+      console.log('💾 Creando reservaciones...');
       
       // Generar código de reservación único
       const generateBookingCode = () => {
@@ -280,8 +334,11 @@ export async function POST(request: NextRequest) {
       };
       
       const codigoReservacion = generateBookingCode();
+      let mainReservationId: number;
       
-      // Insertar reservación directamente
+      // Opción 1: Crear una reservación principal con detalles múltiples
+      // Crear reservación principal con el primer servicio
+      const mainService = servicesToProcess[0];
       const insertResult = await executeQuery<any>({
         query: `
           INSERT INTO reservaciones (
@@ -305,11 +362,11 @@ export async function POST(request: NextRequest) {
         `,
         values: [
           clientId,                           // cliente_id
-          parseInt(serviceType),              // servicio_id
+          parseInt(mainService.serviceId),    // servicio_id (servicio principal)
           null,                              // modelo_id
           null,                              // marca
-          shoesType || '',                   // modelo
-          `Calzado: ${shoesType || 'No especificado'}`, // descripcion_calzado
+          mainService.shoesType || '',       // modelo
+          servicesDescription,               // descripcion_calzado (todos los servicios)
           bookingDateTime,                   // fecha_reservacion
           estimatedDeliveryDate,             // fecha_entrega_estimada
           notes || null,                     // notas
@@ -322,8 +379,48 @@ export async function POST(request: NextRequest) {
         ]
       });
       
-      console.log('✅ Reservación creada con ID:', insertResult.insertId);
-      const code = codigoReservacion;
+      mainReservationId = insertResult.insertId;
+      console.log('✅ Reservación principal creada con ID:', mainReservationId);
+      
+      // Crear tabla de detalles de servicios para la reservación
+      for (const service of servicesToProcess) {
+        try {
+          // Obtener información completa del servicio
+          const serviceDetails = await executeQuery<any[]>({
+            query: 'SELECT * FROM servicios WHERE servicio_id = ?',
+            values: [parseInt(service.serviceId)]
+          });
+          
+          const serviceInfo = serviceDetails[0] || {};
+          
+          await executeQuery({
+            query: `
+              INSERT INTO detalles_reservacion_servicios (
+                reservacion_id,
+                servicio_id,
+                cantidad,
+                precio_unitario,
+                subtotal,
+                descripcion_calzado,
+                notas_servicio
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            `,
+            values: [
+              mainReservationId,
+              parseInt(service.serviceId),
+              service.quantity,
+              serviceInfo.precio || 0,
+              (serviceInfo.precio || 0) * service.quantity,
+              service.shoesType,
+              `Servicio: ${serviceInfo.nombre || 'No especificado'}`
+            ]
+          });
+          
+          console.log(`✅ Detalle de servicio agregado: ${service.serviceId} x${service.quantity}`);
+        } catch (detailError) {
+          console.log('⚠️ Error agregando detalle de servicio (no crítico):', detailError);
+        }
+      }
       
       // Si hay pickup, actualizar información adicional
       if (requiresPickup && addressId && pickupCost && pickupZone) {
@@ -334,7 +431,7 @@ export async function POST(request: NextRequest) {
               SET costo_pickup = ?, zona_pickup = ?
               WHERE reservacion_id = ?
             `,
-            values: [pickupCost, pickupZone, insertResult.insertId]
+            values: [pickupCost, pickupZone, mainReservationId]
           });
           console.log('✅ Datos de pickup actualizados');
         } catch (updateError) {
@@ -342,17 +439,20 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      console.log('🎉 Reserva creada exitosamente:', code);
+      console.log('🎉 Reserva creada exitosamente:', codigoReservacion);
       
       return NextResponse.json({ 
         success: true, 
-        bookingReference: code,
+        bookingReference: codigoReservacion,
         message: 'Reserva creada exitosamente',
         details: {
+          reservationId: mainReservationId,
           clientId,
           addressId,
+          servicesCount: servicesToProcess.length,
           deliveryMethod,
           pickupCost: requiresPickup ? (pickupCost || 0) : 0,
+          totalServiceCost: totalServiceCost || 0,
           estimatedDelivery: estimatedDeliveryDate.toISOString()
         }
       }, { status: 201 });
@@ -444,6 +544,28 @@ export async function GET(request: NextRequest) {
           console.log('⚠️ Error obteniendo dirección:', error);
         }
       }
+      
+      // Obtener detalles de servicios si existen
+      try {
+        const serviceDetails = await executeQuery<any[]>({
+          query: `
+            SELECT 
+              drs.*,
+              s.nombre as servicio_nombre,
+              s.descripcion as servicio_descripcion
+            FROM detalles_reservacion_servicios drs
+            JOIN servicios s ON drs.servicio_id = s.servicio_id
+            WHERE drs.reservacion_id = ?
+          `,
+          values: [bookingData.reservacion_id]
+        });
+        
+        if (serviceDetails.length > 0) {
+          bookingData.servicios_detalle = serviceDetails;
+        }
+      } catch (error) {
+        console.log('⚠️ Error obteniendo detalles de servicios:', error);
+      }
     }
     
     // Normalizar la respuesta para el frontend
@@ -487,6 +609,9 @@ export async function GET(request: NextRequest) {
       // Información de dirección para pickup
       direccion_pickup: bookingData.direccion_pickup || null,
       
+      // Detalles de servicios múltiples
+      servicios_detalle: bookingData.servicios_detalle || null,
+      
       // Datos específicos para órdenes
       ...(type === 'order' && {
         servicios: bookingData.servicios,
@@ -507,7 +632,8 @@ export async function GET(request: NextRequest) {
       id: normalizedResponse.id,
       type: normalizedResponse.type,
       status: normalizedResponse.status,
-      reference: normalizedResponse.booking_reference
+      reference: normalizedResponse.booking_reference,
+      servicesCount: normalizedResponse.servicios_detalle?.length || 0
     });
     
     return NextResponse.json({ 

@@ -91,7 +91,7 @@ export default function OrdersPage() {
       setIsRefreshing(false);
     }
   };
-
+console.log(loadOrders);
   // Cargar datos al montar el componente
   useEffect(() => {
     loadOrders();

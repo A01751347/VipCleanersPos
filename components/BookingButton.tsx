@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Loader2, CheckCircle, ChevronRight, AlertCircle, User, Package, Truck, Calendar, Mail, Phone, MapPin, Clock, DollarSign, Brush, Sparkles, Wrench, Shield, Home, Info } from 'lucide-react';
+import { X, Loader2, CheckCircle, ChevronRight, AlertCircle, User, Package, Truck, Calendar, Mail, Phone, MapPin, Clock, DollarSign, Brush, Sparkles, Wrench, Shield, Home, Info, Plus, Minus, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 // Types
@@ -10,6 +10,12 @@ interface ServiceOption {
   description: string;
   duration: number;
   requiresIdentification?: boolean;
+}
+
+interface SelectedService {
+  serviceId: string;
+  quantity: number;
+  shoesType: string;
 }
 
 interface ZoneInfo {
@@ -24,8 +30,7 @@ interface FormData {
   fullName: string;
   email: string;
   phone: string;
-  shoesType: string;
-  serviceType: string;
+  services: SelectedService[];
   deliveryMethod: 'store' | 'pickup';
   bookingDate: string;
   bookingTime: string;
@@ -63,8 +68,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     fullName: '',
     email: '',
     phone: '',
-    shoesType: '',
-    serviceType: '',
+    services: [],
     deliveryMethod: 'store',
     bookingDate: '',
     bookingTime: '',
@@ -99,7 +103,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     setMounted(true);
   }, []);
 
-  // Load services
+  // Load services and initialize first service
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -118,9 +122,21 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             requiresIdentification: service.requiere_identificacion
           }));
           setServiceOptions(convertedServices);
+          
+          // Initialize with first service if none exists
+          if (convertedServices.length > 0 && formData.services.length === 0) {
+            setFormData(prev => ({
+              ...prev,
+              services: [{
+                serviceId: convertedServices[0].id,
+                quantity: 1,
+                shoesType: ''
+              }]
+            }));
+          }
         } else {
           // Fallback services
-          setServiceOptions([
+          const fallbackServices = [
             { 
               id: '1', 
               name: 'Limpieza Básica', 
@@ -137,11 +153,24 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
               duration: 90,
               requiresIdentification: false
             }
-          ]);
+          ];
+          setServiceOptions(fallbackServices);
+          
+          // Initialize with first fallback service
+          if (formData.services.length === 0) {
+            setFormData(prev => ({
+              ...prev,
+              services: [{
+                serviceId: fallbackServices[0].id,
+                quantity: 1,
+                shoesType: ''
+              }]
+            }));
+          }
         }
       } catch (error) {
         console.error('Error loading services:', error);
-        setServiceOptions([
+        const fallbackServices = [
           { 
             id: '1', 
             name: 'Limpieza Básica', 
@@ -150,7 +179,20 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             duration: 60,
             requiresIdentification: false
           }
-        ]);
+        ];
+        setServiceOptions(fallbackServices);
+        
+        // Initialize with fallback service
+        if (formData.services.length === 0) {
+          setFormData(prev => ({
+            ...prev,
+            services: [{
+              serviceId: fallbackServices[0].id,
+              quantity: 1,
+              shoesType: ''
+            }]
+          }));
+        }
       } finally {
         setServicesLoading(false);
       }
@@ -249,8 +291,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
       fullName: '',
       email: '',
       phone: '',
-      shoesType: '',
-      serviceType: '',
+      services: [],
       deliveryMethod: 'store',
       bookingDate: '',
       bookingTime: '',
@@ -274,6 +315,40 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
+  // Service management functions
+  const addService = () => {
+    if (serviceOptions.length > 0) {
+      const newService: SelectedService = {
+        serviceId: serviceOptions[0].id,
+        quantity: 1,
+        shoesType: ''
+      };
+      setFormData(prev => ({
+        ...prev,
+        services: [...prev.services, newService]
+      }));
+    }
+  };
+
+  const removeService = (index: number) => {
+    // Don't allow removing the last service
+    if (formData.services.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        services: prev.services.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+  const updateService = (index: number, field: keyof SelectedService, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      services: prev.services.map((service, i) => 
+        i === index ? { ...service, [field]: value } : service
+      )
+    }));
+  };
+
   // Validations
   const validateStep = (step: number): boolean => {
     let isValid = true;
@@ -293,9 +368,23 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
         }
         break;
       case 2:
-        if (!formData.shoesType || !formData.serviceType) {
-          message = 'Por favor completa la información del servicio';
+        if (formData.services.length === 0) {
+          message = 'Agrega al menos un servicio';
           isValid = false;
+        } else {
+          for (let i = 0; i < formData.services.length; i++) {
+            const service = formData.services[i];
+            if (!service.shoesType.trim()) {
+              message = `Completa la marca y modelo del calzado en el servicio ${i + 1}`;
+              isValid = false;
+              break;
+            }
+            if (service.quantity < 1) {
+              message = `La cantidad debe ser al menos 1 en el servicio ${i + 1}`;
+              isValid = false;
+              break;
+            }
+          }
         }
         break;
       case 3:
@@ -347,12 +436,34 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     setFormStatus({ status: 'submitting', message: 'Procesando tu reserva...' });
 
     try {
+      // Prepare the main service (first one) for backward compatibility
+      const mainService = formData.services[0];
+      const mainServiceOption = serviceOptions.find(opt => opt.id === mainService?.serviceId);
+      
+      // Prepare shoes type string (combine all if multiple)
+      const shoesTypeString = formData.services.map(service => 
+        `${service.shoesType} (${service.quantity} par${service.quantity > 1 ? 'es' : ''})`
+      ).join(', ');
+
       const bookingData = {
         fullName: formData.fullName.trim(),
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
-        shoesType: formData.shoesType.trim(),
-        serviceType: formData.serviceType,
+        shoesType: shoesTypeString,
+        serviceType: mainService?.serviceId || '',
+        // Send detailed services info for future use
+        services: formData.services.map(service => ({
+          serviceId: service.serviceId,
+          quantity: service.quantity,
+          shoesType: service.shoesType.trim(),
+          serviceName: serviceOptions.find(opt => opt.id === service.serviceId)?.name || '',
+          servicePrice: serviceOptions.find(opt => opt.id === service.serviceId)?.price || 0
+        })),
+        // Calculate total service cost for all services
+        totalServiceCost: formData.services.reduce((total, service) => {
+          const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
+          return total + (serviceOption ? serviceOption.price * service.quantity : 0);
+        }, 0),
         deliveryMethod: formData.deliveryMethod,
         requiresPickup: formData.deliveryMethod === 'pickup',
         address: formData.deliveryMethod === 'pickup' ? {
@@ -414,7 +525,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
 
   const stepTitles = [
     'Información Personal',
-    'Servicio y Calzado', 
+    'Servicios y Calzado', 
     'Método de Entrega',
     'Fecha y Hora'
   ];
@@ -434,13 +545,22 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
   };
 
   const calculateTotalPrice = () => {
-    const selectedService = serviceOptions.find(service => service.id === formData.serviceType);
-    const servicePrice = selectedService ? selectedService.price : 0;
-    let pickupCost = 0;
+    let total = 0;
+    
+    // Calculate services total
+    formData.services.forEach(service => {
+      const serviceOption = serviceOptions.find(option => option.id === service.serviceId);
+      if (serviceOption) {
+        total += serviceOption.price * service.quantity;
+      }
+    });
+    
+    // Add pickup cost
     if (formData.deliveryMethod === 'pickup' && zoneInfo?.isSupported) {
-      pickupCost = zoneInfo.additionalCost || zoneInfo.cost || 0;
+      total += zoneInfo.additionalCost || zoneInfo.cost || 0;
     }
-    return servicePrice + pickupCost;
+    
+    return total;
   };
 
   const getMinDate = () => {
@@ -580,22 +700,18 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
       case 2:
         return (
           <div className="space-y-6">
-            <div className="flex items-center mb-6">
-              <Package size={24} className="text-[#78f3d3] mr-3" />
-              <h3 className="text-xl font-semibold text-[#313D52]">Servicio y Calzado</h3>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-[#313D52] mb-2">
-                Marca y Modelo del Calzado *
-              </label>
-              <input
-                type="text"
-                value={formData.shoesType}
-                onChange={handleInputChange('shoesType')}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#78f3d3] focus:border-transparent transition-all"
-                placeholder="Ej. Nike Air Jordan 1, Adidas Ultraboost, etc."
-              />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <Package size={24} className="text-[#78f3d3] mr-3" />
+                <h3 className="text-xl font-semibold text-[#313D52]">Servicios y Calzado</h3>
+              </div>
+              <button
+                onClick={addService}
+                className="flex items-center px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-all font-medium"
+              >
+                <Plus size={18} className="mr-2" />
+                Agregar Servicio
+              </button>
             </div>
 
             {servicesLoading ? (
@@ -603,47 +719,166 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                 <Loader2 size={32} className="animate-spin text-[#78f3d3]" />
               </div>
             ) : (
-              <div>
-                <label className="block text-sm font-medium text-[#313D52] mb-4">
-                  Tipo de servicio *
-                </label>
-                <div className="space-y-4">
-                  {serviceOptions.map((service) => (
-                    <div
-                      key={service.id}
-                      onClick={() => setFormData(prev => ({ ...prev, serviceType: service.id }))}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        formData.serviceType === service.id
-                          ? 'border-[#78f3d3] bg-[#78f3d3]/10'
-                          : 'border-gray-200 hover:border-[#78f3d3]/50'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center">
-                          {getServiceIcon(service.name)}
-                          <h4 className="font-medium text-[#313D52] ml-3">{service.name}</h4>
-                        </div>
-                        <div className="flex items-center">
-                          <DollarSign size={18} className="text-[#78f3d3]" />
-                          <span className="text-lg font-bold text-[#78f3d3]">{service.price}</span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600">{service.description}</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                        <div className="flex items-center">
-                          <Clock size={12} className="mr-1" />
-                          <span>{service.duration} min</span>
-                        </div>
-                        {service.requiresIdentification && (
-                          <div className="flex items-center text-amber-600">
-                            <Shield size={12} className="mr-1" />
-                            <span>Requiere ID</span>
-                          </div>
+              <div className="space-y-6">
+                {formData.services.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <Package size={48} className="mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-600 mb-4">Cargando servicios...</p>
+                  </div>
+                ) : (
+                  formData.services.map((service, index) => (
+                    <div key={index} className="border-2 border-gray-200 rounded-lg p-6 relative">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-medium text-[#313D52] text-lg">
+                          Servicio {index + 1}
+                        </h4>
+                        {formData.services.length > 1 && (
+                          <button
+                            onClick={() => removeService(index)}
+                            className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-all"
+                          >
+                            <Trash2 size={18} />
+                          </button>
                         )}
                       </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[#313D52] mb-2">
+                            Marca y Modelo del Calzado *
+                          </label>
+                          <input
+                            type="text"
+                            value={service.shoesType}
+                            onChange={(e) => updateService(index, 'shoesType', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#78f3d3] focus:border-transparent transition-all"
+                            placeholder="Ej. Nike Air Jordan 1, Adidas Ultraboost"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-[#313D52] mb-2">
+                            Cantidad de pares *
+                          </label>
+                          <div className="flex items-center">
+                            <button
+                              type="button"
+                              onClick={() => updateService(index, 'quantity', Math.max(1, service.quantity - 1))}
+                              className="p-2 border border-gray-300 rounded-l-lg hover:bg-gray-50 transition-all"
+                            >
+                              <Minus size={16} />
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={service.quantity}
+                              onChange={(e) => updateService(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-full px-4 py-3 border-t border-b border-gray-300 text-center focus:ring-2 focus:ring-[#78f3d3] focus:border-transparent transition-all"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => updateService(index, 'quantity', service.quantity + 1)}
+                              className="p-2 border border-gray-300 rounded-r-lg hover:bg-gray-50 transition-all"
+                            >
+                              <Plus size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[#313D52] mb-4">
+                          Tipo de servicio *
+                        </label>
+                        <div className="space-y-3">
+                          {serviceOptions.map((serviceOption) => (
+                            <div
+                              key={serviceOption.id}
+                              onClick={() => updateService(index, 'serviceId', serviceOption.id)}
+                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                                service.serviceId === serviceOption.id
+                                  ? 'border-[#78f3d3] bg-[#78f3d3]/10'
+                                  : 'border-gray-200 hover:border-[#78f3d3]/50'
+                              }`}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center">
+                                  {getServiceIcon(serviceOption.name)}
+                                  <h5 className="font-medium text-[#313D52] ml-3">{serviceOption.name}</h5>
+                                </div>
+                                <div className="flex items-center">
+                                  <DollarSign size={18} className="text-[#78f3d3]" />
+                                  <span className="text-lg font-bold text-[#78f3d3]">${serviceOption.price}</span>
+                                  {service.quantity > 1 && (
+                                    <span className="text-sm text-gray-600 ml-2">
+                                      x{service.quantity} = ${serviceOption.price * service.quantity}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-600">{serviceOption.description}</p>
+                              <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                                <div className="flex items-center">
+                                  <Clock size={12} className="mr-1" />
+                                  <span>{serviceOption.duration} min</span>
+                                </div>
+                                {serviceOption.requiresIdentification && (
+                                  <div className="flex items-center text-amber-600">
+                                    <Shield size={12} className="mr-1" />
+                                    <span>Requiere ID</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  ))
+                )}
+
+                {/* Total Services Summary */}
+                {formData.services.length > 0 && (
+                  <div className="bg-gradient-to-r from-[#78f3d3]/10 to-[#4de0c0]/10 p-6 rounded-lg border border-[#78f3d3]/30">
+                    <h4 className="font-semibold text-[#313D52] mb-4 flex items-center">
+                      <Package size={20} className="mr-2 text-[#78f3d3]" />
+                      Resumen de Servicios
+                    </h4>
+                    <div className="space-y-3">
+                      {formData.services.map((service, index) => {
+                        const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
+                        return (
+                          <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg">
+                            <div className="flex-1">
+                              <p className="font-medium text-[#313D52]">
+                                {serviceOption?.name || 'Servicio no seleccionado'}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {service.shoesType || 'Calzado no especificado'} - {service.quantity} par{service.quantity > 1 ? 'es' : ''}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-[#78f3d3]">
+                                ${serviceOption ? serviceOption.price * service.quantity : 0}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="border-t pt-3 mt-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-[#313D52]">Total Servicios:</span>
+                          <span className="font-bold text-xl text-[#78f3d3]">
+                            ${formData.services.reduce((total, service) => {
+                              const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
+                              return total + (serviceOption ? serviceOption.price * service.quantity : 0);
+                            }, 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -695,7 +930,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                   <h4 className="font-semibold mb-2 text-center">Pickup a domicilio</h4>
                   <p className="text-sm text-center">
                     {zoneInfo && zoneInfo.isSupported 
-                      ? `+$${zoneInfo.additionalCost || zoneInfo.cost || 0}` 
+                      ? `+${zoneInfo.additionalCost || zoneInfo.cost || 0}` 
                       : 'Costo según zona'}
                   </p>
                 </div>
@@ -966,31 +1201,35 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                 {/* Service Info */}
                 <div className="space-y-4">
                   <h5 className="font-medium text-[#313D52] text-lg mb-4 flex items-center">
-                    <Calendar size={18} className="mr-2 text-[#78f3d3]" />
-                    Detalles del Servicio
+                    <Package size={18} className="mr-2 text-[#78f3d3]" />
+                    Servicios Seleccionados
                   </h5>
                   
                   <div className="space-y-3">
-                    {/* Selected service */}
-                    <div>
-                      <span className="text-xs text-[#6c7a89] uppercase tracking-wide">Servicio</span>
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-[#313D52]">
-                          {serviceOptions.find(s => s.id === formData.serviceType)?.name || 'No seleccionado'}
-                        </p>
-                        {formData.serviceType && (
-                          <div className="flex items-center text-[#78f3d3]">
-                            <DollarSign size={14} />
-                            <span className="font-semibold">
-                              {serviceOptions.find(s => s.id === formData.serviceType)?.price || 0}
+                    {formData.services.map((service, index) => {
+                      const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
+                      return (
+                        <div key={index} className="bg-white p-3 rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-[#313D52]">
+                              {serviceOption?.name || 'Servicio no seleccionado'}
                             </span>
+                            <div className="flex items-center text-[#78f3d3]">
+                              <DollarSign size={14} />
+                              <span className="font-semibold">
+                                {serviceOption ? serviceOption.price * service.quantity : 0}
+                              </span>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
+                          <p className="text-sm text-gray-600">
+                            {service.shoesType} - {service.quantity} par{service.quantity > 1 ? 'es' : ''}
+                          </p>
+                        </div>
+                      );
+                    })}
 
                     {/* Delivery method */}
-                    <div>
+                    <div className="mt-4">
                       <span className="text-xs text-[#6c7a89] uppercase tracking-wide">Entrega</span>
                       <div className="flex items-center">
                         {formData.deliveryMethod === 'store' ? (
@@ -1017,7 +1256,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Date and time */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-4">
                       <div>
                         <span className="text-xs text-[#6c7a89] uppercase tracking-wide">Fecha</span>
                         <div className="flex items-center">
@@ -1048,16 +1287,21 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h6 className="font-medium text-lg">Total a Pagar</h6>
-                      {formData.deliveryMethod === 'pickup' && zoneInfo?.additionalCost && (
+                      {(formData.services.length > 1 || (formData.deliveryMethod === 'pickup' && zoneInfo?.additionalCost)) && (
                         <div className="text-sm opacity-90 mt-1">
                           <div className="flex justify-between">
-                            <span>Servicio:</span>
-                            <span>${serviceOptions.find(s => s.id === formData.serviceType)?.price || 0} MXN</span>
+                            <span>Servicios:</span>
+                            <span>${formData.services.reduce((total, service) => {
+                              const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
+                              return total + (serviceOption ? serviceOption.price * service.quantity : 0);
+                            }, 0)} MXN</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Pickup:</span>
-                            <span>+${zoneInfo.additionalCost} MXN</span>
-                          </div>
+                          {formData.deliveryMethod === 'pickup' && zoneInfo?.additionalCost && (
+                            <div className="flex justify-between">
+                              <span>Pickup:</span>
+                              <span>+${zoneInfo.additionalCost} MXN</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1209,7 +1453,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
 
 // BookingButton component to trigger the modal
 const BookingButton: React.FC<{ className?: string; children?: React.ReactNode }> = ({ 
-  className = "px-6 py-3 bg-[#78f3d3] text-[#313D52] font-medium rounded-lg hover:bg-[#4de0c0] transition-all cursor-pointer", 
+  className, 
   children 
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1220,7 +1464,7 @@ const BookingButton: React.FC<{ className?: string; children?: React.ReactNode }
         className={className}
         onClick={() => setIsModalOpen(true)}
       >
-        {children ? children : 'Reserva Ahora'}
+        {children || 'Reserva Ahora'}
       </button>
       
       <BookingModal 
