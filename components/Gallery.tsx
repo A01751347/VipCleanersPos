@@ -1,4 +1,4 @@
-// components/Gallery.tsx - Versión completa mejorada
+// components/Gallery.tsx - Versión con modal mejorado
 'use client'
 import React, { useState, useEffect } from 'react';
 import { 
@@ -18,6 +18,7 @@ import {
   Download,
   Maximize2
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import AnimateOnScroll from './AnimateOnScroll';
 import Image from 'next/image';
 
@@ -28,6 +29,7 @@ interface GalleryItem {
   category: string;
   beforeImage: string;
   afterImage: string;
+  coverImage: string;
   description: string;
   tags: string[];
   difficulty: 'Fácil' | 'Medio' | 'Difícil';
@@ -60,7 +62,13 @@ const Gallery: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'masonry'>('grid');
   const [sortBy, setSortBy] = useState<'newest' | 'difficulty' | 'rating' | 'brand'>('newest');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   
+  // Ensure component is mounted on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const galleryItems: GalleryItem[] = [
     {
       id: 1,
@@ -69,8 +77,9 @@ const Gallery: React.FC = () => {
       category: "Lifestyle",
       beforeImage: "/assets/gallery/nike-af1-before.jpg",
       afterImage: "/assets/gallery/nike-af1-after.jpg",
+      coverImage: "/assets/gallery/nike-af1-cover.jpg",
       description: "Restauración completa de unos Nike Air Force 1 clásicos que parecían perdidos. Se eliminaron manchas profundas de barro, césped y desgaste urbano, renovando completamente el color blanco original con técnicas especializadas de blanqueamiento y protección.",
-      tags: ["limpieza premium", "restauración", "blanco", "cuero"],
+      tags: ["limpieza premium", "restauración", "blanco"],
       difficulty: "Medio",
       timeSpent: "3 horas",
       featured: true,
@@ -88,6 +97,7 @@ const Gallery: React.FC = () => {
       category: "Sneakers",
       beforeImage: "/assets/gallery/yeezy-before.jpg",
       afterImage: "/assets/gallery/yeezy-after.jpg",
+      coverImage: "/",
       description: "Limpieza detallada de unos Yeezy Boost 350 V2 Zebra que presentaban manchas complejas. Removimos manchas difíciles de aceite de motor y suciedad urbana, restaurando el tejido knit Primeknit a su estado original sin dañar el patrón distintivo.",
       tags: ["yeezy", "primeknit", "limpieza especializada", "boost"],
       difficulty: "Difícil",
@@ -106,6 +116,7 @@ const Gallery: React.FC = () => {
       category: "Basketball",
       beforeImage: "/assets/gallery/jordan4-before.jpg",
       afterImage: "/assets/gallery/jordan4-after.jpg",
+      coverImage: "/",
       description: "Restauración completa de unos Air Jordan 4 Retro Black Cat vintage. Se recuperó el color negro intenso, se limpió la entresuela oxidada y se repararon detalles de la malla, devolviendo la elegancia clásica a estos iconos del basketball.",
       tags: ["jordan", "basketball", "negro", "retro"],
       difficulty: "Medio",
@@ -125,6 +136,7 @@ const Gallery: React.FC = () => {
       category: "Running",
       beforeImage: "/assets/gallery/nb990-before.jpg",
       afterImage: "/assets/gallery/nb990-after.jpg",
+      coverImage: "/",
       description: "Limpieza premium de unos New Balance 990v5 con combinación de materiales. Se trabajó meticulosamente la gamuza gris y los paneles mesh, aplicando técnicas específicas para cada material y logrando una apariencia completamente renovada.",
       tags: ["new balance", "gamuza", "running", "mesh"],
       difficulty: "Medio",
@@ -143,6 +155,7 @@ const Gallery: React.FC = () => {
       category: "Casual",
       beforeImage: "/assets/gallery/converse-before.jpg",
       afterImage: "/assets/gallery/converse-after.jpg",
+      coverImage: "/",
       description: "Restauración de unos Converse Chuck Taylor clásicos que necesitaban amor urgente. Se realizó un blanqueamiento profundo de la lona, eliminando años de uso y manchas, y se renovó completamente la goma de la puntera y suela.",
       tags: ["converse", "lona", "clásico", "vintage"],
       difficulty: "Fácil",
@@ -161,6 +174,7 @@ const Gallery: React.FC = () => {
       category: "Skate",
       beforeImage: "/assets/gallery/vans-before.jpg",
       afterImage: "/assets/gallery/vans-after.jpg",
+      coverImage: "/",
       description: "Lavado profundo y renovación de unos Vans Old Skool clásicos de skate. Se recuperó el contraste perfecto entre el negro intenso del upper de gamuza y canvas, y se restauró el blanco inmaculado de la entresuela y stripe lateral.",
       tags: ["vans", "skate", "negro", "gamuza"],
       difficulty: "Fácil",
@@ -180,6 +194,7 @@ const Gallery: React.FC = () => {
       category: "Lifestyle",
       beforeImage: "/assets/gallery/dunk-before.jpg",
       afterImage: "/assets/gallery/dunk-after.jpg",
+      coverImage: "/",
       description: "Limpieza especializada de los populares Nike Dunk Low en colorway Panda. Restauramos el contraste icónico entre el blanco y negro, eliminando manchas de uso diario y devolviendo la nitidez que los hace tan deseados.",
       tags: ["dunk", "panda", "cuero", "lifestyle"],
       difficulty: "Medio",
@@ -198,6 +213,7 @@ const Gallery: React.FC = () => {
       category: "Tennis",
       beforeImage: "/assets/gallery/stansmith-before.jpg",
       afterImage: "/assets/gallery/stansmith-after.jpg",
+      coverImage: "/",
       description: "Restauración completa de unos Adidas Stan Smith vintage. Estos clásicos del tennis requerían atención especial en el cuero blanco y los detalles verdes, logrando devolverles su elegancia minimalista característica.",
       tags: ["stan smith", "tennis", "cuero", "verde"],
       difficulty: "Fácil",
@@ -252,14 +268,29 @@ const Gallery: React.FC = () => {
   const openModal = (item: GalleryItem, imageIndex: number = 0) => {
     setSelectedItem(item);
     setCurrentImageIndex(imageIndex);
-    document.body.style.overflow = 'hidden';
   };
   
   const closeModal = () => {
     setSelectedItem(null);
     setIsFullscreen(false);
-    document.body.style.overflow = 'auto';
   };
+
+  // Control body scroll when modal is open
+  useEffect(() => {
+    if (selectedItem) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    };
+  }, [selectedItem]);
 
   const nextImage = () => {
     setCurrentImageIndex(prev => prev === 1 ? 0 : 1);
@@ -284,8 +315,10 @@ const Gallery: React.FC = () => {
       }
     };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    if (selectedItem) {
+      window.addEventListener('keydown', handleKeyPress);
+      return () => window.removeEventListener('keydown', handleKeyPress);
+    }
   }, [selectedItem]);
 
   const getDifficultyColor = (difficulty: string) => {
@@ -329,10 +362,22 @@ const Gallery: React.FC = () => {
     }
   };
 
+  if (!mounted) return null;
+
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-white to-[#f5f9f8]" id="gallery">
       <div className="max-w-7xl mx-auto">
-        
+        {/* Header */}
+        <AnimateOnScroll>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-[#313D52] mb-6">
+              Galería de <span className="text-[#78f3d3]">Transformaciones</span>
+            </h2>
+            <p className="text-xl text-[#6c7a89] max-w-3xl mx-auto">
+              Descubre el increíble antes y después de nuestros trabajos. Cada par de tenis tiene una historia única de restauración.
+            </p>
+          </div>
+        </AnimateOnScroll>
 
         {/* Controls and Filters */}
         <AnimateOnScroll delay={0.1}>
@@ -481,32 +526,12 @@ const Gallery: React.FC = () => {
                 )}
 
                 {/* Image Container */}
-                <div className="relative aspect-w-4 aspect-h-3 overflow-hidden">
-                  <div className="grid grid-cols-2 h-64">
-                    {/* Before Image */}
+                <div className="relative aspect-w-4  aspect-h-3 overflow-hidden">
                     <div 
                       className="relative bg-cover bg-center cursor-pointer transition-transform duration-300 group-hover:scale-105"
-                      style={{ backgroundImage: `url(${item.beforeImage})` }}
+                      style={{ backgroundImage: `url(${item.coverImage})` }}
                       onClick={() => openModal(item, 0)}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                      <div className="absolute bottom-2 left-2 text-white text-xs font-medium bg-red-500/80 px-2 py-1 rounded">
-                        Antes
-                      </div>
-                    </div>
-                    
-                    {/* After Image */}
-                    <div 
-                      className="relative bg-cover bg-center cursor-pointer transition-transform duration-300 group-hover:scale-105"
-                      style={{ backgroundImage: `url(${item.afterImage})` }}
-                      onClick={() => openModal(item, 1)}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                      <div className="absolute bottom-2 right-2 text-white text-xs font-medium bg-[#78f3d3]/80 px-2 py-1 rounded">
-                        Después
-                      </div>
-                    </div>
-                  </div>
+                    > </div>
 
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-[#313D52]/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -622,50 +647,68 @@ const Gallery: React.FC = () => {
         )}
       </div>
       
-      {/* Modal detalle mejorado */}
-      {selectedItem && (
-        <div className={`fixed inset-0 z-50 overflow-auto bg-black/90 flex items-center justify-center p-4 ${isFullscreen ? 'p-0' : ''}`}>
-          <div className={`relative bg-white rounded-xl w-full max-h-[95vh] overflow-auto ${
-            isFullscreen ? 'max-w-none h-screen rounded-none' : 'max-w-6xl'
-          }`}>
+      {/* Modal mejorado con portal */}
+      {selectedItem && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeModal();
+            }
+          }}
+        >
+          <div 
+            className={`relative bg-white rounded-2xl shadow-2xl w-full max-h-[95vh] overflow-auto ${
+              isFullscreen ? 'max-w-none h-screen rounded-none' : 'max-w-6xl'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Close button */}
             <button 
               onClick={closeModal}
-              className="absolute top-4 right-4 z-20 p-2 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all"
+              className="absolute top-4 right-4 z-20 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all"
             >
-              <X size={24} className="text-[#313D52]" />
+              <X size={24} />
             </button>
 
             {/* Fullscreen toggle */}
             <button
               onClick={toggleFullscreen}
-              className="absolute top-4 right-16 z-20 p-2 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all"
+              className="absolute top-4 right-16 z-20 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all"
             >
-              <Maximize2 size={20} className="text-[#313D52]" />
+              <Maximize2 size={20} />
             </button>
 
-            {/* Navigation buttons */}
-            <button
-              onClick={prevImage}
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 p-3 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all"
-            >
-              <ChevronLeft size={24} className="text-[#313D52]" />
-            </button>
 
-            <button
-              onClick={nextImage}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 p-3 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all"
-            >
-              <ChevronRight size={24} className="text-[#313D52]" />
-            </button>
             
-            <div className={`grid gap-0 ${isFullscreen ? 'grid-cols-1 h-screen' : 'grid-cols-1 lg:grid-cols-2'}`}>
-              {/* Image Display */}
-              <div className={`relative ${isFullscreen ? 'h-full' : 'h-96 lg:h-[600px]'}`}>
-                <div className="absolute top-4 left-4 z-10 flex space-x-2">
+            <div className={` grid gap-0 ${isFullscreen ? 'grid-cols-1 h-screen' : 'grid-cols-1 lg:grid-cols-2'}`}>
+              {/* Image Display mejorado */}
+              <div className='py-48  bg-gray-100'>
+              <div className={`relative ${isFullscreen ? 'h-full' : 'h-96 lg:h-[600px] '} bg-gray-100 flex items-center justify-center`}>
+                {/* Navigation buttons dentro del recuadro de imagen */}
+                <button
+                  onClick={prevImage}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 z-30 p-2 bg-black/60 hover:bg-black/80 text-white rounded-full shadow-lg transition-all backdrop-blur-sm"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                <button
+                  onClick={nextImage}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 z-30 p-2 bg-black/60 hover:bg-black/80 text-white rounded-full shadow-lg transition-all backdrop-blur-sm"
+                >
+                  <ChevronRight size={20} />
+                </button>
+
+                {/* Image toggle buttons */}
+                <div className="absolute top-4 left-4 z-30 flex space-x-2">
                   <button
                     onClick={() => setCurrentImageIndex(0)}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${
                       currentImageIndex === 0 
                         ? 'bg-red-500 text-white shadow-lg' 
                         : 'bg-white/90 text-[#313D52] hover:bg-white'
@@ -675,7 +718,7 @@ const Gallery: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setCurrentImageIndex(1)}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${
                       currentImageIndex === 1 
                         ? 'bg-[#78f3d3] text-[#313D52] shadow-lg' 
                         : 'bg-white/90 text-[#313D52] hover:bg-white'
@@ -686,19 +729,53 @@ const Gallery: React.FC = () => {
                 </div>
 
                 {/* Image quality indicator */}
-                <div className="absolute bottom-4 left-4 z-10 px-2 py-1 bg-black/50 text-white text-xs rounded">
-                  {currentImageIndex === 0 ? 'Estado Original' : 'Resultado Final'}
+                <div className="absolute bottom-4 left-4 z-30 px-3 py-2 bg-black/60 text-white text-sm rounded-lg backdrop-blur-sm">
+                  {selectedItem.title} - {currentImageIndex === 0 ? 'Estado Original' : 'Resultado Final'}
                 </div>
                 
-                <div 
-                  className="w-full h-full bg-cover bg-center transition-all duration-500 cursor-zoom-in"
-                  style={{ 
-                    backgroundImage: `url(${currentImageIndex === 0 ? selectedItem.beforeImage : selectedItem.afterImage})` 
-                  }}
-                  onClick={toggleFullscreen}
-                />
+                {/* Imagen principal mejorada y centrada */}
+                <div className="w-full h-full relative overflow-hidden">
+                  <div className="w-full h-full flex items-center justify-center p-4">
+                    <div className="relative max-w-full max-h-full">
+                      <img
+                        src={currentImageIndex === 0 ? selectedItem.beforeImage : selectedItem.afterImage}
+                        alt={`${selectedItem.title} - ${currentImageIndex === 0 ? 'Antes' : 'Después'}`}
+                        className="max-w-full max-h-full object-contain cursor-zoom-in hover:scale-105 transition-transform duration-300 rounded-lg shadow-lg"
+                        onClick={toggleFullscreen}
+                        style={{ 
+                          maxHeight: isFullscreen ? 'calc(100vh - 2rem)' : 'calc(600px - 2rem)',
+                          width: 'auto',
+                          height: 'auto'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comparison slider overlay for non-fullscreen */}
+                {!isFullscreen && (
+                  <div className="absolute bottom-4 right-4 z-30 bg-white/90 rounded-lg p-2 backdrop-blur-sm">
+                    <div className="flex items-center space-x-2 text-xs text-[#313D52]">
+                      <span className="font-medium">Comparar:</span>
+                      <div className="flex space-x-1">
+                        <div 
+                          className={`w-3 h-3 rounded-full cursor-pointer transition-all ${
+                            currentImageIndex === 0 ? 'bg-red-500 scale-125' : 'bg-gray-300 hover:bg-red-300'
+                          }`}
+                          onClick={() => setCurrentImageIndex(0)}
+                        />
+                        <div 
+                          className={`w-3 h-3 rounded-full cursor-pointer transition-all ${
+                            currentImageIndex === 1 ? 'bg-[#78f3d3] scale-125' : 'bg-gray-300 hover:bg-[#78f3d3]/50'
+                          }`}
+                          onClick={() => setCurrentImageIndex(1)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              
+              </div>
               {/* Content */}
               {!isFullscreen && (
                 <div className="p-8 lg:p-12 overflow-y-auto">
@@ -773,18 +850,6 @@ const Gallery: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Techniques Used */}
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-[#313D52] mb-3">Técnicas Especializadas</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {selectedItem.techniques.map((technique, idx) => (
-                        <div key={idx} className="flex items-center p-2 bg-[#e0f7f0] rounded-lg">
-                          <div className="w-2 h-2 bg-[#78f3d3] rounded-full mr-3"></div>
-                          <span className="text-[#313D52] text-sm">{technique}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Tags */}
                   <div className="mb-8">
@@ -812,7 +877,6 @@ const Gallery: React.FC = () => {
                       <Share2 size={18} className="mr-2" />
                       Compartir
                     </button>
-                    
                   </div>
 
                   {/* Navigation indicators */}
@@ -842,15 +906,21 @@ const Gallery: React.FC = () => {
 
               {/* Fullscreen overlay controls */}
               {isFullscreen && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 bg-black/70 text-white px-4 py-2 rounded-lg">
-                  <p className="text-sm text-center">
-                    {selectedItem.title} - {currentImageIndex === 0 ? 'Antes' : 'Después'}
-                  </p>
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 bg-black/70 text-white px-6 py-3 rounded-xl backdrop-blur-sm">
+                  <div className="text-center">
+                    <p className="font-semibold text-lg mb-1">
+                      {selectedItem.title}
+                    </p>
+                    <p className="text-sm opacity-80">
+                      {currentImageIndex === 0 ? 'Estado Original' : 'Resultado Final'} - {selectedItem.brand}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
