@@ -1,6 +1,6 @@
 // app/api/contact/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createContactMessage } from '../../../lib/db';
+import { createContactMessage } from '../../../lib/database';
 
 export async function POST(request: NextRequest) {
   try {

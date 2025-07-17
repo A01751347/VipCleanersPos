@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../auth';
-import { registerMediaFile, registerIdentificationImage } from '../../../../lib/db';
+import { registerMediaFile, registerIdentificationImage } from '../../../../lib/database';
 
 export async function POST(request: NextRequest) {
   try {

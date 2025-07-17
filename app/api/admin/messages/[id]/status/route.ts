@@ -6,7 +6,7 @@ import {
   updateMessageReadStatus, 
   updateMessageStarredStatus, 
   updateMessageArchivedStatus 
-} from '../../../../../../lib/db';
+} from '../../../../../../lib/database';
 
 export async function PUT(
   request: NextRequest,

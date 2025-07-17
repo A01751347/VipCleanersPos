@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../auth';
-import { getAllServices, getServiceById, executeQuery, isServiceInUse } from '../../../../../lib/db';
+import { getAllServices, getServiceById, executeQuery, isServiceInUse } from '../../../../../lib/database';
 
 interface RouteParams {
   params: Promise<{ id: string }>;

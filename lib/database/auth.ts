@@ -1,12 +1,4 @@
-/**
- * Authentication Library
- * File: lib/auth.ts
- * 
- * Contains utility functions for user authentication and password verification.
- * Handles database queries and password hashing operations.
- */
-
-import { executeQuery } from './db';
+import { executeQuery } from './connection';
 import { compare } from 'bcryptjs';
 
 /**

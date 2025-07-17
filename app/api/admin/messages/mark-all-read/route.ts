@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../auth';
-import { markAllMessagesAsRead } from '../../../../../lib/db';
+import { markAllMessagesAsRead } from '../../../../../lib/database';
 
 export async function POST(request: NextRequest) {
   try {

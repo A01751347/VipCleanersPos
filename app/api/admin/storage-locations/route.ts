@@ -8,7 +8,7 @@ import {
   generateLocationCode,
   getStorageStatistics,
   executeQuery
-} from '@/lib/db';
+} from '@/lib/database';
 
 // POST - Asignar ubicaciones de almacenamiento
 export async function POST(request: NextRequest) {

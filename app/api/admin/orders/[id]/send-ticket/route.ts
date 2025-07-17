@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../../auth';
-import { getOrderById } from '../../../../../../lib/db';
+import { getOrderById } from '../../../../../../lib/database';
 import { sendOrderTicketEmail } from '../../../../../../lib/email';
 
 export async function POST(

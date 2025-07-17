@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../auth';
-import { getBookingById, getReservationWithDetails } from '../../../../../lib/db';
+import { getBookingById, getReservationWithDetails } from '../../../../../lib/database';
 
 // Definir la interfaz correcta para Next.js 15
 interface RouteParams {

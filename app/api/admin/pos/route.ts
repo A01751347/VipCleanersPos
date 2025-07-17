@@ -6,7 +6,7 @@ import {
   findClientByPhoneOrEmail,
   assignStorageLocations, 
   executeQuery
-} from '@/lib/db';
+} from '@/lib/database';
 
 export async function POST(request: NextRequest) {
   try {

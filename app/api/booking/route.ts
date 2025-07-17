@@ -8,7 +8,7 @@ import {
   getReservationByCode,
   createAddress,
   executeQuery
-} from '../../../lib/db';
+} from '../../../lib/database';
 
 // Zonas de cobertura con costos de pickup
 const COVERAGE_ZONES = [

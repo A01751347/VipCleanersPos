@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../auth';
-import { getMessageById } from '../../../../../lib/db';
+import { getMessageById } from '../../../../../lib/database';
 
 interface RouteParams {
   params: Promise<{ id: string }>;

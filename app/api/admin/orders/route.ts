@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../auth';
-import { getOrders, getOrderById } from '../../../../lib/db';
+import { getOrders, getOrderById } from '../../../../lib/database';
 
 export async function GET(request: NextRequest) {
   try {

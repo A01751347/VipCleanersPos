@@ -6,7 +6,7 @@ import {
   registerPayment, 
   getOrderPayments, 
   getPaymentsSummary 
-} from '../../../../lib/db';
+} from '../../../../lib/database';
 
 export async function GET(request: NextRequest) {
   try {

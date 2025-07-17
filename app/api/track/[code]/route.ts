@@ -4,7 +4,7 @@ import {
   getReservationByCodeWithDetails, 
   getOrderByCode,
   executeQuery
-} from '../../../../lib/db';
+} from '../../../../lib/database';
 
 interface RouteParams {
   params: Promise<{ code: string }>;

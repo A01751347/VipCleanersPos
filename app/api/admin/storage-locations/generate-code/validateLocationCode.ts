@@ -1,4 +1,4 @@
-import { executeQuery } from '@/lib/db';
+import { executeQuery } from '@/lib/database';
 
 export async function validateLocationCode(codigo: string): Promise<{
   valido: boolean;

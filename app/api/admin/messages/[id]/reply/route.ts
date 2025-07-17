@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../../auth';
-import { getMessageById, saveMessageReply } from '../../../../../../lib/db';
+import { getMessageById, saveMessageReply } from '../../../../../../lib/database';
 import { sendMessageReplyEmail } from '../../../../../../lib/email';
 
 export async function POST(
@@ -102,7 +102,7 @@ export async function POST(
     // Marcar mensaje original como leído si se solicita
     if (markAsRead && !originalMessage.is_read) {
       try {
-        const { updateMessageReadStatus } = await import('../../../../../../lib/db');
+        const { updateMessageReadStatus } = await import('../../../../../../lib/database');
         await updateMessageReadStatus(messageId, true);
       } catch (updateError) {
         console.error('Error marcando mensaje como leído:', updateError);

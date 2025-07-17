@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../../auth';
-import { getDashboardStats } from '../../../../../lib/db';
+import { getDashboardStats } from '../../../../../lib/database';
 
 export async function GET() {
   try {

@@ -10,7 +10,7 @@ import {
   executeQuery,
   categoryExists,
   barcodeExists
-} from '../../../../lib/db';
+} from '../../../../lib/database';
 
 export async function GET(request: NextRequest) {
   try {

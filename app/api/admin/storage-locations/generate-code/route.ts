@@ -1,6 +1,6 @@
 // app/api/admin/storage-locations/generate-code/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { generateLocationCode, executeQuery } from '@/lib/db';
+import { generateLocationCode, executeQuery } from '@/lib/database';
 import { validateLocationCode } from './validateLocationCode';
 
 

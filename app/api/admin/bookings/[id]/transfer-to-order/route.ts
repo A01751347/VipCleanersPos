@@ -7,7 +7,7 @@ import {
   createOrderFromReservation,
   executeQuery,
   getAvailableEmployees // Para debugging
-} from '../../../../../../lib/db';
+} from '../../../../../../lib/database';
 
 interface RouteParams {
   params: Promise<{ id: string }>;

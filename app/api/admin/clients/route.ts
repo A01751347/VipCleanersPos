@@ -7,7 +7,7 @@ import {
   getClientDetails, 
   createClient,
   updateClient
-} from '../../../../lib/db';
+} from '../../../../lib/database';
 
 export async function GET(request: NextRequest) {
   try {
