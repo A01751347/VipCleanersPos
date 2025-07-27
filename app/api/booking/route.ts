@@ -1,4 +1,4 @@
-// app/api/booking/route.ts - Versión actualizada para múltiples servicios
+// app/api/booking/route.ts - Versión actualizada para múltiples servicios correctos
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   createClient, 
@@ -51,7 +51,7 @@ function validatePickupZone(zipCode: string) {
   return { available: false, zone: null, cost: 0, time: '' };
 }
 
-// ============== POST - Crear Reserva con Múltiples Servicios ==============
+// ============== POST - Crear Reserva con Múltiples Servicios como Orden ==============
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
@@ -291,176 +291,195 @@ export async function POST(request: NextRequest) {
       (72 * 60 * 60 * 1000)
     );
     
-    // Crear descripción detallada de todos los servicios
-    const servicesDescription = servicesToProcess.map((service, index) => 
-      `${index + 1}. ${service.shoesType} (${service.quantity} par${service.quantity > 1 ? 'es' : ''})`
-    ).join('\n');
+    // 🆕 NUEVA LÓGICA: Crear como ORDEN en lugar de reservación
+    console.log('💾 Creando orden directamente para múltiples servicios...');
     
-    // Crear notas con información adicional
-    let notes = `Método de entrega: ${deliveryMethod || 'store'}`;
-    notes += `\nServicios solicitados:\n${servicesDescription}`;
-    if (requiresPickup && pickupZone) {
-      notes += `\nZona de pickup: ${pickupZone} (+$${pickupCost || 0})`;
-    }
-    if (address && address.instructions) {
-      notes += `\nInstrucciones: ${address.instructions}`;
-    }
-    if (totalServiceCost) {
-      notes += `\nCosto total servicios: $${totalServiceCost}`;
-    }
-    
-    console.log('📝 Datos para createReservation:', {
-      clientId,
-      servicesCount: servicesToProcess.length,
-      bookingDateTime: bookingDateTime.toISOString(),
-      estimatedDeliveryDate: estimatedDeliveryDate.toISOString(),
-      notes,
-      addressId,
-      requiresPickup: !!requiresPickup
-    });
-    
-    // Crear las reservaciones - una por cada servicio único o una general
     try {
-      console.log('💾 Creando reservaciones...');
-      
-      // Generar código de reservación único
-      const generateBookingCode = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let result = 'RES';
-        for (let i = 0; i < 8; i++) {
-          result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-      };
-      
-      const codigoReservacion = generateBookingCode();
-      let mainReservationId: number;
-      
-      // Opción 1: Crear una reservación principal con detalles múltiples
-      // Crear reservación principal con el primer servicio
-      const mainService = servicesToProcess[0];
-      const insertResult = await executeQuery<any>({
-        query: `
-          INSERT INTO reservaciones (
-            cliente_id,
-            servicio_id,
-            modelo_id,
-            marca,
-            modelo,
-            descripcion_calzado,
-            fecha_reservacion,
-            fecha_entrega_estimada,
-            notas,
-            direccion_id,
-            requiere_pickup,
-            fecha_solicitud_pickup,
-            codigo_reservacion,
-            estado,
-            activo,
-            fecha_creacion
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-        `,
+      // 1. Crear la orden principal usando el procedimiento almacenado
+      await executeQuery({
+        query: `CALL CrearOrden(?, ?, NULL, ?, ?, @orden_id, @codigo_orden)`,
         values: [
-          clientId,                           // cliente_id
-          parseInt(mainService.serviceId),    // servicio_id (servicio principal)
-          null,                              // modelo_id
-          null,                              // marca
-          mainService.shoesType || '',       // modelo
-          servicesDescription,               // descripcion_calzado (todos los servicios)
-          bookingDateTime,                   // fecha_reservacion
-          estimatedDeliveryDate,             // fecha_entrega_estimada
-          notes || null,                     // notas
-          addressId || null,                 // direccion_id
-          !!requiresPickup,                  // requiere_pickup
-          requiresPickup ? bookingDateTime : null, // fecha_solicitud_pickup
-          codigoReservacion,                 // codigo_reservacion
-          'pending',                         // estado
-          true                               // activo
+          clientId, 
+          1, // empleado_id por defecto para booking online
+          estimatedDeliveryDate, 
+          `Reservación online con ${servicesToProcess.length} servicio${servicesToProcess.length > 1 ? 's' : ''}`
         ]
       });
       
-      mainReservationId = insertResult.insertId;
-      console.log('✅ Reservación principal creada con ID:', mainReservationId);
+      const [orderResult] = await executeQuery<any>({
+        query: `SELECT @orden_id as orden_id, @codigo_orden as codigo_orden`,
+        values: []
+      });
       
-      // Crear tabla de detalles de servicios para la reservación
+      const ordenId = orderResult.orden_id;
+      const codigoOrden = orderResult.codigo_orden;
+      
+      console.log('✅ Orden creada:', { ordenId, codigoOrden });
+      
+      // 2. Agregar todos los servicios a la orden
+      let subtotalTotal = 0;
+      
       for (const service of servicesToProcess) {
         try {
-          // Obtener información completa del servicio
-          const serviceDetails = await executeQuery<any[]>({
+          // Obtener información del servicio
+          const serviceInfo = await executeQuery<any[]>({
             query: 'SELECT * FROM servicios WHERE servicio_id = ?',
             values: [parseInt(service.serviceId)]
           });
           
-          const serviceInfo = serviceDetails[0] || {};
+          if (serviceInfo.length === 0) {
+            console.warn(`⚠️ Servicio ${service.serviceId} no encontrado`);
+            continue;
+          }
           
-          await executeQuery({
-            query: `
-              INSERT INTO detalles_reservacion_servicios (
-                reservacion_id,
-                servicio_id,
-                cantidad,
-                precio_unitario,
-                subtotal,
-                descripcion_calzado,
-                notas_servicio
-              ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            `,
-            values: [
-              mainReservationId,
-              parseInt(service.serviceId),
-              service.quantity,
-              serviceInfo.precio || 0,
-              (serviceInfo.precio || 0) * service.quantity,
-              service.shoesType,
-              `Servicio: ${serviceInfo.nombre || 'No especificado'}`
-            ]
-          });
+          const servicioData = serviceInfo[0];
+          const precioUnitario = servicioData.precio || 0;
           
-          console.log(`✅ Detalle de servicio agregado: ${service.serviceId} x${service.quantity}`);
-        } catch (detailError) {
-          console.log('⚠️ Error agregando detalle de servicio (no crítico):', detailError);
+          // Crear registros individuales para cada par de tenis
+          for (let i = 0; i < service.quantity; i++) {
+            await executeQuery({
+              query: `
+                INSERT INTO detalles_orden_servicios (
+                  orden_id, servicio_id, cantidad, precio_unitario, descuento, subtotal,
+                  modelo_id, marca, modelo, descripcion_calzado
+                ) VALUES (?, ?, 1, ?, 0.00, ?, ?, ?, ?, ?)
+              `,
+              values: [
+                ordenId,
+                parseInt(service.serviceId),
+                precioUnitario,
+                precioUnitario,
+                null, // modelo_id
+                null, // marca (extraer de shoesType si es necesario)
+                service.shoesType.trim(), // modelo
+                `Par ${i + 1} de ${service.quantity} - ${service.shoesType}` // descripcion
+              ]
+            });
+            
+            subtotalTotal += precioUnitario;
+          }
+          
+          console.log(`✅ Servicio agregado: ${servicioData.nombre} x${service.quantity}`);
+        } catch (serviceError) {
+          console.error(`❌ Error agregando servicio ${service.serviceId}:`, serviceError);
+          throw serviceError;
         }
       }
       
-      // Si hay pickup, actualizar información adicional
-      if (requiresPickup && addressId && pickupCost && pickupZone) {
-        try {
-          await executeQuery({
-            query: `
-              UPDATE reservaciones 
-              SET costo_pickup = ?, zona_pickup = ?
-              WHERE reservacion_id = ?
-            `,
-            values: [pickupCost, pickupZone, mainReservationId]
-          });
-          console.log('✅ Datos de pickup actualizados');
-        } catch (updateError) {
-          console.log('⚠️ Error actualizando datos de pickup (no crítico):', updateError);
-        }
+      // 3. Calcular totales
+      const iva = subtotalTotal * 0.16; // 16% IVA
+      const totalOrden = subtotalTotal + iva;
+      
+      // 4. Actualizar la orden con totales y información adicional
+      let notasAdicionales = `Reservación online - ${servicesToProcess.length} servicio${servicesToProcess.length > 1 ? 's' : ''}`;
+      if (requiresPickup && pickupZone) {
+        notasAdicionales += `\nPickup: Zona ${pickupZone} (+${pickupCost || 0})`;
+      }
+      if (address && address.instructions) {
+        notasAdicionales += `\nInstrucciones: ${address.instructions}`;
       }
       
-      console.log('🎉 Reserva creada exitosamente:', codigoReservacion);
+      await executeQuery({
+        query: `
+          UPDATE ordenes 
+          SET 
+            subtotal = ?, 
+            impuestos = ?, 
+            total = ?, 
+            estado_pago = 'pendiente',
+            requiere_identificacion = FALSE,
+            metodo_pago = 'pendiente',
+            notas = ?,
+            direccion_id = ?
+          WHERE orden_id = ?
+        `,
+        values: [
+          subtotalTotal, 
+          iva, 
+          totalOrden, 
+          notasAdicionales,
+          addressId,
+          ordenId
+        ]
+      });
+      
+// Versión mejorada del manejo de pickup sin dependencia de servicio específico
+// Reemplazar la sección del pickup en el código anterior
+
+// 5. Si hay pickup, agregar información de costos SIN crear servicio adicional
+if (requiresPickup && pickupCost && pickupZone) {
+  try {
+    // Opción 1: Agregar el costo directamente al total de la orden
+    const nuevoTotal = totalOrden + pickupCost;
+    
+    await executeQuery({
+      query: `
+        UPDATE ordenes 
+        SET 
+          total = ?,
+          costo_pickup = ?,
+          zona_pickup = ?,
+          notas = CONCAT(COALESCE(notas, ''), '\nPickup: Zona ', ?, ' (+$', ?, ')')
+        WHERE orden_id = ?
+      `,
+      values: [nuevoTotal, pickupCost, pickupZone, pickupZone, pickupCost, ordenId]
+    });
+    
+    console.log('✅ Información de pickup agregada a la orden');
+    
+    // Opción 2: Si quieres mantener el pickup como un ítem separado, usar una tabla de costos adicionales
+    try {
+      await executeQuery({
+        query: `
+          INSERT INTO costos_adicionales_orden (
+            orden_id,
+            concepto,
+            descripcion,
+            monto,
+            fecha_creacion
+          ) VALUES (?, 'pickup', ?, ?, NOW())
+        `,
+        values: [
+          ordenId,
+          `Servicio de pickup - Zona ${pickupZone}`,
+          pickupCost
+        ]
+      });
+      console.log('✅ Costo de pickup registrado en costos adicionales');
+    } catch (additionalCostError) {
+      console.warn('⚠️ Tabla costos_adicionales_orden no existe, usando solo el campo costo_pickup');
+    }
+    
+  } catch (pickupError) {
+    console.warn('⚠️ Error agregando pickup (no crítico):', pickupError);
+  }
+}
+      
+      console.log('🎉 Orden con múltiples servicios creada exitosamente:', codigoOrden);
       
       return NextResponse.json({ 
         success: true, 
-        bookingReference: codigoReservacion,
-        message: 'Reserva creada exitosamente',
+        bookingReference: codigoOrden,
+        orderId: ordenId,
+        message: 'Orden creada exitosamente',
         details: {
-          reservationId: mainReservationId,
+          ordenId,
           clientId,
           addressId,
           servicesCount: servicesToProcess.length,
+          totalServices: servicesToProcess.reduce((sum, s) => sum + s.quantity, 0),
           deliveryMethod,
           pickupCost: requiresPickup ? (pickupCost || 0) : 0,
-          totalServiceCost: totalServiceCost || 0,
+          totalServiceCost: subtotalTotal,
+          totalWithTax: totalOrden,
           estimatedDelivery: estimatedDeliveryDate.toISOString()
         }
       }, { status: 201 });
       
-    } catch (reservationError) {
-      console.error('❌ Error creando reservación:', reservationError);
+    } catch (orderError) {
+      console.error('❌ Error creando orden:', orderError);
       return NextResponse.json(
-        { error: 'Error al crear la reservación: ' + (reservationError instanceof Error ? reservationError.message : 'Error desconocido') },
+        { error: 'Error al crear la orden: ' + (orderError instanceof Error ? orderError.message : 'Error desconocido') },
         { status: 500 }
       );
     }
@@ -474,7 +493,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ============== GET - Obtener información de reserva ==============
+// ============== GET - Obtener información de reserva/orden ==============
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -565,6 +584,31 @@ export async function GET(request: NextRequest) {
         }
       } catch (error) {
         console.log('⚠️ Error obteniendo detalles de servicios:', error);
+      }
+    }
+    
+    // Para órdenes, obtener servicios y detalles
+    if (type === 'order') {
+      try {
+        const serviceDetails = await executeQuery<any[]>({
+          query: `
+            SELECT 
+              dos.*,
+              s.nombre as servicio_nombre,
+              s.descripcion as servicio_descripcion
+            FROM detalles_orden_servicios dos
+            JOIN servicios s ON dos.servicio_id = s.servicio_id
+            WHERE dos.orden_id = ?
+            ORDER BY dos.detalle_servicio_id ASC
+          `,
+          values: [bookingData.orden_id]
+        });
+        
+        if (serviceDetails.length > 0) {
+          bookingData.servicios_detalle = serviceDetails;
+        }
+      } catch (error) {
+        console.log('⚠️ Error obteniendo detalles de servicios de orden:', error);
       }
     }
     

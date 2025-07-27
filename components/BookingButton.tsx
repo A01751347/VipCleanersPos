@@ -432,96 +432,137 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSubmit = async () => {
-    setFormStatus({ status: 'submitting', message: 'Procesando tu reserva...' });
+ // Fragmento del BookingButton.tsx que necesita corrección
+// Buscar la función handleSubmit y reemplazar la parte de envío de datos
 
-    try {
-      // Prepare the main service (first one) for backward compatibility
-      const mainService = formData.services[0];
-      const mainServiceOption = serviceOptions.find(opt => opt.id === mainService?.serviceId);
+const handleSubmit = async () => {
+  setFormStatus({ status: 'submitting', message: 'Procesando tu reserva...' });
+
+  try {
+    // 🆕 CORRECCIÓN: Preparar servicios correctamente
+    const servicesToSend = formData.services.map(service => ({
+      serviceId: service.serviceId,
+      quantity: service.quantity,
+      shoesType: service.shoesType.trim(),
+      serviceName: serviceOptions.find(opt => opt.id === service.serviceId)?.name || '',
+      servicePrice: serviceOptions.find(opt => opt.id === service.serviceId)?.price || 0
+    }));
+
+    // Calcular costo total de servicios
+    const totalServiceCost = formData.services.reduce((total, service) => {
+      const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
+      return total + (serviceOption ? serviceOption.price * service.quantity : 0);
+    }, 0);
+
+    // Preparar el primer servicio para compatibilidad hacia atrás
+    const mainService = formData.services[0];
+    const mainServiceOption = serviceOptions.find(opt => opt.id === mainService?.serviceId);
+    
+    // Combinar todos los tipos de calzado en una descripción
+    const combinedShoesDescription = formData.services.map(service => 
+      `${service.shoesType} (${service.quantity} par${service.quantity > 1 ? 'es' : ''})`
+    ).join(', ');
+
+    const bookingData = {
+      // Información básica del cliente
+      fullName: formData.fullName.trim(),
+      email: formData.email.trim().toLowerCase(),
+      phone: formData.phone.trim(),
       
-      // Prepare shoes type string (combine all if multiple)
-      const shoesTypeString = formData.services.map(service => 
-        `${service.shoesType} (${service.quantity} par${service.quantity > 1 ? 'es' : ''})`
-      ).join(', ');
-
-      const bookingData = {
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim(),
-        shoesType: shoesTypeString,
-        serviceType: mainService?.serviceId || '',
-        // Send detailed services info for future use
-        services: formData.services.map(service => ({
-          serviceId: service.serviceId,
-          quantity: service.quantity,
-          shoesType: service.shoesType.trim(),
-          serviceName: serviceOptions.find(opt => opt.id === service.serviceId)?.name || '',
-          servicePrice: serviceOptions.find(opt => opt.id === service.serviceId)?.price || 0
-        })),
-        // Calculate total service cost for all services
-        totalServiceCost: formData.services.reduce((total, service) => {
-          const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
-          return total + (serviceOption ? serviceOption.price * service.quantity : 0);
-        }, 0),
-        deliveryMethod: formData.deliveryMethod,
-        requiresPickup: formData.deliveryMethod === 'pickup',
-        address: formData.deliveryMethod === 'pickup' ? {
-          street: formData.address.street.trim(),
-          number: formData.address.number.trim(),
-          interior: formData.address.interior.trim(),
-          neighborhood: formData.address.neighborhood.trim(),
-          municipality: formData.address.municipality.trim(),
-          city: formData.address.city.trim(),
-          state: formData.address.state.trim(),
-          zipCode: formData.address.zipCode.trim(),
-          instructions: formData.address.instructions.trim(),
-          timeWindowStart: formData.address.timeWindowStart,
-          timeWindowEnd: formData.address.timeWindowEnd,
-          phone: formData.address.phone.trim()
-        } : null,
-        bookingDate: formData.bookingDate,
-        bookingTime: formData.bookingTime,
-        pickupCost: formData.deliveryMethod === 'pickup' && zoneInfo ? (zoneInfo.additionalCost || zoneInfo.cost || 0) : 0,
-        pickupZone: formData.deliveryMethod === 'pickup' && zoneInfo ? zoneInfo.zone : null,
-        timestamp: new Date().toISOString(),
-        source: 'booking_modal'
-      };
-
-      const response = await fetch('/api/booking', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bookingData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      // 🆕 NUEVO: Array completo de servicios
+      services: servicesToSend,
       
-      if (!result.success) {
-        throw new Error(result.error || 'Error al procesar la reserva');
-      }
-
-      const bookingReference = result.bookingReference || result.id || `VIP-${Date.now().toString().slice(-6)}`;
+      // 🆕 NUEVO: Costo total calculado
+      totalServiceCost,
       
-      setFormStatus({
-        status: 'success',
-        message: '¡Reserva confirmada exitosamente!',
-        bookingReference
-      });
-    } catch (error) {
-      console.error('Error submitting booking:', error);
-      setFormStatus({
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Hubo un error al procesar tu reserva. Intenta nuevamente.'
-      });
+      // Mantener compatibilidad con versión anterior
+      shoesType: combinedShoesDescription,
+      serviceType: mainService?.serviceId || '',
+      
+      // Información de entrega
+      deliveryMethod: formData.deliveryMethod,
+      requiresPickup: formData.deliveryMethod === 'pickup',
+      
+      // Dirección (solo si es pickup)
+      address: formData.deliveryMethod === 'pickup' ? {
+        street: formData.address.street.trim(),
+        number: formData.address.number.trim(),
+        interior: formData.address.interior.trim(),
+        neighborhood: formData.address.neighborhood.trim(),
+        municipality: formData.address.municipality.trim(),
+        city: formData.address.city.trim(),
+        state: formData.address.state.trim(),
+        zipCode: formData.address.zipCode.trim(),
+        instructions: formData.address.instructions.trim(),
+        timeWindowStart: formData.address.timeWindowStart,
+        timeWindowEnd: formData.address.timeWindowEnd,
+        phone: formData.address.phone.trim()
+      } : null,
+      
+      // Fecha y hora
+      bookingDate: formData.bookingDate,
+      bookingTime: formData.bookingTime,
+      
+      // Información de zona (para pickup)
+      pickupCost: formData.deliveryMethod === 'pickup' && zoneInfo ? (zoneInfo.additionalCost || zoneInfo.cost || 0) : 0,
+      pickupZone: formData.deliveryMethod === 'pickup' && zoneInfo ? zoneInfo.zone : null,
+      
+      // Metadata
+      timestamp: new Date().toISOString(),
+      source: 'booking_modal_multiple_services'
+    };
+
+    console.log('📤 Enviando datos de reserva con múltiples servicios:', {
+      servicesCount: servicesToSend.length,
+      totalServices: servicesToSend.reduce((sum, s) => sum + s.quantity, 0),
+      totalCost: totalServiceCost,
+      hasPickup: !!bookingData.requiresPickup,
+      pickupCost: bookingData.pickupCost
+    });
+
+    const response = await fetch('/api/booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(bookingData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
     }
-  };
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Error al procesar la reserva');
+    }
+
+    const bookingReference = result.bookingReference || result.orderId || `ORD-${Date.now().toString().slice(-6)}`;
+    
+    setFormStatus({
+      status: 'success',
+      message: '¡Orden creada exitosamente!',
+      bookingReference
+    });
+
+    // Log de éxito
+    console.log('✅ Orden creada exitosamente:', {
+      reference: bookingReference,
+      orderId: result.orderId,
+      servicesCount: result.details?.servicesCount,
+      totalServices: result.details?.totalServices
+    });
+
+  } catch (error) {
+    console.error('Error submitting booking:', error);
+    setFormStatus({
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Hubo un error al procesar tu reserva. Intenta nuevamente.'
+    });
+  }
+};
 
   const stepTitles = [
     'Información Personal',
@@ -547,7 +588,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
   const calculateTotalPrice = () => {
     let total = 0;
     
-    // Calculate services total
+    // 🆕 CORRECCIÓN: Calcular correctamente todos los servicios
     formData.services.forEach(service => {
       const serviceOption = serviceOptions.find(option => option.id === service.serviceId);
       if (serviceOption) {
@@ -555,13 +596,36 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
       }
     });
     
-    // Add pickup cost
+    // Agregar costo de pickup si aplica
     if (formData.deliveryMethod === 'pickup' && zoneInfo?.isSupported) {
       total += zoneInfo.additionalCost || zoneInfo.cost || 0;
     }
     
     return total;
   };
+  
+  // 🆕 NUEVA FUNCIÓN: Calcular total solo de servicios (sin pickup)
+const calculateServicesTotal = () => {
+  return formData.services.reduce((total, service) => {
+    const serviceOption = serviceOptions.find(option => option.id === service.serviceId);
+    return total + (serviceOption ? serviceOption.price * service.quantity : 0);
+  }, 0);
+};
+
+// 🆕 NUEVA FUNCIÓN: Obtener desglose de costos
+const getCostBreakdown = () => {
+  const servicesTotal = calculateServicesTotal();
+  const pickupCost = (formData.deliveryMethod === 'pickup' && zoneInfo?.isSupported) 
+    ? (zoneInfo.additionalCost || zoneInfo.cost || 0) 
+    : 0;
+  const total = servicesTotal + pickupCost;
+  
+  return {
+    services: servicesTotal,
+    pickup: pickupCost,
+    total
+  };
+};
 
   const getMinDate = () => {
     const tomorrow = new Date();
@@ -1282,36 +1346,38 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
               </div>
 
               {/* Total */}
-              <div className="mt-8 pt-6 border-t border-[#e0e6e5]">
-                <div className="bg-gradient-to-r from-[#78f3d3] to-[#4de0c0] p-6 rounded-xl text-[#313D52]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h6 className="font-medium text-lg">Total a Pagar</h6>
-                      {(formData.services.length > 1 || (formData.deliveryMethod === 'pickup' && zoneInfo?.additionalCost)) && (
-                        <div className="text-sm opacity-90 mt-1">
-                          <div className="flex justify-between">
-                            <span>Servicios:</span>
-                            <span>${formData.services.reduce((total, service) => {
-                              const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
-                              return total + (serviceOption ? serviceOption.price * service.quantity : 0);
-                            }, 0)} MXN</span>
-                          </div>
-                          {formData.deliveryMethod === 'pickup' && zoneInfo?.additionalCost && (
-                            <div className="flex justify-between">
-                              <span>Pickup:</span>
-                              <span>+${zoneInfo.additionalCost} MXN</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
+<div className="mt-8 pt-6 border-t border-[#e0e6e5]">
+  <div className="bg-gradient-to-r from-[#78f3d3] to-[#4de0c0] p-6 rounded-xl text-[#313D52]">
+    <div className="flex items-center justify-between">
+      <div>
+        <h6 className="font-medium text-lg">Total a Pagar</h6>
+        {(() => {
+          const breakdown = getCostBreakdown();
+          const hasMultipleItems = formData.services.length > 1 || breakdown.pickup > 0;
+          
+          return hasMultipleItems && (
+            <div className="text-sm opacity-90 mt-1 space-y-1">
+              <div className="flex justify-between">
+                <span>Servicios ({formData.services.reduce((sum, s) => sum + s.quantity, 0)} pares):</span>
+                <span>${breakdown.services} MXN</span>
+              </div>
+              {breakdown.pickup > 0 && (
+                <div className="flex justify-between">
+                  <span>Pickup ({zoneInfo?.zone}):</span>
+                  <span>+${breakdown.pickup} MXN</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center">
-                        <DollarSign size={28} className="mr-2" />
-                        <span className="text-3xl font-bold">{calculateTotalPrice()}</span>
-                        <span className="text-lg ml-2 opacity-90">MXN</span>
-                      </div>
-                    </div>
+        <div className="flex items-center">
+          <DollarSign size={28} className="mr-2" />
+          <span className="text-3xl font-bold">{calculateTotalPrice()}</span>
+          <span className="text-lg ml-2 opacity-90">MXN</span>
+        </div>
+      </div>
                   </div>
                 </div>
               </div>
