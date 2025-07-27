@@ -1,7 +1,7 @@
 // auth.ts
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { getUserByEmail, verifyPassword } from './lib/auth';
+import { getUserByEmail, verifyPassword } from './lib/database/auth';
 
 export const authOptions: NextAuthOptions = {
   providers: [

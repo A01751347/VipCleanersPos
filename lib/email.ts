@@ -1,6 +1,6 @@
 // lib/email.ts
 import * as nodemailer from 'nodemailer';
-import { getBusinessConfig } from './db';
+import { getBusinessConfig } from './database';
 
 // Configuración del transportador de email
 const createTransporter = () => {
