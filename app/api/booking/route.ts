@@ -18,7 +18,7 @@ const COVERAGE_ZONES = [
   { zipRange: ['76300', '76399'], zone: 'Este', cost: 59, time: '35-50 min' },
   { zipRange: ['76400', '76499'], zone: 'Oeste', cost: 64, time: '40-55 min' }
 ];
-
+// Turnstile verification moved inside POST handler
 // Tipos para múltiples servicios
 interface ServiceRequest {
   serviceId: string;
@@ -55,6 +55,29 @@ function validatePickupZone(zipCode: string) {
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
+    
+    // Turnstile verification
+    const turnstileToken: string | undefined = requestBody.turnstileToken;
+    if (!turnstileToken) {
+      return NextResponse.json({ error: 'Falta verificación de seguridad' }, { status: 400 });
+    }
+    const turnstileResponse = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        // no-store evita resultados cacheados en serverless
+        cache: "no-store",
+        body: new URLSearchParams({
+          secret: process.env.TURNSTILE_SECRET_KEY ?? "",
+          response: turnstileToken,
+        }),
+      }
+    );
+    const turnstileData = await turnstileResponse.json();
+    if (!turnstileData.success) {
+      return NextResponse.json({ error: 'Verificación de seguridad falló' }, { status: 400 });
+    }
     
     console.log('📥 Booking request received:', {
       hasFullName: !!requestBody.fullName,

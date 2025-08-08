@@ -1,7 +1,7 @@
 // lib/config-helpers.ts
 // Funciones auxiliares para obtener configuraciones en el sistema POS
 
-import { getConfigValue, getConfigValues } from './db';
+import { getConfigValue, getConfigValues } from './database';
 
 // Cache en memoria para configuraciones frecuentemente usadas
 let configCache: { [key: string]: { value: any; timestamp: number } } = {};
