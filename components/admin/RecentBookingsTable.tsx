@@ -21,17 +21,17 @@ interface RecentBookingsTableProps {
 const RecentBookingsTable: React.FC<RecentBookingsTableProps> = ({ bookings = [] }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
+      case '9':
         return 'bg-yellow-100 text-yellow-800';
-      case 'received':
+      case '1':
         return 'bg-blue-100 text-blue-800';
-      case 'in_progress':
+      case '2':
         return 'bg-blue-100 text-blue-800';
-      case 'completed':
+      case '6':
         return 'bg-green-100 text-green-800';
-      case 'delivered':
+      case '7':
         return 'bg-purple-100 text-purple-800';
-      case 'cancelled':
+      case '8':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -40,17 +40,17 @@ const RecentBookingsTable: React.FC<RecentBookingsTableProps> = ({ bookings = []
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending':
+      case '9':
         return 'Pendiente';
-      case 'received':
+      case '1':
         return 'Recibido';
-      case 'in_progress':
+      case '2':
         return 'En Proceso';
-      case 'completed':
+      case '6':
         return 'Completado';
-      case 'delivered':
+      case '7':
         return 'Entregado';
-      case 'cancelled':
+      case '8':
         return 'Cancelado';
       default:
         return 'Desconocido';
@@ -120,8 +120,8 @@ const RecentBookingsTable: React.FC<RecentBookingsTableProps> = ({ bookings = []
                 {formatDate(booking.booking_date)}
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(booking.status)}`}>
-                  {getStatusText(booking.status)}
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(String(booking.status))}`}>
+                  {getStatusText(String(booking.status))}
                 </span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">

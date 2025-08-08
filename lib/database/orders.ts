@@ -11,7 +11,7 @@ export async function createOrder(
 ) {
   // Usar el procedimiento almacenado CrearOrden
   const query = `
-    CALL CrearOrden(?, ?, ?, ?, ?, @orden_id, @codigo_orden);
+    CALL CrearOrden(?, ?, ?, ?, ?,?,? @orden_id, @codigo_orden);
     SELECT @orden_id, @codigo_orden;
   `;
   
@@ -148,6 +148,14 @@ export async function getOrderByCode(code: string) {
     `,
     values: [result[0].orden_id]
   });
+
+  const direccion = await executeQuery({
+    query: `
+      SELECT * FROM direcciones
+      WHERE direccion_id = ?
+    `,
+    values: [result[0].direccion_id]
+  });
   
   // Obtener historial de estados
   const estados = await executeQuery({
@@ -163,9 +171,11 @@ export async function getOrderByCode(code: string) {
     ...result[0],
     servicios,
     productos,
-    estados
+    estados,
+    direccion
   };
 }
+
 
 // Función para crear orden POS
 export async function createPosOrder({
@@ -210,8 +220,8 @@ export async function createPosOrder({
 
   // 1. Crear la orden principal
   await executeQuery({
-    query: `CALL CrearOrden(?, ?, NULL, ?, ?, @orden_id, @codigo_orden)`,
-    values: [clienteId, empleadoId, fechaEntregaEstimada, notasOrder]
+    query: `CALL CrearOrden(?, ?, NULL, ?, ?,?,?, @orden_id, @codigo_orden)`,
+    values: [clienteId, empleadoId, fechaEntregaEstimada, notasOrder, "ORD", 1]
   });
   
   const [orderResult] = await executeQuery<any>({
@@ -331,6 +341,8 @@ export async function createPosOrder({
 
 // Obtener órdenes con filtros avanzados (para panel admin)
 export async function getOrders({
+
+  
   page = 1,
   pageSize = 10,
   estadoId = null,
@@ -342,13 +354,21 @@ export async function getOrders({
 }: {
   page?: number;
   pageSize?: number;
-  estadoId?: number | null;
+  estadoId?: string[] | string | null;
   estadoPago?: string | null;
   fechaInicio?: string | null;
   fechaFin?: string | null;
   searchQuery?: string | null;
   empleadoId?: number | null;
 }) {
+
+  const estadoIdList = Array.isArray(estadoId)
+  ? estadoId.map(id => parseInt(id))
+  : estadoId
+    ? [parseInt(estadoId)]
+    : [];
+
+
   const pageSafeValue = parseInt(String(page), 10) || 1;
   const pageSizeSafeValue = parseInt(String(pageSize), 10) || 10;
   const offset = (pageSafeValue - 1) * pageSizeSafeValue;
@@ -360,10 +380,13 @@ export async function getOrders({
   
   const queryParams: any[] = [];
   
-  if (estadoId) {
-    query += ` AND estado_actual_id = ?`;
-    queryParams.push(estadoId);
-  }
+  if (estadoIdList.length > 0) {
+  const placeholders = estadoIdList.map(() => '?').join(', ');
+  query += ` AND estado_actual_id IN (${placeholders})`;
+  queryParams.push(...estadoIdList);
+}
+
+  
   
   if (estadoPago) {
     query += ` AND estado_pago = ?`;
@@ -420,6 +443,7 @@ export async function getOrders({
   }
 }
 
+// Obtener detalle completo de una orden por ID
 // Obtener detalle completo de una orden por ID
 export async function getOrderById(orderId: number) {
   // Obtener datos de la orden
@@ -482,6 +506,21 @@ export async function getOrderById(orderId: number) {
     query: imagesQuery,
     values: [orderId]
   });
+
+  // **AGREGAR: Obtener datos de la dirección**
+  let direccion = [];
+  if (order.direccion_id) {
+    const direccionQuery = `
+      SELECT *
+      FROM direcciones
+      WHERE direccion_id = ?
+    `;
+    
+    direccion = await executeQuery<any[]>({
+      query: direccionQuery,
+      values: [order.direccion_id]
+    });
+  }
   
   return {
     ...order,
@@ -489,7 +528,8 @@ export async function getOrderById(orderId: number) {
     productos: products,
     historial: history,
     pagos: payments,
-    imagenes: images
+    imagenes: images,
+    direccion: direccion  // Agregar la dirección al resultado
   };
 }
 

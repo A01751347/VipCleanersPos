@@ -7,6 +7,7 @@ import {
   Loader2, 
   AlertCircle, 
   Package, 
+  Phone,
   Clock, 
   Calendar, 
   Truck, 
@@ -14,7 +15,8 @@ import {
   MapPin,
   FileText,
   CreditCard,
-  CheckCircle
+  CheckCircle,
+  X
 } from 'lucide-react';
 
 // Types and interfaces
@@ -96,33 +98,35 @@ interface SearchStatus {
 
 // Utility functions
 const getStatusStep = (estadoActual: any, tipo: string): number => {
-  if (tipo === 'reservacion') return 1;
-  if (!estadoActual?.nombre) return 1;
+  if (tipo === 'reservacion') return 0; // Reservations start at "Pendiente"
+  if (!estadoActual?.nombre) return 0;
   
   const estado = estadoActual.nombre.toLowerCase().trim();
   const statusMap: { [key: string]: number } = {
-    'recibida': 1, 'pendiente': 1, 'creada': 1, 'received': 1,
+    'pendiente': 0,
+    'recibida': 1, 'creada': 1, 'received': 1,
     'en proceso': 2, 'procesando': 2, 'lavando': 2, 'secando': 2, 'en limpieza': 2,
     'listo': 3, 'completado': 3, 'terminado': 3, 'listo para entrega': 3,
     'entregado': 4, 'entregada': 4, 'finalizado': 4
   };
   
-  return statusMap[estado] || 1;
+  return statusMap[estado] !== undefined ? statusMap[estado] : 0;
 };
 
 const getStatusLabel = (step: number): string => {
-  const labels = ['Recibida', 'En Proceso', 'Listo', 'Entregado'];
-  return labels[step - 1] || 'Pendiente';
+  const labels = ['Pendiente', 'Recibida', 'En Proceso', 'Listo', 'Entregado'];
+  return labels[step] || 'Desconocido';
 };
 
 const getStatusDescription = (step: number): string => {
   const descriptions = [
+    'Tu pedido ha sido recibido y está pendiente de procesamiento',
     'Tu calzado ha sido recibido en nuestra lavandería',
     'Tu calzado está siendo procesado y limpiado',
     'Tu calzado está listo para ser entregado',
     'Tu calzado ha sido entregado exitosamente'
   ];
-  return descriptions[step - 1] || 'Estado no disponible';
+  return descriptions[step] || 'Estado no disponible';
 };
 
 const formatDate = (dateString: string): string => {
@@ -196,31 +200,57 @@ const TrackingPage: React.FC = () => {
     }
   };
 
+  const handleNewSearch = () => {
+    setReference('');
+    setTrackingData(null);
+    setSearchStatus({ status: 'idle', message: '' });
+  };
+
+  const showCompactSearch = trackingData || searchStatus.status === 'error';
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#f5f9f8] to-white">
       <Navbar />
       
-      {/* Main Content */}
+      {/* Main Content - Smooth layout without jarring transitions */}
       <main className="flex-1 pt-20">
-        {/* Hero Section */}
-        <HeroSection />
-        
-        {/* Search Section */}
-        <SearchSection 
-          reference={reference}
-          setReference={setReference}
-          handleSearch={handleSearch}
-          searchStatus={searchStatus}
-        />
+        {/* Hero and Search Section - Always show, but modify when results exist */}
+        {!trackingData && searchStatus.status !== 'error' ? (
+          <>
+            <HeroSection />
+            <SearchSection 
+              reference={reference}
+              setReference={setReference}
+              handleSearch={handleSearch}
+              searchStatus={searchStatus}
+            />
+          </>
+        ) : (
+          // Compact search - Only appears in content area, not sticky
+          <div className="py-6">
+            <CompactSearchBar 
+              reference={reference}
+              setReference={setReference}
+              handleSearch={handleSearch}
+              handleNewSearch={handleNewSearch}
+              searchStatus={searchStatus}
+            />
+          </div>
+        )}
         
         {/* Results Section */}
         {trackingData && (
           <ResultsSection trackingData={trackingData} />
         )}
         
+        {/* Error State */}
+        {searchStatus.status === 'error' && !trackingData && (
+          <ErrorSection searchStatus={searchStatus} />
+        )}
+        
         {/* Empty State */}
         {!trackingData && searchStatus.status === 'idle' && (
-          <Space />
+          <EmptyState />
         )}
       </main>
       
@@ -229,14 +259,63 @@ const TrackingPage: React.FC = () => {
   );
 };
 
+// Compact search bar component - Much more subtle and integrated
+const CompactSearchBar: React.FC<{
+  reference: string;
+  setReference: (value: string) => void;
+  handleSearch: (e: React.FormEvent) => void;
+  handleNewSearch: () => void;
+  searchStatus: SearchStatus;
+}> = ({ reference, setReference, handleSearch, handleNewSearch, searchStatus }) => (
+  <div className="bg-white/80 backdrop-blur-sm border-b border-[#e0e6e5]/50">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="flex-1 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search size={16} className="text-[#6c7a89]" />
+              </div>
+              <input
+                type="text"
+                value={reference}
+                onChange={(e) => setReference(e.target.value.toUpperCase())}
+                placeholder="Buscar otro pedido..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-[#e0e6e5] rounded-lg focus:outline-none focus:border-[#78f3d3] focus:ring-1 focus:ring-[#78f3d3] focus:ring-opacity-20 transition-all bg-white/90"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={searchStatus.status === 'searching'}
+              className="px-4 py-2 bg-[#78f3d3] text-[#313D52] font-medium rounded-lg hover:bg-[#4de0c0] transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center text-sm"
+            >
+              {searchStatus.status === 'searching' ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Search size={16} />
+              )}
+            </button>
+          </form>
+        </div>
+        <button
+          onClick={handleNewSearch}
+          className="p-2 text-[#6c7a89] hover:text-[#313D52] hover:bg-[#f5f9f8] rounded-lg transition-colors"
+          title="Nueva búsqueda"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // Hero section component
 const HeroSection: React.FC = () => (
   <section className="relative py-16 px-4 sm:px-6 lg:px-8">
-    <div className="max-w-4xl mx-auto text-center flex flex-row">
+    <div className="max-w-4xl mx-auto text-center">
       <div className="inline-flex items-center justify-center w-20 h-20 bg-[#78f3d3] bg-opacity-20 rounded-full mb-6">
         <Search size={40} className="text-[#313D52]" />
       </div>
-      <div>
       <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#313D52] mb-6">
         Rastrear mi <span className="text-[#78f3d3]">Pedido</span>
       </h1>
@@ -244,7 +323,7 @@ const HeroSection: React.FC = () => (
         Mantente informado sobre el estado de tu servicio de limpieza. 
         Introduce tu código de referencia para conocer cada paso del proceso.
       </p>
-    </div></div>
+    </div>
   </section>
 );
 
@@ -255,7 +334,7 @@ const SearchSection: React.FC<{
   handleSearch: (e: React.FormEvent) => void;
   searchStatus: SearchStatus;
 }> = ({ reference, setReference, handleSearch, searchStatus }) => (
-  <section className=" px-4 sm:px-6 lg:px-8">
+  <section className="py-8 px-4 sm:px-6 lg:px-8">
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-2xl shadow-lg p-8">
         <form onSubmit={handleSearch} className="space-y-6">
@@ -299,16 +378,36 @@ const SearchSection: React.FC<{
             )}
           </button>
         </form>
-        
-        {searchStatus.status === 'error' && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start">
-            <AlertCircle size={20} className="flex-shrink-0 mr-3 mt-0.5" />
-            <div>
-              <p className="font-medium">No se pudo encontrar tu pedido</p>
-              <p className="text-sm mt-1">{searchStatus.message}</p>
-            </div>
+      </div>
+    </div>
+  </section>
+);
+
+// Error section component
+const ErrorSection: React.FC<{ searchStatus: SearchStatus }> = ({ searchStatus }) => (
+  <section className="py-8 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6">
+            <AlertCircle size={32} className="text-red-600" />
           </div>
-        )}
+          <h3 className="text-xl font-semibold text-[#313D52] mb-4">
+            No se pudo encontrar tu pedido
+          </h3>
+          <p className="text-[#6c7a89] mb-6">
+            {searchStatus.message}
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-left">
+            <h4 className="font-medium text-red-800 mb-2">Consejos para encontrar tu pedido:</h4>
+            <ul className="text-sm text-red-700 space-y-1">
+              <li>• Verifica que el código esté escrito correctamente</li>
+              <li>• Asegúrate de incluir las letras al inicio (ORD o RES)</li>
+              <li>• Revisa tu email de confirmación</li>
+              <li>• Contacta nuestro servicio al cliente si persiste el problema</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -362,7 +461,7 @@ const OrderHeader: React.FC<{ trackingData: TrackingData; isReservation: boolean
           Creado el {formatDate(trackingData.fechaCreacion)}
         </p>
         {trackingData.reservacionOriginal && (
-          <p className="text-sm text-[#78f3d3] mt-1">
+          <p className="text-sm text-[#61c9ae mt-1">
             Originalmente reservación: {trackingData.reservacionOriginal}
           </p>
         )}
@@ -380,7 +479,7 @@ const OrderHeader: React.FC<{ trackingData: TrackingData; isReservation: boolean
 const ClientInfo: React.FC<{ cliente: TrackingData['cliente'] }> = ({ cliente }) => (
   <div className="p-6 border-b border-[#e0e6e5]">
     <div className="flex items-center mb-4">
-      <User size={20} className="text-[#78f3d3] mr-3" />
+      <User size={20} className="text-[#61c9ae mr-3" />
       <h3 className="text-lg font-semibold text-[#313D52]">Información del Cliente</h3>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -408,7 +507,7 @@ const ServicesSection: React.FC<{
 }> = ({ trackingData, isReservation }) => (
   <div className="p-6 border-b border-[#e0e6e5]">
     <div className="flex items-center mb-4">
-      <Package size={20} className="text-[#78f3d3] mr-3" />
+      <Package size={20} className="text-[#61c9ae mr-3" />
       <h3 className="text-lg font-semibold text-[#313D52]">
         {isReservation ? 'Servicio Reservado' : 'Servicios Solicitados'}
       </h3>
@@ -506,15 +605,15 @@ const StatusSection: React.FC<{
   </div>
 );
 
-// Reservation status component
+// Reservation status component - Updated for step 0
 const ReservationStatus: React.FC<{ trackingData: TrackingData }> = ({ trackingData }) => (
   <div className="text-center py-12">
     <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#78f3d3] to-[#4de0c0] rounded-full mb-6 shadow-lg">
       <Calendar size={40} className="text-[#313D52]" />
     </div>
-    <h4 className="text-2xl font-bold text-[#313D52] mb-4">Reservación Confirmada</h4>
+    <h4 className="text-2xl font-bold text-[#313D52] mb-4">Reservación Pendiente</h4>
     <p className="text-[#6c7a89] mb-6 max-w-md mx-auto">
-      Tu reservación está confirmada. Te contactaremos pronto para coordinar la recolección.
+      Tu reservación ha sido recibida y está pendiente de confirmación. Te contactaremos pronto para coordinar la recolección.
     </p>
     <div className="bg-gradient-to-r from-[#e0f7f0] to-[#f0fdf7] p-6 rounded-xl inline-block">
       <p className="text-[#313D52] font-medium">
@@ -524,7 +623,7 @@ const ReservationStatus: React.FC<{ trackingData: TrackingData }> = ({ trackingD
   </div>
 );
 
-// Order progress status component
+// Order progress status component - Updated with step 0 "Pendiente"
 const OrderProgressStatus: React.FC<{ 
   currentStep: number; 
   trackingData: TrackingData 
@@ -539,7 +638,7 @@ const OrderProgressStatus: React.FC<{
       ></div>
       
       <div className="flex justify-between">
-        {[1, 2, 3, 4].map((step) => {
+        {[0, 1, 2, 3, 4].map((step) => {
           const isActive = step <= currentStep;
           const isCurrent = step === currentStep;
           
@@ -554,13 +653,14 @@ const OrderProgressStatus: React.FC<{
                       : 'bg-[#e0e6e5] text-[#6c7a89]'
                 }`}
               >
+                {step === 0 && <Clock size={20} />}
                 {step === 1 && <Package size={20} />}
-                {step === 2 && <Clock size={20} />}
+                {step === 2 && <Truck size={20} />}
                 {step === 3 && <CheckCircle size={20} />}
-                {step === 4 && <Truck size={20} />}
+                {step === 4 && <Phone size={20} />}
               </div>
               <p className={`text-sm font-medium mt-3 text-center transition-colors ${
-                isCurrent ? 'text-[#78f3d3] font-bold' : isActive ? 'text-[#313D52]' : 'text-[#6c7a89]'
+                isCurrent ? 'text-[#61c9ae font-bold' : isActive ? 'text-[#313D52]' : 'text-[#6c7a89]'
               }`}>
                 {getStatusLabel(step)}
               </p>
@@ -576,7 +676,7 @@ const OrderProgressStatus: React.FC<{
         <Calendar size={24} className="text-[#78f3d3] flex-shrink-0 mr-4 mt-1" />
         <div>
           <h4 className="text-lg font-bold text-[#313D52] mb-2">
-            Estado actual: {trackingData.estadoActual?.nombre || 'En proceso'}
+            Estado actual: {trackingData.estadoActual?.nombre || getStatusLabel(currentStep)}
           </h4>
           <p className="text-[#6c7a89]">
             {trackingData.estadoActual?.descripcion || getStatusDescription(currentStep)}
@@ -601,12 +701,27 @@ const NotesSection: React.FC<{ notas: string }> = ({ notas }) => (
 );
 
 // Empty state component
-const Space: React.FC = () => (
+const EmptyState: React.FC = () => (
   <section className="py-16 px-4 sm:px-6 lg:px-8">
     <div className="max-w-2xl mx-auto text-center">
-     
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-lg mx-auto">
-        <div className="p-6 rounded-xl ">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e0e6e5]">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-[#78f3d3] bg-opacity-20 rounded-full mb-4">
+            <Package size={24} className="text-[#313D52]" />
+          </div>
+          <h3 className="font-semibold text-[#313D52] mb-2">Órdenes de Servicio</h3>
+          <p className="text-sm text-[#6c7a89]">
+            Comienzan con <code className="bg-[#f5f9f8] px-2 py-1 rounded text-[#313D52] font-mono">ORD</code>
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e0e6e5]">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-[#78f3d3] bg-opacity-20 rounded-full mb-4">
+            <Calendar size={24} className="text-[#313D52]" />
+          </div>
+          <h3 className="font-semibold text-[#313D52] mb-2">Reservaciones</h3>
+          <p className="text-sm text-[#6c7a89]">
+            Comienzan con <code className="bg-[#f5f9f8] px-2 py-1 rounded text-[#313D52] font-mono">RES</code>
+          </p>
         </div>
       </div>
     </div>

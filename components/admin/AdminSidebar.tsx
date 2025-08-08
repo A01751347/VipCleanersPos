@@ -28,7 +28,7 @@ const AdminSidebar = () => {
     { name: 'Dashboard', href: '/admin', icon: Home },
     { name: 'Punto de Venta', href: '/admin/pos', icon: ShoppingCart },
     { name: 'Órdenes', href: '/admin/orders', icon: Package },
-    { name: 'Reservaciones', href: '/admin/bookings', icon: Calendar },
+    //{ name: 'Reservaciones', href: '/admin/bookings', icon: Calendar },
     { name: 'Mensajes', href: '/admin/messages', icon: MessageSquare },
     { name: 'Clientes', href: '/admin/clients', icon: Users },
     { name: 'Pagos', href: '/admin/payments', icon: CreditCard },

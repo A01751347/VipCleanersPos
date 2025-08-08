@@ -12,9 +12,12 @@ const StatusFilter: React.FC<StatusFilterProps> = ({ selectedStatus, onChange })
   const [isOpen, setIsOpen] = useState(false);
 
   const statuses = [
-    { value: 'pending', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'completed', label: 'Completado', color: 'bg-green-100 text-green-800' },
-    { value: 'cancelled', label: 'Cancelado', color: 'bg-red-100 text-red-800' }
+    { value: '9', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
+    { value: '1', label: 'Recibido', color: 'bg-blue-100 text-blue-800' },
+    { value: '2', label: 'En Proceso', color: 'bg-orange-100 text-orange-800' },
+    { value: '6', label: 'Completado', color: 'bg-green-100 text-green-800' },
+    { value: '7', label: 'Entregado', color: 'bg-green-100 text-green-800' },
+    { value: '8', label: 'Cancelado', color: 'bg-red-100 text-red-800' }
   ];
 
   const toggleStatus = (status: string) => {

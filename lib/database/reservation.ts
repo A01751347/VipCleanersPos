@@ -428,28 +428,22 @@ export async function getBookings({
 export async function getRecentBookings(limit = 5) {
   const query = `
     SELECT 
-      r.reservacion_id as id,
-      r.codigo_reservacion as booking_reference,
-      CONCAT(c.nombre, ' ', c.apellidos) as full_name,
-      c.email,
-      s.nombre as service_type,
-      r.marca,
-      r.modelo,
-      r.descripcion_calzado as shoes_type,
-      CASE 
-        WHEN r.activo = FALSE THEN 'cancelled'
-        WHEN r.estado = 'completada' THEN 'completed'
-        WHEN r.fecha_reservacion > NOW() THEN 'pending'
-        ELSE 'pending'
-      END as status,
-      DATE_FORMAT(r.fecha_reservacion, '%Y-%m-%d') as booking_date,
-      r.fecha_creacion as created_at
-    FROM reservaciones r
-    JOIN clientes c ON r.cliente_id = c.cliente_id
-    JOIN servicios s ON r.servicio_id = s.servicio_id
-    WHERE r.activo = TRUE
-    ORDER BY r.fecha_creacion DESC
-    LIMIT 5
+  o.orden_id AS id,
+  o.codigo_orden AS booking_reference,
+  CONCAT(c.nombre, ' ', c.apellidos) AS full_name,
+  s.nombre AS service_type,
+  o.fecha_recepcion AS booking_date,
+  o.estado_actual_id AS status,
+  o.fecha_creacion
+FROM ordenes o
+JOIN clientes c ON o.cliente_id = c.cliente_id
+LEFT JOIN detalles_orden_servicios dos ON o.orden_id = dos.orden_id
+LEFT JOIN servicios s ON dos.servicio_id = s.servicio_id
+WHERE o.codigo_orden LIKE 'RES%'
+GROUP BY o.orden_id
+ORDER BY o.fecha_recepcion DESC
+LIMIT 5;
+
   `;
   return executeQuery<Array<Record<string, unknown>>>({
     query

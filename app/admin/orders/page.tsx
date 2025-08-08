@@ -242,7 +242,7 @@ console.log(loadOrders);
               <option value="">Todos los pagos</option>
               <option value="pendiente">Pago pendiente</option>
               <option value="parcial">Pago parcial</option>
-              <option value="completado">Pago completado</option>
+              <option value="pagado">Pago completado</option>
             </select>
           </div>
           

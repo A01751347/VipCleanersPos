@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
     // Caso: Obtener listado de órdenes con filtros
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
-    const estadoId = searchParams.get('estadoId') ? parseInt(searchParams.get('estadoId') as string, 10) : null;
+    const estadoIdParam = searchParams.get('estadoId');
+const estadoId = estadoIdParam
+  ? estadoIdParam.split(',').map(id => parseInt(id, 10))
+  : null;
+
     const estadoPago = searchParams.get('estadoPago') || null;
     const fechaInicio = searchParams.get('fechaInicio') || null;
     const fechaFin = searchParams.get('fechaFin') || null;
@@ -53,6 +57,8 @@ export async function GET(request: NextRequest) {
       searchQuery,
       empleadoId
     });
+    
+
     
     return NextResponse.json(orders, { status: 200 });
   } catch (error) {

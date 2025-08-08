@@ -14,14 +14,15 @@ export async function registerPayment({
   metodo: 'efectivo' | 'tarjeta' | 'transferencia' | 'mercado_pago';
   referencia?: string | null;
   terminalId?: string | null;
-  empleadoId: number;
+  empleadoId: number ;
 }) {
   const query = `
-    CALL RegistrarPago(?, ?, ?, ?, ?, ?, @pago_id);
+    CALL RegistrarPago(?, ?, ?, ?, ?, 1, @pago_id);
     SELECT @pago_id as pago_id;
   `;
-  
-  const [result] = await executeQuery<any>({
+
+  // Usa executeQuery como siempre, pero sabiendo que vienen múltiples resultados
+  const result = await executeQuery<any[][]>({
     query,
     values: [
       ordenId,
@@ -32,9 +33,12 @@ export async function registerPayment({
       empleadoId
     ]
   });
-  
+
+  // La segunda consulta (SELECT) estará en result[1]
+  const pagoId = result?.[1]?.[0]?.pago_id;
+
   return {
-    pagoId: result[0].pago_id
+    pagoId
   };
 }
 

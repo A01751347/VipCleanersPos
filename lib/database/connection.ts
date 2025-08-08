@@ -32,7 +32,8 @@ export async function executeQuery<T>({
   values?: unknown[];
 }): Promise<T> {
   try {
-    const [result] = await pool.execute(query, values);
+    const [result] = await pool.query(query, values); // ✅ .query en lugar de .execute
+
     return result as T;
   } catch (err) {
     console.error('Database query error:', err);

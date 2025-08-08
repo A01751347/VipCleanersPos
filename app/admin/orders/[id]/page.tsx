@@ -50,6 +50,9 @@ interface OrderDetail {
   cliente_apellidos: string;
   cliente_email: string;
   cliente_telefono: string;
+  requiere_pickup: boolean;
+  costo_pickup: number;
+  direccion_id: number;
   total: number;
   subtotal: number;
   impuestos: number;
@@ -66,6 +69,7 @@ interface OrderDetail {
   tiene_identificacion_registrada: boolean;
   empleado_recepcion_nombre: string;
   empleado_entrega_nombre: string | null;
+  direccion: OrderDirection[];
   servicios: OrderService[];
   productos: OrderProduct[];
   historial: OrderStatusHistory[];
@@ -103,6 +107,23 @@ interface OrderProduct {
   subtotal: number;
 }
 
+interface OrderDirection {
+  direccion_id: number;
+  cliente_id: number;
+  alias: string;
+  calle: string;
+  numero_exterior: number;
+  numero_interior: number;
+  colonia: string;
+  municipio_delegacion: string;
+  ciudad: string;
+  estado: string;
+  codigo_postal: number;
+  telefono_contacto: string;
+  instrucciones_entrega: string;
+
+}
+
 interface OrderStatusHistory {
   historial_id: number;
   estado_id: number;
@@ -135,6 +156,7 @@ interface OrderImage {
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
+
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -190,6 +212,8 @@ export default function OrderDetailPage() {
     setSelectedShoe({ id: shoeId, name: shoeName });
     setIsStorageModalOpen(true);
   };
+
+  
 
   const loadOrderDetails = async () => {
     try {
@@ -247,8 +271,8 @@ export default function OrderDetailPage() {
         return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">Pendiente</span>;
       case 'parcial':
         return <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">Parcial</span>;
-      case 'completado':
-        return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Completado</span>;
+      case 'pagado':
+        return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Pagado</span>;
       default:
         return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">{status}</span>;
     }
@@ -268,6 +292,7 @@ export default function OrderDetailPage() {
   // Get icon for payment method
   const getPaymentMethodIcon = (method: string) => {
     switch (method) {
+      case "": return "";
       case 'efectivo': return <Banknote size={16} />;
       case 'tarjeta': return <CreditCard size={16} />;
       case 'transferencia': return <RefreshCw size={16} />;
@@ -281,62 +306,62 @@ export default function OrderDetailPage() {
     window.print();
   };
 
-// Improved handleUpdateStatus function for your React component
-const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
-  try {
-    console.log('Iniciando actualización de estado:', {
-      ordenId: orderId,
-      newStatusId,
-      comentario
-    });
+  // Improved handleUpdateStatus function for your React component
+  const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
+    try {
+      console.log('Iniciando actualización de estado:', {
+        ordenId: orderId,
+        newStatusId,
+        comentario
+      });
 
-    const response = await fetch(`/api/admin/orders/${orderId}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        estadoId: newStatusId,
-        comentario: comentario || null
-      }),
-    });
+      const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          estadoId: newStatusId,
+          comentario: comentario || null
+        }),
+      });
 
-    const responseData = await response.json();
+      const responseData = await response.json();
 
-    console.log('Respuesta del servidor:', responseData);
+      console.log('Respuesta del servidor:', responseData);
 
-    if (!response.ok) {
-      throw new Error(responseData.error || 'Error al actualizar el estado');
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Error al actualizar el estado');
+      }
+
+      // Show success message
+      console.log('Estado actualizado exitosamente:', responseData);
+
+      // Close modal first
+      setIsStatusModalOpen(false);
+
+      // Then reload data
+      await loadOrderDetails();
+
+      // You can add a toast notification here if you have one
+      // toast.success('Estado actualizado correctamente');
+
+    } catch (error) {
+      console.error('Error updating status:', error);
+
+      // Better error handling
+      let errorMessage = 'Error al actualizar el estado de la orden';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Show error to user (you can replace alert with a better notification system)
+      alert(`Error: ${errorMessage}`);
+
+      // Don't close the modal on error, so user can try again
     }
-
-    // Show success message
-    console.log('Estado actualizado exitosamente:', responseData);
-    
-    // Close modal first
-    setIsStatusModalOpen(false);
-    
-    // Then reload data
-    await loadOrderDetails();
-    
-    // You can add a toast notification here if you have one
-    // toast.success('Estado actualizado correctamente');
-    
-  } catch (error) {
-    console.error('Error updating status:', error);
-    
-    // Better error handling
-    let errorMessage = 'Error al actualizar el estado de la orden';
-    
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-    
-    // Show error to user (you can replace alert with a better notification system)
-    alert(`Error: ${errorMessage}`);
-    
-    // Don't close the modal on error, so user can try again
-  }
-};
+  };
 
   // Register payment
   const handleAddPayment = async (paymentData: {
@@ -399,10 +424,14 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
 
   // Calculate amount paid
   const calculateAmountPaid = () => {
-    if (!order || !order.pagos || order.pagos.length === 0) return 0;
-    return order.pagos.reduce((sum, payment) => sum + payment.monto, 0);
+    if (!order?.pagos || order.pagos.length === 0) return 0;
+  
+    return order.pagos.reduce((sum, payment) => {
+      const monto = Number(payment.monto) || 0; // Asegura número válido
+      return sum + monto;
+    }, 0);
   };
-
+  
   // Calculate balance
   const calculateBalance = () => {
     if (!order) return 0;
@@ -510,8 +539,15 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
                       1x {shoe.servicio_nombre}
                     </h3>
                     <div className="text-sm text-[#313D52] mt-1 font-medium">
-                      {shoe.marca ? `${shoe.marca}` : 'Sin marca registrada'} {shoe.modelo ? `${shoe.modelo}` : ''}
+                      {shoe.marca && shoe.modelo
+                        ? `${shoe.marca} - ${shoe.modelo}`
+                        : shoe.marca
+                          ? shoe.marca
+                          : shoe.modelo
+                            ? `- ${shoe.modelo}`
+                            : 'Sin detalles registrados'}
                     </div>
+
                   </div>
                   <span className="font-bold text-base text-[#313D52] bg-[#f5f9f8] px-3 py-1 rounded-lg">
                     {formatCurrency(shoe.subtotal)}
@@ -602,10 +638,10 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
                 <div className="mt-3 flex justify-between items-center pt-2 border-t border-[#e0e6e5]">
                   <div className="flex items-center">
                     <span className={`inline-block w-2 h-2 rounded-full mr-2 ${shoe.caja_almacenamiento
-                        ? 'bg-green-500'
-                        : order.estado_actual_id >= 2
-                          ? 'bg-yellow-500'
-                          : 'bg-gray-400'
+                      ? 'bg-green-500'
+                      : order.estado_actual_id >= 2
+                        ? 'bg-yellow-500'
+                        : 'bg-gray-400'
                       }`}></span>
                     <span className="text-xs text-[#6c7a89]">
                       {shoe.caja_almacenamiento
@@ -669,6 +705,9 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
   }
 
   const balance = calculateBalance();
+  const direccionPickup = order.direccion[0]
+  console.log("faaa", direccionPickup)
+
 
   // Sumar precio_unitario * cantidad de cada servicio
   const totalServicios = order.servicios.reduce(
@@ -702,15 +741,15 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
           </button>
 
 
-<button
-  onClick={() => setShowSendTicketModal(true)}
-  disabled={!order?.cliente_email}
-  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-  title={!order?.cliente_email ? 'El cliente no tiene email registrado' : 'Enviar ticket por email'}
->
-  <Mail size={16} className="mr-2" />
-  Enviar Ticket
-</button>
+          <button
+            onClick={() => setShowSendTicketModal(true)}
+            disabled={!order?.cliente_email}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!order?.cliente_email ? 'El cliente no tiene email registrado' : 'Enviar ticket por email'}
+          >
+            <Mail size={16} className="mr-2" />
+            Enviar Ticket
+          </button>
 
 
           <button
@@ -725,8 +764,8 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
             onClick={() => setIsPaymentModalOpen(true)}
             disabled={balance <= 0}
             className={`inline-flex items-center px-4 py-2 rounded-lg border ${balance <= 0
-                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                : 'bg-[#313D52] text-white border-[#313D52] hover:bg-[#3e4a61]'
+              ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+              : 'bg-[#313D52] text-white border-[#313D52] hover:bg-[#3e4a61]'
               } transition-colors`}
           >
             <DollarSign size={16} className="mr-2" />
@@ -767,6 +806,7 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
               </Link>
             </div>
           </div>
+
 
           {/* Identification (conditional) */}
           {renderIdentificationSection()}
@@ -813,17 +853,15 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
                 {getPaymentStatusBadge(order.estado_pago)}
               </div>
               <div className="mb-3 flex justify-between">
-                <span className="text-[#6c7a89]">Método preferido:</span>
+                <span className="text-[#6c7a89]">Método de pago:</span>
                 <span className="text-[#313D52] flex items-center">
                   {getPaymentMethodIcon(order.metodo_pago)}
                   <span className="ml-1">{getPaymentMethodTranslation(order.metodo_pago)}</span>
                 </span>
               </div>
-
-              <div className="border-t border-[#e0e6e5] my-3 pt-3">
-                <div className="flex justify-between mb-1">
-                  <span className="text-[#6c7a89]">Subtotal:</span>
-                  <span className="text-[#313D52]">{formatCurrency(order.subtotal)}</span>
+              <div className="flex justify-between mb-1">
+                  <span className="text-[#6c7a89]">Envio:</span>
+                  <span className="text-[#313D52]">{formatCurrency(order.costo_pickup)}</span>
                 </div>
                 {order.descuento > 0 && (
                   <div className="flex justify-between mb-1 text-green-600">
@@ -831,6 +869,18 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
                     <span>-{formatCurrency(order.descuento)}</span>
                   </div>
                 )}
+              <div className="border-t border-[#e0e6e5] my-3 pt-3">
+                <div className="flex justify-between mb-1">
+                  <span className="text-[#6c7a89]">Subtotal:</span>
+                  <span className="text-[#313D52]">{formatCurrency((order.subtotal))}</span>
+                </div>
+                {order.descuento > 0 && (
+                  <div className="flex justify-between mb-1 text-green-600">
+                    <span>Descuento:</span>
+                    <span>-{formatCurrency(order.descuento)}</span>
+                  </div>
+                )}
+                
                 <div className="flex justify-between mb-3">
                   <span className="text-[#6c7a89]">IVA (16%):</span>
                   <span className="text-[#313D52]">{formatCurrency(order.impuestos)}</span>
@@ -872,123 +922,124 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
           {renderShoesDetails()}
 
           {/* Services */}
-         
+
           <div className="">
-  <div className="overflow-hidden rounded-lg border border-[#e0e6e5]">
-    {/* — Encabezado fijo — */}
-    <table className="min-w-full divide-y divide-[#e0e6e5] table-fixed">
-      <thead className="bg-[#f5f9f8]">
-        <tr>
-          <th
-            scope="col"
-            className="px-3 py-4 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-          >
-            Servicio
-          </th>
-          <th
-            scope="col"
-            className="px-3 py-2 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-          >
-            Detalle de Calzado
-          </th>
-          <th
-            scope="col"
-            className="px-3 py-2 text-center text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-          >
-            Cant
-          </th>
-          <th
-            scope="col"
-            className="px-3 py-2 text-right text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-          >
-            Precio
-          </th>
-        </tr>
-      </thead>
-    </table>
+            <div className="overflow-hidden rounded-lg border border-[#e0e6e5]">
+              {/* — Encabezado fijo — */}
+              <table className="min-w-full divide-y divide-[#e0e6e5] table-fixed">
+                <thead className="bg-[#f5f9f8]">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-3 py-4 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
+                    >
+                      Servicio
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-2 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
+                    >
+                      Detalle de Calzado
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-2 text-center text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
+                    >
+                      Cant
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-2 text-right text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
+                    >
+                      Precio
+                    </th>
+                  </tr>
+                </thead>
+              </table>
 
-    {/* — Zona central con altura mínima y scroll — */}
-    <div className="min-h-[150px]  overflow-y-auto">
-      <table className="min-w-full divide-y divide-[#e0e6e5] table-fixed">
-        <tbody className="bg-white divide-y divide-[#e0e6e5]">
-          
-          {/* — Si no hay servicios, dibujo una fila vacía pero con min-height — */}
-          {order.servicios.length === 0 ? (
-            <tr>
-              <td colSpan={4} className="py-10 text-center text-sm text-[#6c7a89] italic">
-                No hay servicios registrados en esta orden
-              </td>
-            </tr>
-          ) : (
-            /* — Si hay servicios, las mapeo normalmente — */
-            order.servicios.map((service, idx) => (
-              <tr
-                key={service.detalle_servicio_id}
-                className={idx % 2 === 0 ? 'bg-white' : 'bg-[#f9fafa]'}
-              >
-                <td className="px-3 py-3 whitespace-nowrap">
-                  <span className="font-medium text-sm text-[#313D52]">
-                    {service.servicio_nombre}
-                  </span>
-                </td>
-                <td className="px-3 py-3 text-sm text-[#6c7a89]">
-                  {service.marca_calzado && service.modelo_calzado ? (
-                    <>
-                      <div className="font-medium text-sm text-[#313D52]">
-                        {service.marca_calzado} {service.modelo_calzado}
-                      </div>
-                      {service.descripcion && (
-                        <div className="block text-xs text-[#6c7a89] mt-1">
-                          {service.descripcion}
-                        </div>
-                      )}
-                    </>
-                  ) : service.descripcion ? (
-                    <span className="text-sm text-[#313D52]">
-                      {service.descripcion}
-                    </span>
-                  ) : (
-                    <span className="italic text-sm text-[#6c7a89]">
-                      Sin detalle
-                    </span>
-                  )}
-                  {service.caja_almacenamiento && (
-                    <div className="mt-1 flex items-center">
-                      <Box size={12} className="text-[#78f3d3] mr-1" />
-                      <span className="text-xs bg-[#e0f7f0] px-1.5 py-0.5 rounded">
-                        Caja {service.caja_almacenamiento}
-                        {service.codigo_ubicacion && ` (${service.codigo_ubicacion})`}
-                      </span>
-                    </div>
-                  )}
-                </td>
-                <td className="px-3 py-3 text-center text-sm text-[#313D52]">
-                  {service.cantidad ?? 1}
-                </td>
-                <td className="px-3 py-3 text-right text-sm text-[#313D52]">
-                  {formatCurrency(service.precio_unitario)}
-                </td>
-              </tr>
-            ))
-          )}
+              {/* — Zona central con altura mínima y scroll — */}
+              <div className="min-h-[150px]  overflow-y-auto">
+                <table className="min-w-full divide-y divide-[#e0e6e5] table-fixed">
+                  <tbody className="bg-white divide-y divide-[#e0e6e5]">
 
-          {/* — Fila de totales sólo si hay servicios — */}
-          {order.servicios.length > 0 && (
-            <tr className="bg-[#f5f9f8]">
-              <td colSpan={3} className="px-3 py-2 text-right text-sm font-medium text-[#6c7a89]">
-                Total Servicios:
-              </td>
-              <td className="px-3 py-2 text-right text-sm font-bold text-[#313D52]">
-                {formatCurrency(totalServicios)}
-              </td>
-            </tr>
-          )}
-
-        </tbody>
-      </table>
+                    {/* — Si no hay servicios, dibujo una fila vacía pero con min-height — */}
+                    {order.servicios.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-center text-sm text-[#6c7a89] italic">
+                          No hay servicios registrados en esta orden
+                        </td>
+                      </tr>
+                    ) : (
+                      /* — Si hay servicios, las mapeo normalmente — */
+                      order.servicios.map((service, idx) => (
+                        <tr
+                          key={service.detalle_servicio_id}
+                          className={idx % 2 === 0 ? 'bg-white' : 'bg-[#f9fafa]'}
+                        >
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <span className="font-medium text-sm text-[#313D52]">
+                              {service.servicio_nombre}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-sm text-[#6c7a89]">
+                          {(service.marca_calzado || service.modelo_calzado) ? (
+  <>
+    <div className="font-medium text-sm text-[#313D52]">
+      {service.marca_calzado ?? ''} {service.modelo_calzado ?? ''}
     </div>
-  </div>
-</div>
+    {service.descripcion && (
+      <div className="block text-xs text-[#6c7a89] mt-1">
+        {service.descripcion}
+      </div>
+    )}
+  </>
+) : service.descripcion ? (
+  <span className="text-sm text-[#313D52]">
+    {service.descripcion}
+  </span>
+) : (
+  <span className="italic text-sm text-[#6c7a89]">
+    Sin detalle
+  </span>
+)}
+
+                            {service.caja_almacenamiento && (
+                              <div className="mt-1 flex items-center">
+                                <Box size={12} className="text-[#78f3d3] mr-1" />
+                                <span className="text-xs bg-[#e0f7f0] px-1.5 py-0.5 rounded">
+                                  Caja {service.caja_almacenamiento}
+                                  {service.codigo_ubicacion && ` (${service.codigo_ubicacion})`}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center text-sm text-[#313D52]">
+                            {service.cantidad ?? 1}
+                          </td>
+                          <td className="px-3 py-3 text-right text-sm text-[#313D52]">
+                            {formatCurrency(service.precio_unitario)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+
+                    {/* — Fila de totales sólo si hay servicios — */}
+                    {order.servicios.length > 0 && (
+                      <tr className="bg-[#f5f9f8]">
+                        <td colSpan={3} className="px-3 py-2 text-right text-sm font-medium text-[#6c7a89]">
+                          Total Servicios:
+                        </td>
+                        <td className="px-3 py-2 text-right text-sm font-bold text-[#313D52]">
+                          {formatCurrency(totalServicios)}
+                        </td>
+                      </tr>
+                    )}
+
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
 
           {/* Products */}
@@ -1042,27 +1093,40 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
 
         {/* Right column: Current status, timeline and payments */}
         <div className="space-y-6">
-          {/* Current status */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-              <h2 className="font-medium text-[#313D52] flex items-center">
-                <Package size={18} className="mr-2 text-[#6c7a89]" />
-                Estado Actual
-              </h2>
-            </div>
-            <div className="p-4 text-center">
-              <div className="text-lg font-semibold text-[#313D52] mb-3">
-                {order.estado_actual}
-              </div>
-              <button
-                onClick={() => setIsStatusModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors text-sm"
-              >
-                <Edit size={16} className="mr-2" />
-                Cambiar Estado
-              </button>
-            </div>
-          </div>
+          {/* PickUp */}
+{ direccionPickup&&(
+  <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+    <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+      <h2 className="font-medium text-[#313D52] flex items-center">
+        <MapPin size={18} className="mr-2 text-[#6c7a89]" />
+        Pickup
+      </h2>
+    </div>
+    <div className="p-4">
+      <div className="mb-4">
+        <h3 className="font-semibold text-[#313D52] text-lg mb-1">
+          {direccionPickup.alias}
+        </h3>
+        <div className="text-sm text-[#6c7a89] space-y-1">
+          <p>
+            {direccionPickup.calle} {direccionPickup.numero_exterior}
+            {direccionPickup.numero_interior && `, Int. ${direccionPickup.numero_interior}`}
+          </p>
+          <p>
+            {direccionPickup.colonia}, {direccionPickup.municipio_delegacion}
+          </p>
+          <p>
+            {direccionPickup.ciudad}, {direccionPickup.estado}, CP {direccionPickup.codigo_postal}
+          </p>
+          <p>Teléfono de contacto: {direccionPickup.telefono_contacto || 'No registrado'}</p>
+          {direccionPickup.instrucciones_entrega && (
+            <p>Instrucciones: {direccionPickup.instrucciones_entrega}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Timeline */}
           <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
@@ -1226,19 +1290,19 @@ const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
         />
       )}
       {showSendTicketModal && order && (
-  <SendTicketModal
-    isOpen={showSendTicketModal}
-    onClose={() => setShowSendTicketModal(false)}
-    order={{
-      orden_id: order.orden_id,
-      codigo_orden: order.codigo_orden,
-      cliente_nombre: order.cliente_nombre,
-      cliente_apellidos: order.cliente_apellidos,
-      cliente_email: order.cliente_email,
-      total: order.total
-    }}
-  />
-)}
+        <SendTicketModal
+          isOpen={showSendTicketModal}
+          onClose={() => setShowSendTicketModal(false)}
+          order={{
+            orden_id: order.orden_id,
+            codigo_orden: order.codigo_orden,
+            cliente_nombre: order.cliente_nombre,
+            cliente_apellidos: order.cliente_apellidos,
+            cliente_email: order.cliente_email,
+            total: order.total
+          }}
+        />
+      )}
     </div>
   );
 }

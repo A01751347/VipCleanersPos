@@ -30,11 +30,11 @@ export async function GET(
     let dataType = '';
 
     // 1. Primero buscar en órdenes (tanto por código de orden como por código de reservación)
-    if (code.startsWith('ORD')) {
+    
       console.log('Buscando orden por código de orden...');
       trackingData = await getOrderByCode(code);
       dataType = 'orden';
-    }
+    
     
     // 2. Si no se encuentra, buscar orden por código de reservación
     if (!trackingData) {

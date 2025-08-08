@@ -297,12 +297,14 @@ export async function POST(request: NextRequest) {
     try {
       // 1. Crear la orden principal usando el procedimiento almacenado
       await executeQuery({
-        query: `CALL CrearOrden(?, ?, NULL, ?, ?, @orden_id, @codigo_orden)`,
+        query: `CALL CrearOrden(?, ?, NULL, ?, ?,?,?, @orden_id, @codigo_orden)`,
         values: [
           clientId, 
           1, // empleado_id por defecto para booking online
           estimatedDeliveryDate, 
-          `Reservación online con ${servicesToProcess.length} servicio${servicesToProcess.length > 1 ? 's' : ''}`
+          `Reservación online con ${servicesToProcess.length} servicio${servicesToProcess.length > 1 ? 's' : ''}`,
+          "RES",
+          9
         ]
       });
       
@@ -317,7 +319,7 @@ export async function POST(request: NextRequest) {
       console.log('✅ Orden creada:', { ordenId, codigoOrden });
       
       // 2. Agregar todos los servicios a la orden
-      let subtotalTotal = 0;
+      let subtotalServicios = 0;
       
       for (const service of servicesToProcess) {
         try {
@@ -333,7 +335,7 @@ export async function POST(request: NextRequest) {
           }
           
           const servicioData = serviceInfo[0];
-          const precioUnitario = servicioData.precio || 0;
+          const precioUnitario = Number(servicioData.precio) || 0;
           
           // Crear registros individuales para cada par de tenis
           for (let i = 0; i < service.quantity; i++) {
@@ -356,25 +358,56 @@ export async function POST(request: NextRequest) {
               ]
             });
             
-            subtotalTotal += precioUnitario;
+            subtotalServicios += precioUnitario;
+
+            
           }
           
-          console.log(`✅ Servicio agregado: ${servicioData.nombre} x${service.quantity}`);
+          console.log(`✅ Servicio agregado: ${servicioData.nombre} x${service.quantity} = $${precioUnitario * service.quantity}`);
         } catch (serviceError) {
           console.error(`❌ Error agregando servicio ${service.serviceId}:`, serviceError);
           throw serviceError;
         }
       }
       
-      // 3. Calcular totales
-      const iva = subtotalTotal * 0.16; // 16% IVA
-      const totalOrden = subtotalTotal + iva;
+      // 3. Calcular totales CORRECTAMENTE
+      console.log('💰 Calculando totales:', {
+        subtotalServicios,
+        pickupCost: pickupCost || 0,
+        requiresPickup
+      });
       
-      // 4. Actualizar la orden con totales y información adicional
+      // Subtotal = servicios + pickup (sin IVA)
+      const subtotalCompleto =( subtotalServicios + (requiresPickup ? (pickupCost || 0) : 0))/1.16;
+      
+      // IVA sobre el subtotal completo
+      const iva = subtotalCompleto * 0.16; // 16% IVA
+      
+      // Total final
+      const totalFinal = subtotalCompleto + iva;
+      
+      console.log('💰 Desglose de costos:', {
+        subtotalServicios: (Number(subtotalServicios) || 0).toFixed(2),
+        costoPickup: (requiresPickup ? (pickupCost || 0) : 0).toFixed(2),
+        subtotalCompleto: (Number(subtotalCompleto) || 0).toFixed(2),
+        iva: (Number(iva) || 0).toFixed(2),
+        totalFinal: (Number(totalFinal) || 0).toFixed(2)
+      });
+      
+      
+      // 4. Actualizar la orden con totales correctos
       let notasAdicionales = `Reservación online - ${servicesToProcess.length} servicio${servicesToProcess.length > 1 ? 's' : ''}`;
-      if (requiresPickup && pickupZone) {
-        notasAdicionales += `\nPickup: Zona ${pickupZone} (+${pickupCost || 0})`;
+      notasAdicionales += `\nServicios: $${(Number(subtotalServicios) || 0).toFixed(2)}`;
+
+      
+      if (requiresPickup && pickupZone && pickupCost) {
+        notasAdicionales += `\nPickup: Zona ${pickupZone} (+$${pickupCost.toFixed(2)})`;
       }
+      
+      notasAdicionales += `\nSubtotal: $${(Number(subtotalCompleto)||0).toFixed(2)}`;
+      notasAdicionales += `\nIVA (16%): $${(Number(iva)||0).toFixed(2)}`;
+      notasAdicionales += `\nTotal: $${(Number(totalFinal)||0).toFixed(2)}`;
+      
       if (address && address.instructions) {
         notasAdicionales += `\nInstrucciones: ${address.instructions}`;
       }
@@ -390,70 +423,49 @@ export async function POST(request: NextRequest) {
             requiere_identificacion = FALSE,
             metodo_pago = 'pendiente',
             notas = ?,
-            direccion_id = ?
+            direccion_id = ?,
+            costo_pickup = ?,
+            zona_pickup = ?,
+            requiere_pickup = ?
           WHERE orden_id = ?
         `,
         values: [
-          subtotalTotal, 
-          iva, 
-          totalOrden, 
+          subtotalCompleto, // subtotal incluye servicios + pickup (sin IVA)
+          iva,              // IVA sobre el subtotal completo
+          totalFinal,       // total final con todo incluido
           notasAdicionales,
           addressId,
+          requiresPickup ? (pickupCost || 0) : 0,
+          requiresPickup ? pickupZone : null,
+          requiresPickup ? 1 : 0,
           ordenId
         ]
       });
       
-// Versión mejorada del manejo de pickup sin dependencia de servicio específico
-// Reemplazar la sección del pickup en el código anterior
-
-// 5. Si hay pickup, agregar información de costos SIN crear servicio adicional
-if (requiresPickup && pickupCost && pickupZone) {
-  try {
-    // Opción 1: Agregar el costo directamente al total de la orden
-    const nuevoTotal = totalOrden + pickupCost;
-    
-    await executeQuery({
-      query: `
-        UPDATE ordenes 
-        SET 
-          total = ?,
-          costo_pickup = ?,
-          zona_pickup = ?,
-          notas = CONCAT(COALESCE(notas, ''), '\nPickup: Zona ', ?, ' (+$', ?, ')')
-        WHERE orden_id = ?
-      `,
-      values: [nuevoTotal, pickupCost, pickupZone, pickupZone, pickupCost, ordenId]
-    });
-    
-    console.log('✅ Información de pickup agregada a la orden');
-    
-    // Opción 2: Si quieres mantener el pickup como un ítem separado, usar una tabla de costos adicionales
-    try {
-      await executeQuery({
-        query: `
-          INSERT INTO costos_adicionales_orden (
-            orden_id,
-            concepto,
-            descripcion,
-            monto,
-            fecha_creacion
-          ) VALUES (?, 'pickup', ?, ?, NOW())
-        `,
-        values: [
-          ordenId,
-          `Servicio de pickup - Zona ${pickupZone}`,
-          pickupCost
-        ]
-      });
-      console.log('✅ Costo de pickup registrado en costos adicionales');
-    } catch (additionalCostError) {
-      console.warn('⚠️ Tabla costos_adicionales_orden no existe, usando solo el campo costo_pickup');
-    }
-    
-  } catch (pickupError) {
-    console.warn('⚠️ Error agregando pickup (no crítico):', pickupError);
-  }
-}
+      // 5. Registrar en costos adicionales si hay pickup
+      if (requiresPickup && pickupCost && pickupZone) {
+        try {
+          await executeQuery({
+            query: `
+              INSERT INTO costos_adicionales_orden (
+                orden_id,
+                concepto,
+                descripcion,
+                monto,
+                fecha_creacion
+              ) VALUES (?, 'pickup', ?, ?, NOW())
+            `,
+            values: [
+              ordenId,
+              `Servicio de pickup - Zona ${pickupZone}`,
+              pickupCost
+            ]
+          });
+          console.log('✅ Costo de pickup registrado en costos adicionales');
+        } catch (additionalCostError) {
+          console.warn('⚠️ Tabla costos_adicionales_orden no existe, usando solo campos de orden');
+        }
+      }
       
       console.log('🎉 Orden con múltiples servicios creada exitosamente:', codigoOrden);
       
@@ -469,13 +481,21 @@ if (requiresPickup && pickupCost && pickupZone) {
           servicesCount: servicesToProcess.length,
           totalServices: servicesToProcess.reduce((sum, s) => sum + s.quantity, 0),
           deliveryMethod,
+          // 🆕 DESGLOSE CORRECTO DE COSTOS
+          costos: {
+            subtotalServicios: subtotalServicios,
+            costoPickup: requiresPickup ? (pickupCost || 0) : 0,
+            subtotalCompleto: subtotalCompleto,
+            iva: iva,
+            totalFinal: totalFinal
+          },
+          // Mantener compatibilidad
           pickupCost: requiresPickup ? (pickupCost || 0) : 0,
-          totalServiceCost: subtotalTotal,
-          totalWithTax: totalOrden,
+          totalServiceCost: subtotalServicios,
+          totalWithTax: totalFinal,
           estimatedDelivery: estimatedDeliveryDate.toISOString()
         }
       }, { status: 201 });
-      
     } catch (orderError) {
       console.error('❌ Error creando orden:', orderError);
       return NextResponse.json(

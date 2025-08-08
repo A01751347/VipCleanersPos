@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Loader2, CheckCircle, ChevronRight, AlertCircle, User, Package, Truck, Calendar, Mail, Phone, MapPin, Clock, DollarSign, Brush, Sparkles, Wrench, Shield, Home, Info, Plus, Minus, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import ImprovedCase2Component from './ImprovedCase2Component';
 
 // Types
 interface ServiceOption {
@@ -78,12 +79,12 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
       interior: '',
       neighborhood: '',
       municipality: '',
-      city: 'Santiago de Querétaro',
-      state: 'Querétaro',
+      city: '',
+      state: 'Ciudad de México',
       zipCode: '',
       instructions: '',
-      timeWindowStart: '09:00',
-      timeWindowEnd: '18:00',
+      timeWindowStart: '11:00',
+      timeWindowEnd: '17:00',
       phone: ''
     },
     requiresPickup: false
@@ -140,7 +141,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             { 
               id: '1', 
               name: 'Limpieza Básica', 
-              price: 139,
+              price: 145,
               description: 'Limpieza exterior, agujetas y tratamiento desodorizante',
               duration: 60,
               requiresIdentification: false
@@ -148,7 +149,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             { 
               id: '2', 
               name: 'Limpieza Premium', 
-              price: 189,
+              price: 249,
               description: 'Servicio completo + protección avanzada',
               duration: 90,
               requiresIdentification: false
@@ -301,12 +302,12 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
         interior: '',
         neighborhood: '',
         municipality: '',
-        city: 'Santiago de Querétaro',
-        state: 'Querétaro',
+        city: '',
+        state: 'Ciudad de México',
         zipCode: '',
         instructions: '',
-        timeWindowStart: '09:00',
-        timeWindowEnd: '18:00',
+        timeWindowStart: '11:00',
+        timeWindowEnd: '17:00',
         phone: ''
       },
       requiresPickup: false
@@ -539,7 +540,7 @@ const handleSubmit = async () => {
       throw new Error(result.error || 'Error al procesar la reserva');
     }
 
-    const bookingReference = result.bookingReference || result.orderId || `ORD-${Date.now().toString().slice(-6)}`;
+    const bookingReference = result.bookingReference || result.orderId || `RES-${Date.now().toString().slice(-6)}`;
     
     setFormStatus({
       status: 'success',
@@ -577,7 +578,7 @@ const handleSubmit = async () => {
     const name = serviceName.toLowerCase();
     if (name.includes('básica') || name.includes('basica')) {
       return <Brush size={20} className="text-[#78f3d3]" />;
-    } else if (name.includes('premium')) {
+    } else if (name.includes('Limpieza profunda')) {
       return <Sparkles size={20} className="text-[#78f3d3]" />;
     } else if (name.includes('restauración') || name.includes('restauracion')) {
       return <Wrench size={20} className="text-[#78f3d3]" />;
@@ -761,192 +762,18 @@ const getCostBreakdown = () => {
           </div>
         );
 
-      case 2:
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <Package size={24} className="text-[#78f3d3] mr-3" />
-                <h3 className="text-xl font-semibold text-[#313D52]">Servicios y Calzado</h3>
-              </div>
-              <button
-                onClick={addService}
-                className="flex items-center px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-all font-medium"
-              >
-                <Plus size={18} className="mr-2" />
-                Agregar Servicio
-              </button>
-            </div>
-
-            {servicesLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 size={32} className="animate-spin text-[#78f3d3]" />
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {formData.services.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                    <Package size={48} className="mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-600 mb-4">Cargando servicios...</p>
-                  </div>
-                ) : (
-                  formData.services.map((service, index) => (
-                    <div key={index} className="border-2 border-gray-200 rounded-lg p-6 relative">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-medium text-[#313D52] text-lg">
-                          Servicio {index + 1}
-                        </h4>
-                        {formData.services.length > 1 && (
-                          <button
-                            onClick={() => removeService(index)}
-                            className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-all"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm font-medium text-[#313D52] mb-2">
-                            Marca y Modelo del Calzado *
-                          </label>
-                          <input
-                            type="text"
-                            value={service.shoesType}
-                            onChange={(e) => updateService(index, 'shoesType', e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#78f3d3] focus:border-transparent transition-all"
-                            placeholder="Ej. Nike Air Jordan 1, Adidas Ultraboost"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-[#313D52] mb-2">
-                            Cantidad de pares *
-                          </label>
-                          <div className="flex items-center">
-                            <button
-                              type="button"
-                              onClick={() => updateService(index, 'quantity', Math.max(1, service.quantity - 1))}
-                              className="p-2 border border-gray-300 rounded-l-lg hover:bg-gray-50 transition-all"
-                            >
-                              <Minus size={16} />
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              value={service.quantity}
-                              onChange={(e) => updateService(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
-                              className="w-full px-4 py-3 border-t border-b border-gray-300 text-center focus:ring-2 focus:ring-[#78f3d3] focus:border-transparent transition-all"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => updateService(index, 'quantity', service.quantity + 1)}
-                              className="p-2 border border-gray-300 rounded-r-lg hover:bg-gray-50 transition-all"
-                            >
-                              <Plus size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-[#313D52] mb-4">
-                          Tipo de servicio *
-                        </label>
-                        <div className="space-y-3">
-                          {serviceOptions.map((serviceOption) => (
-                            <div
-                              key={serviceOption.id}
-                              onClick={() => updateService(index, 'serviceId', serviceOption.id)}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                                service.serviceId === serviceOption.id
-                                  ? 'border-[#78f3d3] bg-[#78f3d3]/10'
-                                  : 'border-gray-200 hover:border-[#78f3d3]/50'
-                              }`}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center">
-                                  {getServiceIcon(serviceOption.name)}
-                                  <h5 className="font-medium text-[#313D52] ml-3">{serviceOption.name}</h5>
-                                </div>
-                                <div className="flex items-center">
-                                  <DollarSign size={18} className="text-[#78f3d3]" />
-                                  <span className="text-lg font-bold text-[#78f3d3]">${serviceOption.price}</span>
-                                  {service.quantity > 1 && (
-                                    <span className="text-sm text-gray-600 ml-2">
-                                      x{service.quantity} = ${serviceOption.price * service.quantity}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <p className="text-sm text-gray-600">{serviceOption.description}</p>
-                              <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                                <div className="flex items-center">
-                                  <Clock size={12} className="mr-1" />
-                                  <span>{serviceOption.duration} min</span>
-                                </div>
-                                {serviceOption.requiresIdentification && (
-                                  <div className="flex items-center text-amber-600">
-                                    <Shield size={12} className="mr-1" />
-                                    <span>Requiere ID</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-
-                {/* Total Services Summary */}
-                {formData.services.length > 0 && (
-                  <div className="bg-gradient-to-r from-[#78f3d3]/10 to-[#4de0c0]/10 p-6 rounded-lg border border-[#78f3d3]/30">
-                    <h4 className="font-semibold text-[#313D52] mb-4 flex items-center">
-                      <Package size={20} className="mr-2 text-[#78f3d3]" />
-                      Resumen de Servicios
-                    </h4>
-                    <div className="space-y-3">
-                      {formData.services.map((service, index) => {
-                        const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
-                        return (
-                          <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg">
-                            <div className="flex-1">
-                              <p className="font-medium text-[#313D52]">
-                                {serviceOption?.name || 'Servicio no seleccionado'}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {service.shoesType || 'Calzado no especificado'} - {service.quantity} par{service.quantity > 1 ? 'es' : ''}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-[#78f3d3]">
-                                ${serviceOption ? serviceOption.price * service.quantity : 0}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div className="border-t pt-3 mt-3">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[#313D52]">Total Servicios:</span>
-                          <span className="font-bold text-xl text-[#78f3d3]">
-                            ${formData.services.reduce((total, service) => {
-                              const serviceOption = serviceOptions.find(opt => opt.id === service.serviceId);
-                              return total + (serviceOption ? serviceOption.price * service.quantity : 0);
-                            }, 0)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
+        case 2:
+          return (
+            <ImprovedCase2Component
+              formData={formData}
+              setFormData={setFormData}
+              serviceOptions={serviceOptions}
+              servicesLoading={servicesLoading}
+              addService={addService}
+              removeService={removeService}
+              updateService={updateService}
+            />
+          );
 
       case 3:
         return (
