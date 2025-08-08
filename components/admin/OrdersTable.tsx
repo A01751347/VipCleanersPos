@@ -298,7 +298,7 @@ const getStatusIcon = (status?: string) => {
                   </div>
                   <div className="ml-3">
                     <div className="text-sm font-medium text-[#313D52]">
-                      {order.cliente_nombre} {order.cliente_apellidos}
+                      {order.cliente_nombre} 
                     </div>
                     <div className="text-xs text-[#6c7a89]">{order.cliente_email}</div>
                   </div>

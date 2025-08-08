@@ -789,7 +789,7 @@ export default function OrderDetailPage() {
             <div className="p-4">
               <div className="mb-4">
                 <h3 className="font-semibold text-[#313D52] text-lg">
-                  {order.cliente_nombre} {order.cliente_apellidos}
+                  {order.cliente_nombre}
                 </h3>
                 <div className="text-sm text-[#6c7a89]">
                   <p>ID: {order.cliente_id}</p>

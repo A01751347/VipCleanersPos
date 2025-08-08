@@ -330,7 +330,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
       // Volver a la posición previa
       if (top) window.scrollTo(0, -parseInt(top, 10));
     }
-  
+
     return () => {
       // Limpieza por si se desmonta con el modal abierto
       const top = document.body.style.top;
@@ -567,7 +567,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overscroll-contain"
           style={{ backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
           onClick={(e) => {
             if (e.target === e.currentTarget) onClose();
@@ -578,35 +578,44 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col"
-          >
+            className="
+            bg-white rounded-2xl shadow-2xl w-full max-w-6xl
+            max-h-screen overflow-y-auto
+            lg:h-[90vh] lg:overflow-y-hidden
+            flex flex-col
+          " >
             {/* Header */}
             <div className="bg-[#313D52] text-white p-6 rounded-t-2xl">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left - Title */}
-                <div>
-                  <h2 className="text-2xl font-bold">Reserva tu Servicio</h2>
-                  <p className="text-white/80 text-sm">Rápido y sencillo</p>
-                </div>
+  <div className="flex items-start justify-between gap-4">
+    <div className="min-w-0">
+      <h2 className="text-2xl font-bold">Reserva tu Servicio</h2>
+      <p className="text-white/80 text-sm">Rápido y sencillo</p>
+    </div>
 
-                {/* Right - Name input */}
-                <div className="flex justify-end">
+    <button
+      onClick={onClose}
+      className="shrink-0 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all"
+    >
+      <X size={20} />
+    </button>
+  </div>
+</div>
 
-                  <button
-                    onClick={onClose}
-                    className="text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              </div>
-            </div>
+
 
             {/* Content */}
-            <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] overflow-hidden">
+            <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] lg:overflow-hidden">
 
               {/* Left side - Form */}
-              <div className="space-y-5 pr-2 overflow-y-auto">
+              <div
+                className="
+      space-y-5 
+      lg:pr-2 
+      lg:overflow-y-auto 
+      overscroll-contain
+    "
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
 
                 {/* Contact Info */}
                 <div>
@@ -717,51 +726,55 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                   )}
                 </div>
 
+                {/* Services Summary */}
+                <div className="hidden lg:block">
+
                 <h3 className="text-lg font-semibold text-[#313D52] mb-4">Resumen de tu orden</h3>
 
-                {/* Services Summary */}
-                <div className="space-y-2 mb-6">
-                  {formData.services.map((s, i) => {
-                    const opt = serviceOptions.find((o) => o.id === s.serviceId);
-                    return (
-                      <div key={i} className="flex justify-between items-center text-sm">
-                        <div>
-                          <div className="font-medium">{opt?.name || "Servicio"}</div>
-                          <div className="text-gray-600">{s.quantity} par{s.quantity > 1 ? "es" : ""}</div>
+                  <div className="space-y-2 mb-6">
+                    {formData.services.map((s, i) => {
+                      const opt = serviceOptions.find((o) => o.id === s.serviceId);
+                      return (
+                        <div key={i} className="flex justify-between items-center text-sm">
+                          <div>
+                            <div className="font-medium">{opt?.name || "Servicio"}</div>
+                            <div className="text-gray-600">{s.quantity} par{s.quantity > 1 ? "es" : ""}</div>
+                          </div>
+                          <div className="font-medium">${opt ? opt.price * s.quantity : 0}</div>
                         </div>
-                        <div className="font-medium">${opt ? opt.price * s.quantity : 0}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
 
-                <div className="bg-[#78f3d3] rounded-lg p-4 text-[#313D52]">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm">Servicios</span>
-                    <span className="text-sm">${calculateTotal}</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm">Entrega en tienda</span>
-                    <span className="text-sm text-green-700">Gratis</span>
-                  </div>
-                  <div className="border-t border-[#313D52]/20 pt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold">Total</span>
-                      <div className="flex items-center">
-                        <DollarSign size={20} />
-                        <span className="text-2xl font-bold">{calculateTotal}</span>
+                  <div className="bg-[#78f3d3] rounded-lg p-4 text-[#313D52]">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm">Servicios</span>
+                      <span className="text-sm">${calculateTotal}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-sm">Entrega en tienda</span>
+                      <span className="text-sm text-green-700">Gratis</span>
+                    </div>
+                    <div className="border-t border-[#313D52]/20 pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold">Total</span>
+                        <div className="flex items-center">
+                          <DollarSign size={20} />
+                          <span className="text-2xl font-bold">{calculateTotal}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-
               </div>
 
 
 
               {/* Right side - Summary */}
-              <div className="bg-gray-50 rounded-xl p-6 flex flex-col ml-4 min-w-80">
-
+              <div
+                className="order-1 lg:order-2 bg-gray-50 rounded-xl p-6 flex flex-col min-w-0 lg:overflow-y-auto overscroll-contain"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
 
                 {/* Date & Time */}
                 <div>
@@ -780,7 +793,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Selecciona una hora</label>
-                      <div className="grid grid-cols-3 gap-2 max-h-84 overflow-y-auto bg-white border border-gray-200 rounded-lg p-3">
+                      <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto bg-white border border-gray-200 rounded-lg p-3">
                         {[
                           "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
                           "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
@@ -804,6 +817,45 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
 
 
 
+                <div className="lg:hidden pt-4">
+
+                <h3 className="text-lg font-semibold text-[#313D52] mb-4">Resumen de tu orden</h3>
+
+                  <div className="space-y-2 mb-6">
+                    {formData.services.map((s, i) => {
+                      const opt = serviceOptions.find((o) => o.id === s.serviceId);
+                      return (
+                        <div key={i} className="flex justify-between items-center text-sm">
+                          <div>
+                            <div className="font-medium">{opt?.name || "Servicio"}</div>
+                            <div className="text-gray-600">{s.quantity} par{s.quantity > 1 ? "es" : ""}</div>
+                          </div>
+                          <div className="font-medium">${opt ? opt.price * s.quantity : 0}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="bg-[#78f3d3] rounded-lg p-4 text-[#313D52]">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm">Servicios</span>
+                      <span className="text-sm">${calculateTotal}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-sm">Entrega en tienda</span>
+                      <span className="text-sm text-green-700">Gratis</span>
+                    </div>
+                    <div className="border-t border-[#313D52]/20 pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold">Total</span>
+                        <div className="flex items-center">
+                          <DollarSign size={20} />
+                          <span className="text-2xl font-bold">{calculateTotal}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 {/* Total */}
                 <div className="mt-auto">
 
@@ -843,6 +895,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                       </p>
                     )}
                   </div>
+
 
                   {/* Error */}
                   {formStatus.status === "error" && (

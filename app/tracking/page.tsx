@@ -104,7 +104,7 @@ const getStatusStep = (estadoActual: any, tipo: string): number => {
   const estado = estadoActual.nombre.toLowerCase().trim();
   const statusMap: { [key: string]: number } = {
     'pendiente': 0,
-    'recibida': 1, 'creada': 1, 'received': 1,
+    'recibido': 1, 'creada': 1, 'received': 1,
     'en proceso': 2, 'procesando': 2, 'lavando': 2, 'secando': 2, 'en limpieza': 2,
     'listo': 3, 'completado': 3, 'terminado': 3, 'listo para entrega': 3,
     'entregado': 4, 'entregada': 4, 'finalizado': 4
@@ -114,7 +114,7 @@ const getStatusStep = (estadoActual: any, tipo: string): number => {
 };
 
 const getStatusLabel = (step: number): string => {
-  const labels = ['Pendiente', 'Recibida', 'En Proceso', 'Listo', 'Entregado'];
+  const labels = ['Pendiente', 'Recibido', 'En Proceso', 'Listo', 'Entregado'];
   return labels[step] || 'Desconocido';
 };
 
@@ -486,7 +486,7 @@ const ClientInfo: React.FC<{ cliente: TrackingData['cliente'] }> = ({ cliente })
       <div className="space-y-2">
         <p className="text-sm font-medium text-[#6c7a89]">Nombre Completo</p>
         <p className="text-[#313D52] font-medium text-lg">
-          {cliente.nombre} {cliente.apellidos || ''}
+          {cliente.nombre}
         </p>
       </div>
       <div className="space-y-2">
