@@ -309,16 +309,38 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!mounted) return;
     if (isOpen) {
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-      document.body.style.overflow = "hidden";
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      // Guardar la posición actual
+      const scrollY = window.scrollY;
+      // Bloqueo robusto (iOS-friendly)
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+      document.body.style.overflowY = 'scroll'; // mantiene el ancho (no salta el layout)
     } else {
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
+      // Restaurar
+      const top = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      document.body.style.overflowY = '';
+      // Volver a la posición previa
+      if (top) window.scrollTo(0, -parseInt(top, 10));
     }
+  
     return () => {
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
+      // Limpieza por si se desmonta con el modal abierto
+      const top = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      document.body.style.overflowY = '';
+      if (top) window.scrollTo(0, -parseInt(top, 10));
     };
   }, [isOpen, mounted]);
 
@@ -584,7 +606,8 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] overflow-hidden">
 
               {/* Left side - Form */}
-              <div className="space-y-5 overflow-y-auto pr-2">
+              <div className="space-y-5 pr-2 overflow-y-auto">
+
                 {/* Contact Info */}
                 <div>
                   <h3 className="flex items-center text-lg font-semibold text-[#313D52] mb-3">
