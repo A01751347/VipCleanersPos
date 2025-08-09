@@ -1027,7 +1027,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                           <div className="flex items-center">
                             <DollarSign size={20} />
                             <span className="text-2xl font-bold">
-                              {mxn.format(calculateTotal)}
+                              {calculateTotal}
                             </span>
                           </div>
                         </div>
@@ -1232,12 +1232,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                             >
                               Listo
                             </button>
-                            <button
-                              onClick={() => setFormStatus({ status: "idle", message: "" })}
-                              className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition"
-                            >
-                              Seguir aquí
-                            </button>
+                            
                           </div>
                         </motion.div>
                       </motion.div>

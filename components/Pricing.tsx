@@ -1,10 +1,11 @@
 "use client"
 
-// components/Pricing.tsx — Versión 1-servicio (VIP) sin LazyMotion
-import React, { useMemo } from "react";
+// components/Pricing.tsx — Versión 1-servicio (VIP) con aparición por scroll
+import React, { useMemo, useRef } from "react";
 import { Crown, ArrowRight, ShieldCheck, Sparkles, Check } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import BookingButton from "./BookingButton";
+import ParallaxDecorations from "./ParallaxDecorations";
 
 const container = {
   hidden: { opacity: 0 },
@@ -35,6 +36,9 @@ const pop = {
 const Pricing: React.FC = () => {
   const prefersReduced = useReducedMotion();
 
+  const sectionRef = useRef<HTMLElement | null>(null);
+
+
   const features = useMemo(
     () => [
       "Limpieza profunda interior y exterior",
@@ -43,7 +47,6 @@ const Pricing: React.FC = () => {
       "Acondicionado de suelas y mediasuelas",
       "Protección repelente para futuras manchas",
       "Entrega express disponible y seguimiento del proceso",
-      "Garantía de satisfacción del 100%",
     ],
     []
   );
@@ -53,15 +56,17 @@ const Pricing: React.FC = () => {
       id="pricing"
       className="relative py-24 px-4 sm:px-6 lg:px-8 overflow-hidden bg-[linear-gradient(135deg,#f6fbf9,white_30%,#eefaf6)]"
     >
-      <motion.div
-        variants={container}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-120px", amount: 0.15 }}
-        className="max-w-7xl mx-auto will-change-transform"
-      >
+      <ParallaxDecorations targetRef={sectionRef as React.RefObject<HTMLElement>} />
+      {/* Wrapper sin trigger global */}
+      <div className="max-w-7xl mx-auto will-change-transform">
         {/* Header */}
-        <motion.div variants={item} className="text-center mb-16">
+        <motion.div
+          variants={item}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.25 }}
+          className="text-center mb-16"
+        >
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#78f3d3]/20 rounded-full text-[#213041] font-semibold text-sm mb-6">
             <Sparkles size={16} />
             SERVICIO ÚNICO · TRATO VIP
@@ -69,7 +74,7 @@ const Pricing: React.FC = () => {
           <h2 className="text-4xl md:text-5xl font-bold text-[#213041] mb-4 leading-tight">
             Limpieza Profesional <span className="text-[#10bfa1]">VIP</span>
           </h2>
-          <p className="text-lg md:text-xl text-[#5d6b7b] max-w-3xl mx-auto">
+          <p className="text-lg md:text-xl text-[#5d6b7b] max-w-3xl mx-auto mb-0">
             Sin niveles. Sin letras chiquitas. Tratamos <b>todos</b> tus tenis como si fueran edición limitada.
           </p>
         </motion.div>
@@ -77,6 +82,9 @@ const Pricing: React.FC = () => {
         {/* Card única */}
         <motion.div
           variants={pop}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.25 }}
           whileHover={!prefersReduced ? { y: -4 } : undefined}
           className="relative mx-auto max-w-3xl"
         >
@@ -102,29 +110,32 @@ const Pricing: React.FC = () => {
                 <div className="text-5xl font-extrabold text-[#1f2f42] leading-none">$249</div>
                 <span className="text-sm text-[#6b7a89] mb-1">por par</span>
               </div>
-              <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700">
-                <ShieldCheck size={16} /> Garantía de satisfacción total
-              </div>
             </div>
 
-            {/* Lista de features */}
-            <div className="px-8 md:px-10 py-8">
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {features.map((feature, idx) => (
-                  <motion.li
-                    key={idx}
-                    variants={item}
-                    className="flex items-start"
-                    whileHover={!prefersReduced ? { x: 2 } : undefined}
-                  >
-                    <span className="mr-3 mt-0.5 inline-flex p-1.5 rounded-full text-[#10bfa1] bg-[#10bfa1]/10">
-                      <Check size={16} strokeWidth={3} />
-                    </span>
-                    <span className="text-[#33465a] font-medium leading-relaxed">{feature}</span>
-                  </motion.li>
-                ))}
-              </ul>
-            </div>
+            {/* Lista de features con aparición por scroll y stagger */}
+            <motion.ul
+              variants={container}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, amount: 0.2, margin: "0px 0px -12% 0px" }}
+              className="grid gap-y-8 gap-x-6 sm:grid-cols-2 px-6 md:px-12 py-10"
+            >
+              {features.map((feature, idx) => (
+                <motion.li
+                  key={idx}
+                  variants={item}
+                  className="flex items-center space-x-3"
+                  whileHover={!prefersReduced ? { x: 4 } : undefined}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#10bfa1]/10 text-[#10bfa1]">
+                    <Check size={18} strokeWidth={2.5} />
+                  </span>
+                  <span className="text-[#33465a] font-medium leading-snug">
+                    {feature}
+                  </span>
+                </motion.li>
+              ))}
+            </motion.ul>
 
             {/* CTA */}
             <div className="px-8 md:px-10 pb-10">
@@ -139,7 +150,13 @@ const Pricing: React.FC = () => {
         </motion.div>
 
         {/* Bloque de ayuda */}
-        <motion.div variants={item} className="mt-16 text-center">
+        <motion.div
+          variants={item}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.25 }}
+          className="mt-16 text-center"
+        >
           <div className="bg-white rounded-2xl p-8 shadow-[0_10px_25px_-12px_rgba(31,47,66,0.25)] max-w-4xl mx-auto border border-gray-100">
             <h3 className="text-2xl font-bold text-[#1f2f42] mb-3">¿Dudas sobre el proceso?</h3>
             <p className="text-[#5d6b7b] mb-6 text-lg">
@@ -155,7 +172,7 @@ const Pricing: React.FC = () => {
             </div>
           </div>
         </motion.div>
-      </motion.div>
+      </div>
     </section>
   );
 };
