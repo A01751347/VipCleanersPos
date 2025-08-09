@@ -112,18 +112,13 @@ export default function Home() {
       {/* Conversion sections */}
       <Pricing />
 
-      <LazySection>
         <DetailedReviews />
-      </LazySection>
       
       {/* Support and content sections - lower priority */}
-      <LazySection>
-        <FAQ />
-      </LazySection>
       
-      <LazySection>
+        <FAQ />
+      
         <BlogSection />
-      </LazySection>
       
       {/* Contact and footer */}
       <Contact />

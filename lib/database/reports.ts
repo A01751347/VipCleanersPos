@@ -2,115 +2,126 @@ import { executeQuery } from './connection';
 
 // Obtener estadísticas del dashboard
 export async function getDashboardStats() {
-  // Ventas por mes
+  // Ventas por mes (usa tu vista; asegúrate que la vista ya filtre estado_pago='pagado' y fecha_creacion)
   const monthlySalesQuery = `
     SELECT * FROM vw_estadisticas_ventas_mensuales
     ORDER BY anio_mes DESC
     LIMIT 12
   `;
-  
-  const monthlySales = await executeQuery<any[]>({
-    query: monthlySalesQuery,
-    values: []
-  });
-  
-  // Servicios más populares
-  const popularServicesQuery = `
-    SELECT * FROM vw_servicios_populares
-    LIMIT 5
-  `;
-  
+  const monthlySales = await executeQuery<any[]>({ query: monthlySalesQuery, values: [] });
+
+  // Servicios y productos populares (sin cambios)
   const popularServices = await executeQuery<any[]>({
-    query: popularServicesQuery,
+    query: `SELECT * FROM vw_servicios_populares LIMIT 5`,
     values: []
   });
-  
-  // Productos más vendidos
-  const popularProductsQuery = `
-    SELECT * FROM vw_productos_populares
-    LIMIT 5
-  `;
-  
   const popularProducts = await executeQuery<any[]>({
-    query: popularProductsQuery,
+    query: `SELECT * FROM vw_productos_populares LIMIT 5`,
     values: []
   });
-  
-  // Órdenes con entrega hoy
-  const todayDeliveriesQuery = `
-    SELECT * FROM vw_ordenes_entrega_hoy
-  `;
-  
+
+  // Entregas hoy y órdenes con ID pendiente (sin cambios)
   const todayDeliveries = await executeQuery<any[]>({
-    query: todayDeliveriesQuery,
+    query: `SELECT * FROM vw_ordenes_entrega_hoy`,
     values: []
   });
-  
-  // Órdenes pendientes de identificación
-  const pendingIdOrdersQuery = `
-    SELECT * FROM vw_ordenes_id_pendiente
-    LIMIT 5
-  `;
-  
   const pendingIdOrders = await executeQuery<any[]>({
-    query: pendingIdOrdersQuery,
+    query: `SELECT * FROM vw_ordenes_id_pendiente LIMIT 5`,
     values: []
   });
-  
-  // Resumen de inventario
-  const inventorySummaryQuery = `
-    SELECT 
-      COUNT(*) as total_productos,
-      SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) as productos_agotados,
-      SUM(CASE WHEN stock < stock_minimo AND stock > 0 THEN 1 ELSE 0 END) as productos_bajo_stock,
-      SUM(CASE WHEN stock >= stock_minimo THEN 1 ELSE 0 END) as productos_ok
-    FROM productos
-    WHERE activo = TRUE
-  `;
-  
+
+  // Resumen inventario (sin cambios)
   const [inventorySummary] = await executeQuery<any[]>({
-    query: inventorySummaryQuery,
+    query: `
+      SELECT 
+        COUNT(*) as total_productos,
+        SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) as productos_agotados,
+        SUM(CASE WHEN stock < stock_minimo AND stock > 0 THEN 1 ELSE 0 END) as productos_bajo_stock,
+        SUM(CASE WHEN stock >= stock_minimo THEN 1 ELSE 0 END) as productos_ok
+      FROM productos
+      WHERE activo = TRUE
+    `,
     values: []
   });
-  
-  // Métricas generales
-  const metricsQuery = `
-    SELECT 
-      (SELECT COUNT(*) FROM ordenes WHERE DATE(fecha_recepcion) = CURDATE()) as ordenes_hoy,
-      (SELECT SUM(total) FROM ordenes WHERE DATE(fecha_recepcion) = CURDATE()) as ventas_hoy,
-      (SELECT COUNT(*) FROM ordenes WHERE MONTH(fecha_recepcion) = MONTH(CURDATE()) AND YEAR(fecha_recepcion) = YEAR(CURDATE())) as ordenes_mes,
-      (SELECT SUM(total) FROM ordenes WHERE MONTH(fecha_recepcion) = MONTH(CURDATE()) AND YEAR(fecha_recepcion) = YEAR(CURDATE())) as ventas_mes,
-      (SELECT COUNT(*) FROM clientes) as total_clientes,
-      (SELECT COUNT(DISTINCT cliente_id) FROM ordenes WHERE MONTH(fecha_recepcion) = MONTH(CURDATE()) AND YEAR(fecha_recepcion) = YEAR(CURDATE())) as clientes_activos_mes
-  `;
-  
+
+  // Métricas generales (ventas solo pagadas; fechas por fecha_creacion)
   const [metrics] = await executeQuery<any[]>({
-    query: metricsQuery,
+    query: `
+      SELECT 
+        (SELECT COUNT(*) 
+           FROM ordenes 
+          WHERE DATE(fecha_creacion) = CURDATE()
+        ) as ordenes_hoy,
+        (SELECT IFNULL(SUM(total),0) 
+           FROM ordenes 
+          WHERE DATE(fecha_creacion) = CURDATE()
+            AND estado_pago = 'pagado'
+        ) as ventas_hoy,
+        (SELECT COUNT(*) 
+           FROM ordenes 
+          WHERE MONTH(fecha_creacion) = MONTH(CURDATE()) 
+            AND YEAR(fecha_creacion) = YEAR(CURDATE())
+            AND estado_pago = 'pagado'
+        ) as ordenes_mes,
+        (SELECT IFNULL(SUM(total),0) 
+           FROM ordenes 
+          WHERE MONTH(fecha_creacion) = MONTH(CURDATE()) 
+            AND YEAR(fecha_creacion) = YEAR(CURDATE())
+            AND estado_pago = 'pagado'
+        ) as ventas_mes,
+        (SELECT COUNT(*) FROM clientes) as total_clientes,
+        (SELECT COUNT(DISTINCT cliente_id) 
+           FROM ordenes 
+          WHERE MONTH(fecha_creacion) = MONTH(CURDATE()) 
+            AND YEAR(fecha_creacion) = YEAR(CURDATE())
+            -- Si quieres solo pagadas, descomenta:
+            -- AND estado_pago = 'pagado'
+        ) as clientes_activos_mes
+    `,
     values: []
   });
-  
-  // Estadísticas adicionales para el dashboard
-  const dashboardStatsQuery = `
-    SELECT 
-      (SELECT COUNT(*) FROM reservaciones WHERE activo = TRUE) as totalBookings,
-      (SELECT COUNT(*) FROM mensajes_contacto WHERE esta_leido = FALSE) as pendingMessages,
-      (SELECT IFNULL(SUM(total), 0) FROM ordenes WHERE MONTH(fecha_recepcion) = MONTH(CURDATE()) AND YEAR(fecha_recepcion) = YEAR(CURDATE())) as monthlySales,
-      (SELECT COUNT(DISTINCT cliente_id) FROM ordenes WHERE MONTH(fecha_recepcion) = MONTH(CURDATE()) AND YEAR(fecha_recepcion) = YEAR(CURDATE())) as activeClients
-  `;
-  
+
+  // Estadísticas principales del dashboard
   const [dashboardStats] = await executeQuery<any[]>({
-    query: dashboardStatsQuery,
+    query: `
+      SELECT 
+        /* Reservaciones desde ordenes con prefijo RES */
+        (SELECT COUNT(*) 
+           FROM ordenes 
+          WHERE codigo_orden LIKE 'RES%'
+        ) as totalBookings,
+
+        /* Mensajes sin leer */
+        (SELECT COUNT(*) 
+           FROM mensajes_contacto 
+          WHERE esta_leido = FALSE
+        ) as pendingMessages,
+
+        /* Ventas del mes SOLO pagadas (por fecha_creacion) */
+        (SELECT IFNULL(SUM(total), 0) 
+           FROM ordenes 
+          WHERE estado_pago = 'pagado'
+            AND fecha_creacion >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+            AND fecha_creacion <  DATE_FORMAT(CURDATE(), '%Y-%m-01') + INTERVAL 1 MONTH
+        ) as monthlySales,
+
+        /* Clientes activos del mes (si quieres solo pagadas, agrega AND estado_pago = 'pagado') */
+        (SELECT COUNT(DISTINCT cliente_id) 
+           FROM ordenes 
+          WHERE MONTH(fecha_creacion) = MONTH(CURDATE()) 
+            AND YEAR(fecha_creacion) = YEAR(CURDATE())
+            -- AND estado_pago = 'pagado'
+        ) as activeClients
+    `,
     values: []
   });
 
   return {
-    // Estadísticas principales para el dashboard
-    totalBookings: dashboardStats.totalBookings || 0,
-    pendingMessages: dashboardStats.pendingMessages || 0,
-    monthlySales: dashboardStats.monthlySales || 0,
-    activeClients: dashboardStats.activeClients || 0,
-    
-    // Datos detallados para otros reportes
+    totalBookings: dashboardStats?.totalBookings || 0,
+    pendingMessages: dashboardStats?.pendingMessages || 0,
+    monthlySales: dashboardStats?.monthlySales || 0,
+    activeClients: dashboardStats?.activeClients || 0,
+
     ventas_mensuales: monthlySales,
     servicios_populares: popularServices,
     productos_populares: popularProducts,
@@ -120,6 +131,7 @@ export async function getDashboardStats() {
     metricas: metrics
   };
 }
+
 
 // Obtener reporte de ventas por período
 export async function getSalesReport({
