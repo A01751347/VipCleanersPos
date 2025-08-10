@@ -555,7 +555,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     const fetchServices = async () => {
       try {
         setServicesLoading(true);
-        const response = await fetch("/api/admin/services", { signal: ac.signal });
+        const response = await fetch("/api/services", { signal: ac.signal });
 
         if (response.ok) {
           const data = await response.json();

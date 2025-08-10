@@ -82,7 +82,7 @@ const Footer: React.FC = () => {
               {/* Stats */}
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="text-center p-3 bg-[#3e4a61] rounded-lg">
-                  <div className="text-2xl font-bold text-[#78f3d3]">10K+</div>
+                  <div className="text-2xl font-bold text-[#78f3d3]">3K+</div>
                   <div className="text-xs text-gray-400">Pares Atendidos</div>
                 </div>
                 <div className="text-center p-3 bg-[#3e4a61] rounded-lg">

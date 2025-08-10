@@ -108,7 +108,7 @@ export default function Home() {
 
       {/* Prueba social y contenido */}
       <DetailedReviews />
-      <Testimonials />
+      {/* <Testimonials />*/}
 
       {/* Soporte */}
       <FAQ />
