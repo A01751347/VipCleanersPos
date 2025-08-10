@@ -104,15 +104,20 @@ export async function POST(request: NextRequest) {
       address,
       requiresPickup,
       pickupCost,
-      pickupZone
+      pickupZone,
+      acceptTerms,
+  acceptWhatsapp
+
+  
     } = requestBody;
     
     // Validaciones básicas
-    if (!fullName || !email || !phone || !deliveryMethod || !bookingDate || !bookingTime) {
+    if ((!fullName || !email || !phone || !deliveryMethod || !bookingDate || !bookingTime) || (acceptTerms !== true)) {
       return NextResponse.json(
         { error: 'Todos los campos básicos son requeridos' },
         { status: 400 }
       );
+    
     }
 
     // Validar servicios - priorizar el array de servicios, pero mantener compatibilidad
@@ -450,6 +455,9 @@ export async function POST(request: NextRequest) {
             costo_pickup = ?,
             zona_pickup = ?,
             requiere_pickup = ?
+            acepta_terminos = ?,
+      acepta_whatsapp = ?,
+      consent_at = NOW()
           WHERE orden_id = ?
         `,
         values: [
@@ -461,6 +469,8 @@ export async function POST(request: NextRequest) {
           requiresPickup ? (pickupCost || 0) : 0,
           requiresPickup ? pickupZone : null,
           requiresPickup ? 1 : 0,
+          acceptTerms ? 1 : 0,
+    acceptWhatsapp ? 1 : 0,
           ordenId
         ]
       });
@@ -516,6 +526,11 @@ export async function POST(request: NextRequest) {
           pickupCost: requiresPickup ? (pickupCost || 0) : 0,
           totalServiceCost: subtotalServicios,
           totalWithTax: totalFinal,
+          consent: {
+            acceptTerms: !!acceptTerms,
+            acceptWhatsapp: !!acceptWhatsapp,
+            consentAt: new Date().toISOString()
+          },
           estimatedDelivery: estimatedDeliveryDate.toISOString()
         }
       }, { status: 201 });
@@ -692,6 +707,11 @@ export async function GET(request: NextRequest) {
       estado_pago: bookingData.estado_pago,
       costo_pickup: bookingData.costo_pickup,
       zona_pickup: bookingData.zona_pickup,
+
+      consent: {
+        acceptTerms: bookingData.acepta_terminos ?? undefined,
+        acceptWhatsapp: bookingData.acepta_whatsapp ?? undefined,
+      },
       
       // Información de dirección para pickup
       direccion_pickup: bookingData.direccion_pickup || null,

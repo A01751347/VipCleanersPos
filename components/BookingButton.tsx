@@ -745,11 +745,13 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     if (formData.services.length === 0) issues.push("Agrega al menos un servicio.");
     if (!formData.bookingDate || !formData.bookingTime) issues.push("Selecciona fecha y hora.");
     if (!turnstileToken) issues.push("Completa la verificación de seguridad.");
-
+    if (!formData.acceptTerms)
+      issues.push("Debes aceptar los términos y condiciones para continuar.");
     if (issues.length) {
       setFormStatus({ status: "error", message: issues[0] });
       return false;
     }
+    
     setFormStatus({ status: "idle", message: "" });
     return true;
   }, [formData, turnstileToken]);
@@ -804,6 +806,8 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
           timestamp: new Date().toISOString(),
           source: "booking_simple_store_only",
           turnstileToken: turnstileToken,
+          acceptTerms: formData.acceptTerms,
+  acceptWhatsapp: formData.acceptWhatsapp,
         };
 
         const response = await fetch("/api/booking", {
@@ -909,7 +913,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] lg:overflow-hidden">
+            <div className="flex-1 px-6 grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] lg:overflow-hidden">
               {/* Left side - Form */}
               <div
                 className="space-y-5 lg:pr-2 lg:overflow-y-auto overscroll-contain"
@@ -917,7 +921,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
               >
                 {/* Contact Info */}
                 <form onSubmit={handleSubmit}>
-                  <h3 className="flex items-center text-lg font-semibold text-[#313D52] mb-3">
+                  <h3 className="flex items-center text-lg font-semibold text-[#313D52] mb-3 pt-6">
                     <User size={18} className="text-[#78f3d3] mr-2" />
                     Contacto
                   </h3>
@@ -1211,6 +1215,36 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
 
                 {/* Verificación + Submit + estados */}
                 <div className="mt-auto">
+                  {/* Checks de aceptación */}
+<div className="mt-6 space-y-3">
+  <label className="flex items-start gap-2 text-sm text-gray-700">
+    <input
+      type="checkbox"
+      checked={formData.acceptTerms}
+      onChange={(e) => setFormData((p) => ({ ...p, acceptTerms: e.target.checked }))}
+      className="mt-1"
+    />
+    <span>
+      Acepto los{" "}
+      <a href="/terminos" target="_blank" className="text-[#55ab95] underline">
+        Términos y Condiciones
+      </a>{" "}
+       </span>
+  </label>
+
+  <label className="flex items-start gap-2 text-sm text-gray-700">
+    <input
+      type="checkbox"
+      checked={formData.acceptWhatsapp}
+      onChange={(e) => setFormData((p) => ({ ...p, acceptWhatsapp: e.target.checked }))}
+      className="mt-1"
+    />
+    <span>
+      Acepto recibir seguimiento de mi orden por WhatsApp y notificaciones relacionadas.
+    </span>
+  </label>
+</div>
+
                   {/* Botón de submit fuera del <form>, dispara submit programático */}
                   <button
                     onClick={() => void handleSubmit()}
@@ -1232,7 +1266,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
 
                   {/* Turnstile */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mt-8 mb-2 flex items-center">
+                    <label className="block text-sm font-medium text-gray-700 mt-4 mb-2 flex items-center">
                       <Shield size={16} className="mr-2 text-[#78f3d3]" />
                       Verificación de seguridad
                     </label>
