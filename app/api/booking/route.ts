@@ -454,7 +454,7 @@ export async function POST(request: NextRequest) {
             direccion_id = ?,
             costo_pickup = ?,
             zona_pickup = ?,
-            requiere_pickup = ?
+            requiere_pickup = ?,
             acepta_terminos = ?,
       acepta_whatsapp = ?,
       consent_at = NOW()
