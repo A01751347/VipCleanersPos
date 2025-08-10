@@ -62,7 +62,7 @@ const ParallaxBehindCard: React.FC<Props> = ({
      */
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-0"
+      className="pointer-events-none absolute inset-0 z-0 hidden md:block"
       style={{ perspective: 1000, overflow: "visible" }}
     >
       {/* Tenis izquierda, arrancan escondidos detrás (pegados al borde) */}
