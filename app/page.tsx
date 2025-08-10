@@ -1,11 +1,10 @@
-// app/page.tsx - Layout principal mejorado
-import React from 'react';
-import { Metadata } from 'next';
+// app/page.tsx - Layout principal ajustado al nuevo diseño (sin pickup/garantías)
+import React, { Suspense } from 'react';
+import type { Metadata } from 'next';
 
 // Components
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
-import TrustBadges from '../components/TrustBadges';
 import Services from '../components/Services';
 import HowItWorks from '../components/HowItWorks';
 import Gallery from '../components/Gallery';
@@ -20,60 +19,60 @@ import Footer from '../components/Footer';
 import SmoothScroll from '../components/SmoothScroll';
 
 // Loading and performance components
-import { Suspense } from 'react';
 import { FullPageLoading } from '../components/LoadingStates';
 
-// SEO optimized metadata
+// SEO optimized metadata (sin referencias a pickup/garantías)
 export const metadata: Metadata = {
-  title: "VipCleaners | Servicio Premium de Limpieza de Zapatillas en CDMX",
-  description: "Servicios profesionales de limpieza, restauración e impermeabilización para tus zapatillas en Ciudad de México. Renovamos tus favoritas con técnicas avanzadas y productos de alta calidad. Pickup gratis en zonas seleccionadas.",
+  title: 'VipCleaners | Servicio Premium de Limpieza de Zapatillas en CDMX',
+  description:
+    'Servicios profesionales de limpieza, restauración e impermeabilización para tus zapatillas en Ciudad de México. Renovamos tus favoritas con técnicas avanzadas y productos de alta calidad.',
   keywords: [
-    "limpieza de zapatillas CDMX",
-    "restauración de sneakers México",
-    "impermeabilización de tenis",
-    "limpieza de calzado deportivo",
-    "servicio premium zapatillas",
-    "VipCleaners",
-    "pickup zapatillas CDMX",
-    "limpieza sneakers Roma Norte"
-  ].join(", "),
-  authors: [{ name: "VipCleaners", url: "https://www.vipcleaners.com" }],
-  viewport: "width=device-width, initial-scale=1",
-  robots: "index, follow",
+    'limpieza de zapatillas CDMX',
+    'restauración de sneakers México',
+    'impermeabilización de tenis',
+    'limpieza de calzado deportivo',
+    'servicio premium zapatillas',
+    'VipCleaners',
+    'limpieza sneakers Roma Norte'
+  ].join(', '),
+  authors: [{ name: 'VipCleaners', url: 'https://www.vipcleaners.com' }],
+  viewport: 'width=device-width, initial-scale=1',
+  robots: 'index, follow',
   openGraph: {
-    title: "VipCleaners | Servicio Premium de Limpieza de Zapatillas",
-    description: "Especialistas en limpieza y restauración de sneakers en CDMX. Pickup gratis, técnicas profesionales y garantía de satisfacción.",
-    url: "https://www.vipcleaners.com",
-    siteName: "VipCleaners",
+    title: 'VipCleaners | Servicio Premium de Limpieza de Zapatillas',
+    description:
+      'Especialistas en limpieza y restauración de sneakers en CDMX con técnicas profesionales y materiales de alta calidad.',
+    url: 'https://www.vipcleaners.com',
+    siteName: 'VipCleaners',
     images: [
       {
-        url: "https://www.vipcleaners.com/og-image.jpg",
+        url: 'https://www.vipcleaners.com/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: "VipCleaners - Expertos en Limpieza de Zapatillas"
+        alt: 'VipCleaners - Expertos en Limpieza de Zapatillas'
       }
     ],
-    locale: "es_MX",
-    type: "website"
+    locale: 'es_MX',
+    type: 'website'
   },
   twitter: {
-    card: "summary_large_image",
-    title: "VipCleaners | Servicio Premium de Limpieza de Zapatillas",
-    description: "Especialistas en limpieza y restauración de sneakers en CDMX. Pickup gratis y garantía de satisfacción.",
-    images: ["https://www.vipcleaners.com/twitter-image.jpg"],
-    creator: "@vipcleaners"
+    card: 'summary_large_image',
+    title: 'VipCleaners | Servicio Premium de Limpieza de Zapatillas',
+    description:
+      'Especialistas en limpieza y restauración de sneakers en CDMX con técnicas profesionales y materiales de alta calidad.',
+    images: ['https://www.vipcleaners.com/twitter-image.jpg'],
+    creator: '@vipcleaners'
   },
   alternates: {
-    canonical: "https://www.vipcleaners.com"
+    canonical: 'https://www.vipcleaners.com'
   }
 };
 
 // Lazy loading wrapper for heavy components
-const LazySection: React.FC<{ 
-  children: React.ReactNode; 
-  fallback?: React.ReactNode;
-}> = ({ children, fallback }) => (
-  <Suspense fallback={fallback || <div className="h-96 flex items-center justify-center"><FullPageLoading /></div>}>
+const LazySection: React.FC<{ children: React.ReactNode; fallback?: React.ReactNode }> = ({ children, fallback }) => (
+  <Suspense fallback={fallback || (
+    <div className="h-96 flex items-center justify-center"><FullPageLoading /></div>
+  )}>
     {children}
   </Suspense>
 );
@@ -91,94 +90,88 @@ export default function Home() {
 
       {/* Smooth scrolling behavior */}
       <SmoothScroll />
-      
+
       {/* Critical above-the-fold content */}
       <Navbar />
       <Hero />
 
+      {/* Visual punch first */}
       <BeforeAfter />
-      
+
+      {/* Explicativo, sin mencionar pickup/garantías */}
       <HowItWorks />
-      {/* Trust signals - load immediately after hero */}
-      <TrustBadges />
-      
-      {/* Social proof sections */}
-      
-      {/*
-      <LazySection>
-        <Testimonials />
-      </LazySection>
-      */}
-      {/* Conversion sections */}
+
+      {/* Oferta y conversión */}
       <Pricing />
 
-        <DetailedReviews />
-      
-      {/* Support and content sections - lower priority */}
-      
-        <FAQ />
-      
-        <BlogSection />
-      
-      {/* Contact and footer */}
+      <BlogSection />
+
+      {/* Prueba social y contenido */}
+      <DetailedReviews />
+      <Testimonials />
+
+      {/* Soporte */}
+      <FAQ />
+
+      {/* Contacto y cierre */}
       <Contact />
       <Footer />
 
-      {/* JSON-LD Structured Data for SEO */}
+      {/* JSON-LD Structured Data (sin pickup/garantías) */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "LocalBusiness",
-            "name": "VipCleaners",
-            "description": "Servicio premium de limpieza y restauración de zapatillas en Ciudad de México",
-            "url": "https://www.vipcleaners.com",
-            "telephone": "442-123-4567",
-            "email": "info@vipcleaners.com",
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "Calle del Sneaker 123",
-              "addressLocality": "Roma Norte",
-              "addressRegion": "CDMX",
-              "postalCode": "53000",
-              "addressCountry": "MX"
+            '@context': 'https://schema.org',
+            '@type': 'LocalBusiness',
+            name: 'VipCleaners',
+            description:
+              'Servicio premium de limpieza y restauración de zapatillas en Ciudad de México',
+            url: 'https://www.vipcleaners.com',
+            telephone: '442-123-4567',
+            email: 'info@vipcleaners.com',
+            address: {
+              '@type': 'PostalAddress',
+              streetAddress: 'Calle del Sneaker 123',
+              addressLocality: 'Roma Norte',
+              addressRegion: 'CDMX',
+              postalCode: '53000',
+              addressCountry: 'MX'
             },
-            "geo": {
-              "@type": "GeoCoordinates",
-              "latitude": "19.4326",
-              "longitude": "-99.1332"
+            geo: {
+              '@type': 'GeoCoordinates',
+              latitude: '19.4326',
+              longitude: '-99.1332'
             },
-            "openingHours": [
-              "Mo-Fr 09:00-19:00",
-              "Sa 10:00-18:00"
+            openingHours: ['Mo-Fr 09:00-19:00', 'Sa 10:00-18:00'],
+            priceRange: '$139-$259',
+            image: 'https://www.vipcleaners.com/logo.jpg',
+            sameAs: [
+              'https://www.facebook.com/vipcleaners',
+              'https://www.instagram.com/vipcleaners',
+              'https://twitter.com/vipcleaners'
             ],
-            "priceRange": "$139-$259",
-            "image": "https://www.vipcleaners.com/logo.jpg",
-            "sameAs": [
-              "https://www.facebook.com/vipcleaners",
-              "https://www.instagram.com/vipcleaners",
-              "https://twitter.com/vipcleaners"
-            ],
-            "aggregateRating": {
-              "@type": "AggregateRating",
-              "ratingValue": "4.9",
-              "reviewCount": "237"
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: '4.9',
+              reviewCount: '237'
             },
-            "service": [
+            service: [
               {
-                "@type": "Service",
-                "name": "Limpieza Básica de Zapatillas",
-                "description": "Limpieza exterior completa, tratamiento desodorizante y limpieza de agujetas",
-                "price": "139",
-                "priceCurrency": "MXN"
+                '@type': 'Service',
+                name: 'Limpieza Básica de Zapatillas',
+                description:
+                  'Limpieza exterior completa, tratamiento desodorizante y limpieza de agujetas',
+                price: '139',
+                priceCurrency: 'MXN'
               },
               {
-                "@type": "Service",
-                "name": "Limpieza Premium de Zapatillas",
-                "description": "Limpieza profunda, tratamiento antimanchas e impermeabilización premium",
-                "price": "189",
-                "priceCurrency": "MXN"
+                '@type': 'Service',
+                name: 'Limpieza Premium de Zapatillas',
+                description:
+                  'Limpieza profunda, tratamiento antimanchas e impermeabilización premium',
+                price: '189',
+                priceCurrency: 'MXN'
               }
             ]
           })

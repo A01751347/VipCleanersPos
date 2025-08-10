@@ -7,14 +7,6 @@ import { getAllServices, getServiceById, executeQuery, isServiceInUse } from '..
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticación
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
     
     const { searchParams } = new URL(request.url);
     const serviceId = searchParams.get('id');

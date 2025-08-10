@@ -5,7 +5,7 @@ export async function getServices(onlyActive: boolean = true) {
   const query = `
     SELECT * FROM servicios
     ${onlyActive ? 'WHERE activo = TRUE' : ''}
-    ORDER BY precio ASC
+    ORDER BY servicio_id ASC
   `;
   
   return executeQuery({
@@ -19,7 +19,7 @@ export async function getAllServices(onlyActive: boolean = true) {
   const query = `
     SELECT * FROM servicios
     ${onlyActive ? 'WHERE activo = TRUE' : ''}
-    ORDER BY precio ASC
+    ORDER BY servicio_id ASC
   `;
   
   return executeQuery<any[]>({

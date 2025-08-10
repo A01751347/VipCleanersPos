@@ -103,6 +103,8 @@ interface FormData {
   bookingDate: string;
   bookingTime: string;
   requiresPickup: boolean;
+  acceptTerms: boolean; 
+  acceptWhatsapp: boolean; 
 }
 
 interface FormStatus {
@@ -251,7 +253,9 @@ const CalendarPicker: React.FC<{
   selectedDate: string;
   onDateSelect: (date: string) => void;
   minDate: string;
-}> = ({ selectedDate, onDateSelect, minDate }) => {
+  maxDate: string; // 👈 nuevo
+}> = ({ selectedDate, onDateSelect, minDate, maxDate }) => {
+
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
   const monthNames = [
@@ -301,15 +305,24 @@ const CalendarPicker: React.FC<{
     return t < today ? today : t;
   }, [minDate]);
 
+  const maxDateObj = useMemo(() => {
+    const t = new Date(maxDate);
+    t.setHours(0, 0, 0, 0);
+    return t;
+  }, [maxDate]);
+
+
   const isDateDisabled = useCallback(
     (date: Date) => {
       const d = new Date(date);
       d.setHours(0, 0, 0, 0);
       const isSunday = d.getDay() === 0;
-      return d < minDateObj || isSunday;
+      return d < minDateObj || d > maxDateObj || isSunday;
     },
-    [minDateObj]
+    [minDateObj, maxDateObj]
   );
+
+
 
   const isDateSelected = useCallback(
     (date: Date) => formatDateISO(date) === selectedDate,
@@ -328,8 +341,12 @@ const CalendarPicker: React.FC<{
   };
 
   const goToNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    // Si el primer día del próximo mes es después de maxDateObj, no navegar
+    if (next > maxDateObj) return;
+    setCurrentMonth(next);
   };
+
 
   return (
     <div
@@ -415,6 +432,11 @@ const CalendarPicker: React.FC<{
 // ======================
 
 const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
+  const MAX_PER_SERVICE = 25;
+
+  const getTotalForService = (services: SelectedService[], serviceId: string) =>
+    services.reduce((acc, s) => acc + (s.serviceId === serviceId ? s.quantity : 0), 0);
+
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -424,6 +446,8 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     bookingDate: "",
     bookingTime: "",
     requiresPickup: false,
+    acceptTerms: false, // 👈 nuevo
+    acceptWhatsapp: false, // 👈 nuevo
   });
 
   const [formStatus, setFormStatus] = useState<FormStatus>({
@@ -652,18 +676,61 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
 
   const addService = useCallback(() => {
     if (serviceOptions.length === 0) return;
+  
+    // Busca el primer servicio que aún tenga cupo (< 25)
+    const firstWithRoom = serviceOptions.find(
+      (o) => getTotalForService(formData.services, o.id) < MAX_PER_SERVICE
+    );
+  
+    if (!firstWithRoom) {
+      // Opcional: feedback visual (toast/estado)
+      setFormStatus({ status: "error", message: "Límite alcanzado: 25 por tipo de servicio." });
+      return;
+    }
+  
     setFormData((p) => ({
       ...p,
-      services: [...p.services, { serviceId: serviceOptions[0].id, quantity: 1 }],
+      services: [...p.services, { serviceId: firstWithRoom.id, quantity: 1 }],
     }));
-  }, [serviceOptions]);
+  }, [serviceOptions, formData.services]);
 
   const updateService = useCallback((index: number, patch: Partial<SelectedService>) => {
-    setFormData((p) => ({
-      ...p,
-      services: p.services.map((s, i) => (i === index ? { ...s, ...patch } : s)),
-    }));
+    setFormData((p) => {
+      const next = [...p.services];
+      const current = next[index];
+  
+      const newServiceId = patch.serviceId ?? current.serviceId;
+      const newQtyRaw = patch.quantity ?? current.quantity;
+  
+             // Total actual del servicio destino, excluyendo esta línea
+       const totalExclThis = getTotalForService(
+         formData.services.filter((_, i) => i !== index),
+         newServiceId
+       );
+       const canIncrement = current.quantity < (MAX_PER_SERVICE - totalExclThis);
+      
+  
+      // Máximo que puede tener esta línea sin pasarse del tope
+      const maxForThisLine = Math.max(0, MAX_PER_SERVICE - totalExclThis);
+  
+      // Ajusta cantidad si se pasa
+      const newQuantity = Math.min(newQtyRaw, maxForThisLine);
+  
+      next[index] = {
+        serviceId: newServiceId,
+        quantity: Math.max(1, newQuantity), // nunca menos de 1
+      };
+  
+      // Si no hay cupo (maxForThisLine === 0), mantenemos quantity=1 pero avisamos
+      if (maxForThisLine === 0) {
+        // feedback opcional
+        // setFormStatus({ status: "error", message: "Límite alcanzado para este servicio." });
+      }
+  
+      return { ...p, services: next };
+    });
   }, []);
+  
 
   const removeService = useCallback((index: number) => {
     setFormData((p) => ({ ...p, services: p.services.filter((_, i) => i !== index) }));
@@ -790,6 +857,12 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     return formatDateISO(tomorrow);
   }, []);
 
+  const getMaxDate = useCallback(() => {
+    const max = new Date();
+    max.setDate(max.getDate() + 45);
+    return formatDateISO(max);
+  }, []);
+
   if (!mounted || !isOpen) return null;
 
   return createPortal(
@@ -854,14 +927,15 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                       Nombre Completo
                     </label>
                     <input
-                      id="fullName"
-                      type="text"
-                      placeholder="Nombre Completo"
-                      value={formData.fullName}
-                      onChange={handleInputChange("fullName")}
-                      className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#78f3d3] focus:border-transparent"
-                      autoComplete="name"
-                    />
+  id="fullName"
+  type="text"
+  placeholder="Nombre Completo"
+  value={formData.fullName}
+  onChange={handleInputChange("fullName")}
+  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#78f3d3] focus:border-transparent"
+  autoComplete="name"
+  maxLength={60} // 👈 Limita a 60 caracteres
+/>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
@@ -962,14 +1036,16 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                                   <span className="font-medium min-w-[3ch] text-center">
                                     {s.quantity}
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateService(idx, { quantity: s.quantity + 1 })}
-                                    className="w-8 h-8 rounded bg-[#78f3d3] hover:bg-[#4de0c0] flex items-center justify-center"
-                                    aria-label="Aumentar cantidad"
-                                  >
-                                    <Plus size={14} />
-                                  </button>
+                                                                  <button
+                                  type="button"
+                                  onClick={() => updateService(idx, { quantity: s.quantity + 1 })}
+                                  className="w-8 h-8 rounded bg-[#78f3d3] hover:bg-[#4de0c0] flex items-center justify-center disabled:opacity-50"
+                                  aria-label="Aumentar cantidad"
+                                  disabled={getTotalForService(formData.services, s.serviceId) >= MAX_PER_SERVICE}
+                                >
+  <Plus size={14} />
+</button>
+
                                 </div>
                               </div>
                             </div>
@@ -1059,6 +1135,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                         selectedDate={formData.bookingDate}
                         onDateSelect={(date) => setFormData((p) => ({ ...p, bookingDate: date }))}
                         minDate={getMinDate()}
+                        maxDate={getMaxDate()}
                       />
                     </div>
                     <div>

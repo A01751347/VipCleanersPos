@@ -28,9 +28,7 @@ const ParallaxDecorations: React.FC<DecoProps> = ({
 
   const { scrollYProgress } = useScroll({
     target: targetRef,
-    // Más sensible: empieza a moverse cuando el top entra a media pantalla,
-    // termina cuando el bottom toca la parte alta.
-    offset: ["start center", "end start"],
+  offset: ["start 95%", "end 35%"],
   });
 
   // Debug opcional: ver el valor en consola
