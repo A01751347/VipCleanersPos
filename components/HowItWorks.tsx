@@ -27,7 +27,7 @@ const HowItWorks: React.FC = () => {
     {
       icon: Box,
       title: "Entrega/Recolección",
-      description: "Entrega tus zapatillas o utiliza nuestro conveniente servicio de recolección."
+      description: "Entrega tus zapatillas o utiliza pregunta por nuestro conveniente servicio de recolección."
     },
     {
       icon: Wand2,
@@ -37,7 +37,7 @@ const HowItWorks: React.FC = () => {
     {
       icon: CheckCircle,
       title: "Listas para Usar",
-      description: "Recoge tus zapatillas renovadas o recíbelas en tu puerta."
+      description: "Recoge tus zapatillas trabajadas o recíbelas en tu puerta."
     }
   ];
 
@@ -119,7 +119,7 @@ const HowItWorks: React.FC = () => {
           <span className="text-sm sm:text-base font-medium uppercase tracking-wider text-[#78D5D3]">Un Proceso Simple</span>
           <h2 className="mt-2 text-3xl font-bold text-[#313D52] sm:text-4xl">CÓMO FUNCIONA</h2>
           <p className="mt-4 max-w-2xl mx-auto text-[#6c7a89]">
-            Nuestro proceso simplificado facilita que tus zapatillas sean limpiadas y restauradas con cuidado profesional.
+            Nuestro proceso simplificado facilita que tus zapatillas sean limpiadas con cuidado profesional.
             No te quedes solo con nuestras palabras. Escucha lo que dicen nuestros clientes acerca de nuestros servicios.
           </p>
         </div>

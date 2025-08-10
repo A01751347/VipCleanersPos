@@ -76,8 +76,8 @@ const TopBar: React.FC<{ show: boolean }> = ({ show }) => {
     <div className="hidden xl:block bg-[#313D52] text-white py-2 text-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
         <div className="flex items-center space-x-6">
-          <span className="flex items-center"><Phone size={14} className="mr-2 text-[#78f3d3]"/>442-123-4567</span>
-          <span className="flex items-center"><MapPin size={14} className="mr-2 text-[#78f3d3]"/>Roma Norte, CDMX</span>
+          <span className="flex items-center"><Phone size={14} className="mr-2 text-[#78f3d3]"/>55-5929-3000</span>
+          <span className="flex items-center"><MapPin size={14} className="mr-2 text-[#78f3d3]"/>Narvarte Poniente, CDMX</span>
         </div>
         <div className="text-[#78f3d3] font-medium">Limpieza premium de sneakers en CDMX</div>
       </div>
@@ -260,8 +260,8 @@ const MobileContactInfo: React.FC = () => (
   <div className="mt-6 sm:mt-8 mx-4 sm:mx-6 p-4 sm:p-6 bg-[#f5f9f8] rounded-lg">
     <h4 className="font-semibold text-[#313D52] mb-3 text-base sm:text-lg">Contacto Rápido</h4>
     <div className="space-y-2 sm:space-y-3">
-      <div className="flex items-center"><Phone size={16} className="mr-3 text-[#78f3d3]" /><span className="text-sm sm:text-base text-[#313D52]">442-123-4567</span></div>
-      <div className="flex items-center"><MapPin size={16} className="mr-3 text-[#78f3d3]" /><span className="text-sm sm:text-base text-[#313D52]">Roma Norte, CDMX</span></div>
+      <div className="flex items-center"><Phone size={16} className="mr-3 text-[#78f3d3]" /><span className="text-sm sm:text-base text-[#313D52]">55-5929-3000</span></div>
+      <div className="flex items-center"><MapPin size={16} className="mr-3 text-[#78f3d3]" /><span className="text-sm sm:text-base text-[#313D52]">Narvarte Poniente, CDMX</span></div>
     </div>
   </div>
 );

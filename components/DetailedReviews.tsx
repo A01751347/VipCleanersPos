@@ -22,7 +22,7 @@ const DetailedReviews: React.FC = () => {
     {
       id: 1,
       name: "Carlos Mendoza",
-      avatar: "/assets/reviews/avatar1.jpg",
+      avatar: "/assets/reviews/avatar2.jpg",
       date: "15 marzo, 2025",
       rating: 5,
       text: "Increíble trabajo con mis Air Jordan 1. Estaban completamente sucios y manchados, y ahora parecen nuevos. La atención al detalle es impresionante, incluso limpiaron las agujetas y les aplicaron protector. ¡100% recomendado!",
@@ -32,7 +32,7 @@ const DetailedReviews: React.FC = () => {
     {
       id: 2,
       name: "Laura Sánchez",
-      avatar: "/assets/reviews/avatar2.jpg",
+      avatar: "/assets/reviews/avatar3.jpg",
       date: "2 marzo, 2025",
       rating: 4.5,
       text: "Llevé mis Yeezys que pensé que ya no tenían salvación por una mancha de café muy difícil. El resultado me dejó sorprendida, se ve como si nunca hubiera tenido la mancha. Solo la entresuela tiene un detalle mínimo que no pudieron quitar del todo, pero estoy súper contenta con el resultado.",
@@ -42,7 +42,7 @@ const DetailedReviews: React.FC = () => {
     {
       id: 3,
       name: "Miguel Ángel Rojas",
-      avatar: "/assets/reviews/avatar3.jpg",
+      avatar: "/assets/reviews/avatar1.jpg",
       date: "28 febrero, 2025",
       rating: 5,
       text: "Segunda vez que traigo mis sneakers aquí y nuevamente quedé impresionado con los resultados. El servicio es rápido, el personal muy amable, y lo más importante, mis zapatillas se ven espectaculares. Definitivamente mi lugar de confianza para el cuidado de mi colección.",

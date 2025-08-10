@@ -43,7 +43,6 @@ const Pricing: React.FC = () => {
       "Desmanchado especializado y cuidado del material",
       "Desinfección y neutralización de olores",
       "Acondicionado de suelas y mediasuelas",
-      "Protección repelente para futuras manchas",
       "Entrega express disponible y seguimiento del proceso",
     ],
     []

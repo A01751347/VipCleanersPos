@@ -128,12 +128,12 @@ export default function Home() {
             description:
               'Servicio premium de limpieza y restauración de zapatillas en Ciudad de México',
             url: 'https://www.vipcleaners.com',
-            telephone: '442-123-4567',
+            telephone: '55-5929-3000',
             email: 'info@vipcleaners.com',
             address: {
               '@type': 'PostalAddress',
               streetAddress: 'Calle del Sneaker 123',
-              addressLocality: 'Roma Norte',
+              addressLocality: 'Narvarte Pte.',
               addressRegion: 'CDMX',
               postalCode: '53000',
               addressCountry: 'MX'

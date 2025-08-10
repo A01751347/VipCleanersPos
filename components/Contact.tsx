@@ -139,7 +139,7 @@ const Contact: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-[#313D52] mb-1">Visítanos</h4>
-                    <p className="text-[#6c7a89]">Calle del Sneaker 123<br />ROMA NTE., CDMX 53000</p>
+                    <p className="text-[#6c7a89]">Calle Concepción Beistegui 1407<br /> Narvarte Pte., CDMX 03020</p>
                   </div>
                 </div>
 
@@ -149,7 +149,7 @@ const Contact: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-[#313D52] mb-1">Llámanos</h4>
-                    <p className="text-[#6c7a89]">(55) 1234-5678<br />Lun-Sab: 10AM - 7PM</p>
+                    <p className="text-[#6c7a89]">(55) 5929-3000<br />Lun-Sab: 10AM - 7PM</p>
                   </div>
                 </div>
 

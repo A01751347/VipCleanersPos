@@ -38,7 +38,7 @@ const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage, afterI
   };
   const animateBackToCenter = () => {
     let animationFrame: number;
-    const speed = 0.002; // velocidad de interpolación
+    const speed = 0.01; // velocidad de interpolación
   
     const step = () => {
       setPosition(prev => {
@@ -163,8 +163,8 @@ const BeforeAfter: React.FC = () => {
   // Array of images for multiple comparisons
   const comparisonImages: ComparisonImage[] = [
     {
-      before: '/assets/Ultraboost-Sucio.png',
-      after: '/assets/Ultraboost-Limpio.png',
+      before: '/assets/gallery/ultimoLimpio.png',
+      after: '/assets/gallery/ultimoSucio.png',
     },
     // Add more comparison images as needed
   ];
