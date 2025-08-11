@@ -61,7 +61,7 @@ export async function GET(
     }
 
     // Formatear los datos según el tipo
-    const formattedData = formatTrackingData(trackingData, dataType);
+    const formattedData = trackingData
 
     return NextResponse.json({
       success: true,

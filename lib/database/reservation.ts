@@ -214,64 +214,63 @@ export async function getReservationWithDetails(reservacionId: number) {
 
 // Función para obtener reservación por código con detalles completos
 export async function getReservationByCodeWithDetails(code: string) {
-  try {
-    const query = `
-      SELECT 
-        r.*,
-        c.nombre as cliente_nombre,
-        c.apellidos as cliente_apellidos,
-        c.telefono as cliente_telefono,
-        c.email as cliente_email,
-        s.nombre as servicio_nombre,
-        s.precio as servicio_precio,
-        s.descripcion as servicio_descripcion,
-        s.tiempo_estimado_minutos,
-        m.nombre as modelo_nombre,
-        ma.nombre as marca_nombre,
-        d.calle,
-        d.numero_exterior,
-        d.numero_interior,
-        d.colonia,
-        d.municipio_delegacion,
-        d.ciudad,
-        d.estado,
-        d.codigo_postal,
-        d.telefono_contacto,
-        d.destinatario,
-        d.instrucciones_entrega,
-        d.ventana_hora_inicio,
-        d.ventana_hora_fin
-      FROM reservaciones r
-      JOIN clientes c ON r.cliente_id = c.cliente_id
-      JOIN servicios s ON r.servicio_id = s.servicio_id
-      LEFT JOIN modelos_calzado m ON r.modelo_id = m.modelo_id
-      LEFT JOIN marcas ma ON m.marca_id = ma.marca_id
-      LEFT JOIN direcciones d ON r.direccion_id = d.direccion_id
-      WHERE r.codigo_reservacion = ?
-    `;
-    
-    const result = await executeQuery<any[]>({
-      query,
-      values: [code]
+
+  console.log("me usaron a mi!!!")
+    // 1) Obtener la orden por código (una sola fila)
+    const orderQuery = `
+    SELECT *
+    FROM vw_ordenes_detalle
+    WHERE codigo_orden = ?
+    LIMIT 1
+  `;
+
+  const rows = await executeQuery<any[]>({
+    query: orderQuery,
+    values: [code.trim()] // trim por si hay espacios accidentales
+  });
+
+  const [order] = rows; // tomar la PRIMERA fila
+  if (!order) return null;
+
+  // 2) Lanzar consultas en paralelo por orden_id
+  const [servicios, productos, estados] = await Promise.all([
+    executeQuery<any[]>({
+      query: `SELECT * FROM vw_detalles_orden_servicios WHERE orden_id = ?`,
+      values: [order.orden_id]
+    }),
+    executeQuery<any[]>({
+      query: `SELECT * FROM vw_detalles_orden_productos WHERE orden_id = ?`,
+      values: [order.orden_id]
+    }),
+    executeQuery<any[]>({
+      query: `
+        SELECT * FROM vw_historial_estados
+        WHERE orden_id = ?
+        ORDER BY fecha_cambio DESC
+      `,
+      values: [order.orden_id]
+    })
+  ]);
+
+  // 3) Dirección (solo si existe)
+  let direccion: any[] = [];
+  if (order.direccion_id) {
+    direccion = await executeQuery<any[]>({
+      query: `SELECT * FROM direcciones WHERE direccion_id = ?`,
+      values: [order.direccion_id]
     });
-    
-    if (result.length === 0) return null;
-
-    const reservation = result[0];
-    
-    // Agregar información formateada de dirección si existe
-    if (reservation.calle) {
-      reservation.direccion_completa = `${reservation.calle} ${reservation.numero_exterior}${
-        reservation.numero_interior ? ` ${reservation.numero_interior}` : ''
-      }, ${reservation.colonia}, ${reservation.ciudad}, ${reservation.estado} ${reservation.codigo_postal}`;
-    }
-
-    return reservation;
-  } catch (error) {
-    console.error('Error obteniendo reservación por código:', error);
-    throw error;
   }
+
+  // 4) Armar respuesta homogénea
+  return {
+    ...order,
+    servicios,
+    productos,
+    estados,     // (en la otra función lo llamas "historial"; si quieres consistencia, renómbralo a "historial")
+    direccion
+  };
 }
+
 
 // Función para generar un código único de reservación
 export function generateBookingReference(): string {

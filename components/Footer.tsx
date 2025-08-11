@@ -123,12 +123,7 @@ const Footer: React.FC = () => {
                     Inicio
                   </a>
                 </li>
-                <li>
-                  <a href="#services" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
-                    <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
-                    Servicios
-                  </a>
-                </li>
+                
                 <li>
                   <a href="#how-it-works" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
                     <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
@@ -136,7 +131,7 @@ const Footer: React.FC = () => {
                   </a>
                 </li>
                 <li>
-                  <a href="#gallery" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
+                  <a href="/gallery" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
                     <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
                     Galería
                   </a>
@@ -164,31 +159,20 @@ const Footer: React.FC = () => {
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <Link href="#" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
+                  <Link href="#pricing" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
                     <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
-                    Limpieza Básica
-                    <span className="ml-auto text-[#78f3d3] text-sm">$139</span>
+                    Limpieza Vip
+                    <span className="ml-auto text-[#78f3d3] text-sm">$175</span>
                   </Link>
                 </li>
+                
                 <li>
                   <Link href="#" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
                     <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
-                    Limpieza Premium
-                    <span className="ml-auto text-[#78f3d3] text-sm">$189</span>
+                    Limpieza de Gorras
                   </Link>
                 </li>
-                <li>
-                  <Link href="#" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
-                    <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
-                    Impermeabilización
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
-                    <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
-                    Restauración Completa
-                  </Link>
-                </li>
+               
                 <li>
                   <Link href="#" className="text-gray-400 hover:text-[#78f3d3] transition-colors flex items-center group">
                     <ChevronRight size={16} className="mr-2 transform group-hover:translate-x-1 transition-transform" />
@@ -209,13 +193,13 @@ const Footer: React.FC = () => {
                 <li className="flex items-start">
                   <MapPin size={18} className="text-[#78f3d3] mt-1 mr-3 flex-shrink-0" />
                   <div>
-                    <span className="text-gray-400 block">Calle del Sneaker 123</span>
-                    <span className="text-gray-400">ROMA NTE., CDMX 53000</span>
+                    <span className="text-gray-400 block">Calle Concepción Beistegui 1407</span>
+                    <span className="text-gray-400">Narvarte Pte., CDMX 03020</span>
                   </div>
                 </li>
                 <li className="flex items-center">
                   <Phone size={18} className="text-[#78f3d3] mr-3 flex-shrink-0" />
-                  <span className="text-gray-400">442-123-4567</span>
+                  <span className="text-gray-400">(55) 5929-3000</span>
                 </li>
                 <li className="flex items-center">
                   <Mail size={18} className="text-[#78f3d3] mr-3 flex-shrink-0" />
@@ -232,7 +216,7 @@ const Footer: React.FC = () => {
                 <div className="text-sm text-gray-400 space-y-1">
                   <div className="flex justify-between">
                     <span>Lun - Vie:</span>
-                    <span>9:00 AM - 7:00 PM</span>
+                    <span>10:00 AM - 7:00 PM</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Sábado:</span>
