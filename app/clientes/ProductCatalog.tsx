@@ -1,312 +1,272 @@
-'use client'
-// components/admin/pos/ProductCatalog.tsx
-import React, { useState, useEffect } from 'react';
+
+
+'use client';
+// ==== FILE: ProductCatalog.tsx ====
+
+import React, { useEffect, useMemo, useState } from 'react';
 import { Package, Tag, PlusCircle, Loader2, AlertCircle, Filter } from 'lucide-react';
 
-// Interfaces
-interface Category {
-  categoria_id: number;
-  nombre: string;
-  descripcion?: string;
-  activo: boolean;
-}
+export interface ProductApiShape {
+  producto_id?: number;
+  id?: number;
+  nombre?: string;
+  producto_nombre?: string;
+  name?: string;
+  producto_descripcion?: string;
+  categoria?: string;
 
-interface Product {
-  producto_id: number;
-  nombre: string;
-  descripcion?: string;
-  precio: number;
-  precio_oferta?: number;
+  precio?: number | string;
+  price?: number | string;
+  precio_oferta?: number | string;
+
   stock: number;
-  stock_minimo: number;
-  categoria_id: number;
+  stock_minimo?: number;
+
+  categoria_id?: number;
   categoria_nombre?: string;
+
   codigo_barras?: string;
-  activo: boolean;
-  estado_stock?: 'Disponible' | 'Bajo' | 'Agotado';
+  activo?: boolean;
+  estado_stock?: 'Suficiente' |"Disponible"| 'Bajo' | 'Agotado';
 }
 
-interface ProductCatalogProps {
-  onAddToCart: (item: {
-    id: number;
-    tipo: 'producto';
-    nombre: string;
-    precio: number;
-    cantidad: number;
-  }) => void;
+export interface ProductCatalogProps {
+  onAddToCart: (item: { id: number; tipo: 'producto'; nombre: string; precio: number; cantidad: number }) => void;
   searchTerm: string;
+  /** Permite controlar el contenedor externo (opcional) */
+  className?: string;
 }
 
-const ProductCatalog: React.FC<ProductCatalogProps> = ({ onAddToCart, searchTerm }) => {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+const toNumber = (v: unknown) => {
+  const n = typeof v === 'string' ? parseFloat(v) : (v as number);
+  return Number.isFinite(n) ? (n as number) : 0;
+};
+const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+
+const getName = (p: ProductApiShape) => p.nombre ?? p.producto_nombre ?? p.name ?? '';
+const getId = (p: ProductApiShape) => (p.producto_id ?? p.id ?? 0) as number;
+const getBasePrice = (p: ProductApiShape) => toNumber(p.precio ?? p.price ?? 0);
+const getOfferPrice = (p: ProductApiShape) => toNumber(p.precio_oferta ?? 0);
+const getDisplayPrice = (p: ProductApiShape) => {
+  const base = getBasePrice(p);
+  const offer = getOfferPrice(p);
+  if (offer > 0 && offer < base) return offer;
+  return base;
+};
+const hasOffer = (p: ProductApiShape) => {
+  const base = getBasePrice(p);
+  const offer = getOfferPrice(p);
+  return offer > 0 && offer < base;
+};
+const getStockState = (p: ProductApiShape): 'Suficiente' |"Disponible" | 'Bajo' | 'Agotado' => {
+  if (p.stock <= 0) return 'Agotado';
+  const min = p.stock_minimo ?? 0;
+  if (p.stock <= min) return 'Bajo';
+  return 'Disponible';
+};
+
+const ProductCatalog: React.FC<ProductCatalogProps> = ({ onAddToCart, searchTerm, className }) => {
+  const [products, setProducts] = useState<ProductApiShape[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Inicializar con todas las categorías
+
+  // Cargar TODOS los productos al montar
   useEffect(() => {
-    const fetchCategories = async () => {
+    let alive = true;
+    (async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         setError(null);
-        const response = await fetch('/api/admin/products?categories=true');
-        
-        if (!response.ok) {
-          throw new Error('Error al cargar categorías');
-        }
-        
-        const data = await response.json();
-        setCategories(data.categories || []);
-        
-        // Si hay categorías, seleccionar la primera por defecto
-        if (data.categories && data.categories.length > 0) {
-          setSelectedCategory(data.categories[0].categoria_id);
-        }
-      } catch (err) {
-        console.error('Error fetching categories:', err);
-        setError('No se pudieron cargar las categorías de productos');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchCategories();
-  }, []);
-  
-  // Cargar productos cuando cambia la categoría seleccionada
-  useEffect(() => {
-    const fetchProducts = async () => {
-      if (selectedCategory === null) return;
-      
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch(`/api/admin/products?categoryId=${selectedCategory}`);
-        
-        if (!response.ok) {
-          throw new Error('Error al cargar productos');
-        }
-        
-        const data = await response.json();
-        setProducts(data.products || []);
-      } catch (err) {
-        console.error('Error fetching products:', err);
+        const res = await fetch('/api/admin/products');
+        if (!res.ok) throw new Error('Error al cargar productos');
+        const data = await res.json();
+        if (!alive) return;
+        const list: ProductApiShape[] = data.products ?? data.productos ?? [];
+        setProducts(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error(e);
+        if (!alive) return;
         setError('No se pudieron cargar los productos');
       } finally {
-        setLoading(false);
+        if (alive) setIsLoading(false);
       }
+    })();
+    return () => {
+      alive = false;
     };
-    
-    // Buscar productos por término de búsqueda
-    const searchProducts = async () => {
-      if (!searchTerm || searchTerm.length < 3) return;
-      
+  }, []);
+
+  // Buscar cuando searchTerm ≥ 3, si no, re-muestra el listado original
+  useEffect(() => {
+    let alive = true;
+
+    const search = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         setError(null);
-        const response = await fetch(`/api/admin/products?search=${encodeURIComponent(searchTerm)}`);
-        
-        if (!response.ok) {
-          throw new Error('Error al buscar productos');
-        }
-        
-        const data = await response.json();
-        setProducts(data.products || []);
-        setSelectedCategory(null); // Deseleccionar categoría cuando se está buscando
-      } catch (err) {
-        console.error('Error searching products:', err);
+        const res = await fetch(`/api/admin/products?search=${encodeURIComponent(searchTerm)}`);
+        if (!res.ok) throw new Error('Error al buscar productos');
+        const data = await res.json();
+        if (!alive) return;
+        const list: ProductApiShape[] = data.products ?? data.productos ?? [];
+        setProducts(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error(e);
+        if (!alive) return;
         setError('No se pudieron buscar los productos');
       } finally {
-        setLoading(false);
+        if (alive) setIsLoading(false);
       }
     };
-    
-    if (searchTerm && searchTerm.length >= 3) {
-      searchProducts();
-    } else if (selectedCategory !== null) {
-      fetchProducts();
-    }
-  }, [selectedCategory, searchTerm]);
-  
-  const handleCategorySelect = (categoryId: number) => {
-    setSelectedCategory(categoryId);
-  };
-  
-  const handleAddToCart = (product: Product) => {
-    onAddToCart({
-      id: product.producto_id,
-      tipo: 'producto',
-      nombre: product.nombre,
-      precio: product.precio_oferta || product.precio,
-      cantidad: 1
-    });
-  };
-  
-  const renderCategoryTabs = () => {
-    return (
-      <div className="mb-6 overflow-x-auto pb-2">
-        <div className="flex space-x-2">
-          {categories.map((category) => (
-            <button
-              key={category.categoria_id}
-              onClick={() => handleCategorySelect(category.categoria_id)}
-              className={`px-4 py-2 rounded-lg whitespace-nowrap ${
-                selectedCategory === category.categoria_id
-                  ? 'bg-[#78f3d3] text-[#313D52] font-medium'
-                  : 'bg-[#f5f9f8] text-[#6c7a89] hover:bg-[#e0e6e5]'
-              }`}
-            >
-              {category.nombre}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-  
-  const renderStockBadge = (product: Product) => {
-    if (!product.estado_stock) return null;
-    
-    const badgeClasses = {
-      Disponible: 'bg-green-100 text-green-800',
-      Bajo: 'bg-yellow-100 text-yellow-800',
-      Agotado: 'bg-red-100 text-red-800'
+
+    const loadAll = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const res = await fetch('/api/admin/products');
+        if (!res.ok) throw new Error('Error al cargar productos');
+        const data = await res.json();
+        if (!alive) return;
+        const list: ProductApiShape[] = data.products ?? data.productos ?? [];
+        setProducts(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error(e);
+        if (!alive) return;
+        setError('No se pudieron cargar los productos');
+      } finally {
+        if (alive) setIsLoading(false);
+      }
     };
-    
-    return (
-      <span className={`text-xs px-2 py-1 rounded ${badgeClasses[product.estado_stock]}`}>
-        {product.estado_stock}
-      </span>
-    );
+
+    if (searchTerm && searchTerm.trim().length >= 3) {
+      search();
+    } else {
+      loadAll();
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [searchTerm]);
+
+  const showingQuery = useMemo(() => (searchTerm && searchTerm.trim().length >= 3 ? searchTerm.trim() : ''), [searchTerm]);
+
+  const renderStockBadge = (p: ProductApiShape): React.JSX.Element => {
+    const state =  getStockState(p);
+    const cls =
+
+      state === 'Suficiente' || "Disponible"
+        ? 'bg-green-100 text-green-800'
+        : state === 'Bajo'
+        ? 'bg-yellow-100 text-yellow-800'
+        : 'bg-red-100 text-red-800';
+    return <span className={`text-xs px-2 py-1 rounded ${cls}`}>{state}</span>;
   };
-  
-  const renderProductCard = (product: Product) => {
-    const isOutOfStock = product.stock <= 0;
-    
+
+  const renderCard = (p: ProductApiShape) => {
+    const id = getId(p);
+    const name = getName(p);
+    const price = getDisplayPrice(p);
+    const out = p.stock <= 0;
+
     return (
-      <div 
-        key={product.producto_id} 
-        className={`bg-white p-4 rounded-lg border border-[#e0e6e5] hover:shadow-md transition-shadow ${
-          isOutOfStock ? 'opacity-50' : ''
+      <article
+        key={id}
+        className={`h-full bg-white p-3 sm:p-4 rounded-lg border border-[#e0e6e5] hover:shadow-md transition-shadow flex flex-col ${
+          out ? 'opacity-60' : ''
         }`}
       >
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="font-medium text-[#313D52] flex items-center">
-              <Package size={18} className="mr-2" />
-              {product.nombre}
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+          <div className="pr-0 md:pr-4">
+            <h3 className="font-medium text-[#313D52] flex items-start md:items-center">
+              <Package size={18} className="mt-[2px] md:mt-0 mr-2 text-[#78f3d3] shrink-0" />
+              <span className="break-words">{name || <span className="italic text-[#6c7a89]">Sin nombre</span>}</span>
             </h3>
-            
-            {product.descripcion ? (
-              <p className="text-sm text-[#6c7a89] mt-1">{product.descripcion}</p>
-            ): (null)}
-            
-            <div className="flex items-center mt-2 space-x-2">
-            {renderStockBadge(product)}
-              
-              {product.categoria_nombre ? (
-                <span className="text-xs bg-[#f5f9f8] text-[#6c7a89] px-2 py-1 rounded flex items-center">
+
+            {p.producto_descripcion ? (
+              <p className="text-[13px] sm:text-sm text-[#6c7a89] mt-1 leading-relaxed break-words">{p.producto_descripcion}</p>
+            ) : (
+              <p className="text-[13px] sm:text-sm text-[#6c7a89] mt-1 italic">&nbsp;</p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {renderStockBadge(p)}
+              {p.categoria ? (
+                <span className="text-xs bg-[#f5f9f8] text-[#6c7a89] px-2 py-1 rounded inline-flex items-center">
                   <Tag size={12} className="mr-1" />
-                  {product.categoria_nombre}
+                  {p.categoria}
                 </span>
-              ):(null)}
+              ) : null}
             </div>
           </div>
-          
-          <div className="text-right">
-            <div className="font-bold text-[#313D52]">
-              ${(Number(product.precio_oferta) || Number(product.precio)).toFixed(2)}
 
-
-            </div>
-            
-            {product.precio_oferta ? (
-              <div className="text-xs text-[#6c7a89] line-through">
-                ${product.precio.toFixed(2)}
-              </div>
-            ):(null)}
+          <div className="md:text-right md:whitespace-nowrap">
+            <div className="font-bold text-[#313D52] text-base sm:text-lg">{money(price)}</div>
+            {hasOffer(p) ? <div className="text-xs text-[#6c7a89] line-through">{money(getBasePrice(p))}</div> : null}
           </div>
         </div>
-        
-        <div className="mt-4 flex justify-between items-center">
-          <div className="text-sm text-[#6c7a89]">
-            <span className="font-medium">Stock:</span> {product.stock}
-          </div>
-          
+
+        <div className="mt-4 flex items-center justify-between md:mt-auto">
+          <div className="text-sm text-[#6c7a89]"><span className="font-medium">Stock:</span> {p.stock}</div>
+
           <button
-            onClick={() => handleAddToCart(product)}
-            disabled={isOutOfStock}
-            className={`flex items-center text-sm rounded-lg px-3 py-1 ${
-              isOutOfStock
-                ? 'bg-[#f5f9f8] text-[#6c7a89] cursor-not-allowed'
-                : 'bg-[#f5f9f8] text-[#313D52] hover:bg-[#e0e6e5]'
+            onClick={() => onAddToCart({ id, tipo: 'producto', nombre: name || `Producto #${id}`, precio: price, cantidad: 1 })}
+            disabled={out}
+            className={`w-full sm:w-auto inline-flex justify-center items-center text-sm rounded-lg px-3 py-2 transition-colors ${
+              out ? 'bg-[#f5f9f8] text-[#6c7a89] cursor-not-allowed' : 'bg-[#f5f9f8] text-[#313D52] hover:bg-[#e0e6e5]'
             }`}
+            title={out ? 'Sin stock' : 'Agregar al carrito'}
           >
-            <PlusCircle size={16} className={`mr-1 ${isOutOfStock ? 'text-[#6c7a89]' : 'text-[#78f3d3]'}`} />
-            {isOutOfStock ? 'Sin stock' : 'Agregar'}
+            <PlusCircle size={16} className={`mr-1 ${out ? '' : 'text-[#78f3d3]'}`} />
+            {out ? 'Sin stock' : 'Agregar'}
           </button>
         </div>
-      </div>
+      </article>
     );
   };
-  
-  if (loading && categories.length === 0) {
+
+  /* UI */
+  if (isLoading && products.length === 0) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="flex justify-center items-center py-12" aria-busy>
         <Loader2 size={40} className="animate-spin text-[#78f3d3]" />
       </div>
     );
   }
-  
-  if (error && categories.length === 0) {
+
+  if (error && products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <AlertCircle size={40} className="text-red-500 mb-4" />
-        <p className="text-[#313D52]">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="mt-4 px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg"
-        >
+      <div className="flex flex-col items-center justify-center py-12" role="alert" aria-live="polite">
+        <AlertCircle size={40} className="text-red-500 mb-2" />
+        <p className="text-[#313D52] text-center px-4">{error}</p>
+        <button onClick={() => location.reload()} className="mt-4 w-full sm:w-auto px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg">
           Reintentar
         </button>
       </div>
     );
   }
-  
-  return (
-    <div>
-      {/* Mostrar categorías solo cuando no se está buscando */}
-      {(!searchTerm || searchTerm.length < 3) && renderCategoryTabs()}
-      
-      {/* Indicador de búsqueda */}
-      {searchTerm && searchTerm.length >= 3 && (
-        <div className="mb-4 flex items-center text-sm text-[#6c7a89]">
-          <Filter size={16} className="mr-1" />
-          Resultados para: <span className="font-medium ml-1">&quot;{searchTerm}&quot;</span>
 
-          
-          {selectedCategory === null && loading && (
-            <Loader2 size={16} className="ml-2 animate-spin text-[#78f3d3]" />
-          )}
+  return (
+    <section className={`mx-auto w-full max-w-5xl px-3 sm:px-4 lg:px-6 ${className || ''}`}>
+      {showingQuery ? (
+        <div className="mb-4 flex items-center text-sm text-[#6c7a89] gap-2">
+          <Filter size={16} />
+          <span className="truncate">Resultados para: <span className="font-medium">“{showingQuery}”</span></span>
+          {isLoading ? <Loader2 size={16} className="ml-auto sm:ml-2 animate-spin text-[#78f3d3]" /> : null}
         </div>
-      )}
-      
-      {/* Productos */}
-      {loading && selectedCategory !== null ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 size={32} className="animate-spin text-[#78f3d3]" />
-        </div>
-      ) : products.length === 0 ? (
-        <div className="text-center py-8 text-[#6c7a89]">
+      ) : null}
+
+      {products.length === 0 ? (
+        <div className="text-center py-12 text-[#6c7a89] px-3">
           <p>No se encontraron productos</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {products.map(renderProductCard)}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3 sm:gap-4 lg:gap-5">
+
+          {products.map(renderCard)}
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

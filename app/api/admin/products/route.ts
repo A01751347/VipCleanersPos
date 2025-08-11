@@ -154,6 +154,7 @@ export async function POST(request: NextRequest) {
       values: [
         nombre.trim(),
         descripcion?.trim() || null,
+        
         precio,
         costo || 0,
         categoria_id,

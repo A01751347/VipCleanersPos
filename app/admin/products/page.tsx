@@ -23,7 +23,7 @@ interface Product {
   producto_nombre: string;
   producto_id: number;
   nombre: string;
-  descripcion: string;
+  producto_descripcion: string;
   precio: number;
   costo: number;
   categoria: string;
@@ -147,7 +147,7 @@ export default function ProductsPage() {
     setEditingProduct(product);
     setFormData({
       nombre: product.producto_nombre,
-      descripcion: product.descripcion || '',
+      descripcion: product.producto_descripcion || '',
       precio: product.precio.toString(),
       costo: product.costo?.toString() || '0',
       categoria_id: product.categoria_id?.toString()|| '0',
@@ -341,7 +341,7 @@ console.log(products)
                 {product.producto_nombre}
               </h3>
               <p className="text-xs text-[#6c7a89] truncate">
-                {product.descripcion || 'Sin descripción'}
+                {product.producto_descripcion || 'Sin descripción'}
               </p>
             </div>
             

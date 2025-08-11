@@ -566,11 +566,11 @@ export default function POSPage() {
     }
 
     return (
-        <div className="flex flex-col w-full h-full lg:flex-row">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_26rem] w-full min-h-screen">
             {/* Panel izquierdo: Productos y Servicios */}
-            <div className="flex-1 flex flex-col p-4 lg:max-w-6xl overflow-hidden h-full">
+            <div className="min-w-0 flex flex-col p-4 overflow-hidden">
                 {/* Cabecera */}
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
                     <h1 className="text-xl font-semibold text-[#313D52]">Punto de Venta</h1>
 
                     <div className="flex items-center space-x-2">
@@ -583,7 +583,7 @@ export default function POSPage() {
                                 placeholder="Buscar..."
                                 value={searchTerm}
                                 onChange={(e) => handleSearch(e.target.value)}
-                                className="py-2 pl-10 pr-4 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] text-sm w-64"
+                                className="py-2 pl-10 pr-4 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3]text-sm w-full sm:w-64"
                             />
                         </div>
                     </div>
@@ -612,7 +612,7 @@ export default function POSPage() {
                 </div>
 
                 {/* Contenido de las pestañas */}
-                <div className="flex flex-wrap overflow-y-auto pb-4">
+                <div className="min-h-0 overflow-y-auto pb-4">
                     {activeTab === 'servicios' ? (
                         <ServiceSelector
                             onAddToCart={addToCart}
@@ -629,7 +629,7 @@ export default function POSPage() {
             </div>
 
             {/* Panel derecho: Selección de cliente y carrito */}
-            <div className="w-full lg:w-112 bg-[#f5f9f8] border-t lg:border-t-0 lg:border-l border-[#e0e6e5] flex flex-col h-full">
+            <div className="w-full lg:basis-[28rem] lg:flex-none bg-[#f5f9f8] border-t lg:border-t-0 lg:border-l border-[#e0e6e5] flex flex-col h-full">
                 {/* Sección de cliente */}
                 <div className="p-4 border-b border-[#e0e6e5]">
                     <div className="flex justify-between items-center mb-4">

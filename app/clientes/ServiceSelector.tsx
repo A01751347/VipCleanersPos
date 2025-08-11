@@ -1,10 +1,14 @@
-'use client'
-// components/admin/pos/ServiceSelector.tsx
-import React, { useState, useEffect } from 'react';
-import { Brush, Shield, PlusCircle, Loader2, AlertCircle, Play, Footprints } from 'lucide-react';
+'use client';
 
-// Interfaz para servicio
-interface Service {
+// ==== FILE: ServiceSelector.tsx ====
+
+import React, { useEffect, useMemo, useState } from 'react';
+import { Brush, Shield, PlusCircle, Loader2, AlertCircle, Footprints } from 'lucide-react';
+
+/************************************
+ * Tipos y helpers compartidos
+ ************************************/
+export interface Service {
   servicio_id: number;
   nombre: string;
   descripcion: string;
@@ -14,7 +18,7 @@ interface Service {
   activo: boolean;
 }
 
-interface ServiceSelectorProps {
+export interface ServiceSelectorProps {
   onAddToCart: (item: {
     id: number;
     tipo: 'servicio';
@@ -27,189 +31,155 @@ interface ServiceSelectorProps {
     descripcion?: string;
   }) => void;
   searchTerm: string;
-  onAddShoesService?: (serviceId: number, serviceName: string, servicePrice: number) => void; // 🆕 Nueva prop opcional
+  onAddShoesService?: (serviceId: number, serviceName: string, servicePrice: number) => void;
+  /** Permite controlar el contenedor externo (opcional) */
+  className?: string;
 }
 
-const ServiceSelector: React.FC<ServiceSelectorProps> = ({ 
-  onAddToCart, 
-  searchTerm, 
-  onAddShoesService 
-}) => {
+const formatCurrency = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+
+const shoesKeywords = ['limpieza', 'restauracion', 'restauración', 'tenis', 'sneaker', 'zapato', 'calzado'];
+const isShoeService = (s: Service) => {
+  const name = s.nombre?.toLowerCase() ?? '';
+  const desc = s.descripcion?.toLowerCase() ?? '';
+  return shoesKeywords.some((k) => name.includes(k) || desc.includes(k));
+};
+
+const ServiceSelector: React.FC<ServiceSelectorProps> = ({ onAddToCart, searchTerm, onAddShoesService, className }) => {
   const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /** Fetch */
   useEffect(() => {
-    const fetchServices = async () => {
+    let active = true;
+    (async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         setError(null);
-        const response = await fetch('/api/admin/services');
-        
-        if (!response.ok) {
-          throw new Error('Error al cargar servicios');
-        }
-        
-        const data = await response.json();
+        const res = await fetch('/api/admin/services');
+        if (!res.ok) throw new Error('Error al cargar servicios');
+        const data = await res.json();
+        if (!active) return;
         setServices(data.services || []);
-      } catch (err) {
-        console.error('Error fetching services:', err);
+      } catch (e) {
+        console.error(e);
+        if (!active) return;
         setError('No se pudieron cargar los servicios');
       } finally {
-        setLoading(false);
+        if (active) setIsLoading(false);
       }
+    })();
+    return () => {
+      active = false;
     };
-    
-    fetchServices();
   }, []);
-  
-  // Filtrar servicios por término de búsqueda
-  const filteredServices = services.filter(service => 
-    service.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    service.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  // 🆕 Función para detectar si es un servicio de tenis y decidir qué modal usar
-  const isShoeService = (service: Service): boolean => {
-    const shoesKeywords = ['limpieza', 'restauracion', 'tenis', 'sneaker', 'zapato', 'calzado'];
-    const serviceName = service.nombre.toLowerCase();
-    const serviceDescription = service.descripcion.toLowerCase();
-    
-    return shoesKeywords.some(keyword => 
-      serviceName.includes(keyword) || serviceDescription.includes(keyword)
-    );
-  };
-  
-  // 🆕 Función actualizada para manejar agregar servicio
-  const handleAddServiceClick = (service: Service) => {
-    // Si es un servicio de tenis y tenemos la función del modal mejorado
-    if (isShoeService(service) && onAddShoesService) {
-      onAddShoesService(service.servicio_id, service.nombre, service.precio);
-    } else {
-      // Para servicios normales, agregar directamente al carrito
-      onAddToCart({
-        id: service.servicio_id,
-        tipo: 'servicio',
-        nombre: service.nombre,
-        precio: service.precio,
-        cantidad: 1
-      });
+
+  /** Derivados */
+  const filtered = useMemo(() => {
+    const q = (searchTerm || '').trim().toLowerCase();
+    if (!q) return services;
+    return services.filter((s) => s.nombre.toLowerCase().includes(q) || (s.descripcion || '').toLowerCase().includes(q));
+  }, [services, searchTerm]);
+
+  /** Handlers */
+  const handleAddClick = (s: Service) => {
+    if (isShoeService(s) && onAddShoesService) {
+      onAddShoesService(s.servicio_id, s.nombre, s.precio);
+      return;
     }
+    onAddToCart({ id: s.servicio_id, tipo: 'servicio', nombre: s.nombre, precio: s.precio, cantidad: 1 });
   };
-  
-  // 🚫 Eliminar función antigua del modal (ya no se usa)
-  // const handleAddToCart = () => { ... }
-  
-  // Renderizar un servicio
-  const renderServiceCard = (service: Service) => {
-    const getServiceIcon = () => {
-      // 🆕 Agregar icono especial para servicios de tenis
-      if (isShoeService(service)) {
-        return <Footprints size={18} className="mr-2 text-[#78f3d3]" />;
-      }
-      if (service.nombre.toLowerCase().includes('premium')) {
-        return <Shield size={18} className="mr-2" />;
-      }
-      return <Brush size={18} className="mr-2" />;
-    };
 
-    // 🆕 Función para obtener el texto del botón
-    const getButtonText = () => {
-      if (isShoeService(service) && onAddShoesService) {
-        return "Agregar Detalles";
-      }
-      return "Agregar";
-    };
+  /** Card */
+  const renderServiceCard = (s: Service) => {
+    const Icon = isShoeService(s) ? Footprints : s.nombre.toLowerCase().includes('premium') ? Shield : Brush;
 
-    // 🆕 Función para obtener el color del botón
-    const getButtonStyle = () => {
-      if (isShoeService(service) && onAddShoesService) {
-        return "flex items-center text-sm text-white bg-[#78f3d3] hover:bg-[#4de0c0] rounded-lg px-3 py-1.5 font-medium";
-      }
-      return "flex items-center text-sm text-[#313D52] bg-[#f5f9f8] hover:bg-[#e0e6e5] rounded-lg px-3 py-1";
-    };
-    
     return (
-      <div 
-        key={service.servicio_id} 
-        className="bg-white p-4 rounded-lg border border-[#e0e6e5] hover:shadow-md transition-shadow"
+      <article
+        key={s.servicio_id}
+        className="h-full bg-white p-3 sm:p-4 rounded-lg border border-[#e0e6e5] hover:shadow-md transition-shadow flex flex-col"
       >
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="font-medium text-[#313D52] flex items-center">
-              {getServiceIcon()}
-              {service.nombre}
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+          <div className="pr-0 md:pr-4">
+            <h3 className="font-medium text-[#313D52] flex items-start md:items-center text-base sm:text-[1rem]">
+              <Icon size={18} className="mt-[2px] md:mt-0 mr-2 text-[#78f3d3] shrink-0" />
+              <span className="break-words">{s.nombre}</span>
             </h3>
-            <p className="text-sm text-[#6c7a89] mt-1">{service.descripcion}</p>
-            
-            {service.requiere_identificacion ? (
-              <div className="mt-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-flex items-center">
+            {s.descripcion ? (
+              <p className="text-[13px] sm:text-sm text-[#6c7a89] mt-1 leading-relaxed break-words">{s.descripcion}</p>
+            ) : (
+              <p className="text-[13px] sm:text-sm text-[#6c7a89] mt-1 italic">Sin descripción</p>
+            )}
+
+            {s.requiere_identificacion && (
+              <span className="mt-2 inline-flex items-center text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
                 <AlertCircle size={12} className="mr-1" />
                 Requiere identificación
-              </div>
-            ) : null}
+              </span>
+            )}
           </div>
-          <div className="text-[#313D52] font-bold">
-            ${Number(service.precio).toFixed(2)}
+
+          <div className="md:text-right md:whitespace-nowrap">
+            <div className="font-bold text-[#313D52] text-base sm:text-lg">{formatCurrency(s.precio)}</div>
           </div>
         </div>
-        
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={() => handleAddServiceClick(service)}
-            className={getButtonStyle()}
-          >
-            <PlusCircle size={16} className="mr-1" />
-            {getButtonText()}
-          </button>
+
+        <div className="mt-4 flex justify-end md:mt-auto">
+            <button
+              onClick={() => handleAddClick(s)}
+              className={`w-full sm:w-auto inline-flex justify-center items-center text-sm rounded-lg px-3 py-2 transition-colors
+                ${isShoeService(s) && onAddShoesService
+                  ? 'bg-[#78f3d3] text-[#313D52] hover:bg-[#4de0c0]'
+                  : 'bg-[#f5f9f8] text-[#313D52] hover:bg-[#e0e6e5]'}
+              `}
+            >
+              <PlusCircle size={16} className="mr-1" />
+              {isShoeService(s) && onAddShoesService ? 'Agregar detalles' : 'Agregar'}
+            </button>
         </div>
-      </div>
+      </article>
     );
   };
-  
-  if (loading) {
+
+  /** UI */
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="flex justify-center items-center py-12" aria-busy>
         <Loader2 size={40} className="animate-spin text-[#78f3d3]" />
       </div>
     );
   }
-  
+
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <AlertCircle size={40} className="text-red-500 mb-4" />
-        <p className="text-[#313D52]">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="mt-4 px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg"
-        >
+      <div className="flex flex-col items-center justify-center py-12" role="alert" aria-live="polite">
+        <AlertCircle size={40} className="text-red-500 mb-2" />
+        <p className="text-[#313D52] text-center px-4">{error}</p>
+        <button onClick={() => location.reload()} className="mt-4 w-full sm:w-auto px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg">
           Reintentar
         </button>
       </div>
     );
   }
-  
+
+  if (filtered.length === 0) {
+    return (
+      <div className="text-center py-12 text-[#6c7a89] px-3">
+        <p>No se encontraron servicios</p>
+        {searchTerm ? <p className="text-sm mt-2 break-words">Búsqueda: “{searchTerm}”</p> : null}
+      </div>
+    );
+  }
+
   return (
-    <div>
-      {filteredServices.length === 0 ? (
-        <div className="text-center py-8 text-[#6c7a89]">
-          <p>No se encontraron servicios</p>
-          {searchTerm && (
-            <p className="text-sm mt-2">
-              Búsqueda: "{searchTerm}"
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4">
-          {filteredServices.map(renderServiceCard)}
-        </div>
-      )}
-      
-      {/* 🚫 Eliminar modal anterior - ahora se usa el modal mejorado del POS */}
-      {/* Modal para detalles del calzado - ELIMINADO */}
-    </div>
+    <section className={`mx-auto w-full max-w-7xl px-3 sm:px-4 lg:px-6 ${className || ''}`}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3 sm:gap-4 lg:gap-5">
+        {filtered.map(renderServiceCard)}
+      </div>
+    </section>
   );
 };
 
 export default ServiceSelector;
+
