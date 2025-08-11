@@ -37,8 +37,8 @@ import OrderItemsList from '../../../../components/admin/OrderItemsList';
 import OrderStatusUpdateModal from '../../../../components/admin/OrderStatusUpdateModal';
 import OrderPaymentModal from '../../../../components/admin/OrderPaymentModal';
 import UploadIdentificationModal from '../../../../components/admin/UploadIdentificationModal';
-import ShoesStorageModal from '../../../../components/admin/ShoesStorageModal';
 import EditShoeModal from '../../../../components/admin/orders/EditShoeModal';
+import StorageLocationModal, { LocationData } from '../../../../components/admin/pos/StorageLocationModal';
 
 import SendTicketModal from '../../../../components/admin/SendTicketModal';
 // Interfaces for type checking
@@ -155,19 +155,63 @@ interface OrderImage {
   fecha_creacion: string;
 }
 
+// StorageLocationModal (bulk o individual)
+type StorageOrderItem = {
+  detalleServicioId: number;
+  ordenId: number;
+  nombre: string;
+  marca?: string;
+  modelo?: string;
+  talla?: string;
+  color?: string;
+  descripcion?: string;
+};
+
+
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
 
 
+  const [storageItems, setStorageItems] = useState<StorageOrderItem[]>([]);
+  const [existingLocations, setExistingLocations] = useState<LocationData[]>([]);
+  const [currentEmpleadoId] = useState(1); // TODO: obtén del contexto/auth real
+  
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const toStorageItem = (s: OrderService): StorageOrderItem => ({
+    detalleServicioId: s.detalle_servicio_id,
+    ordenId: order!.orden_id,
+    nombre: s.servicio_nombre,
+    marca: s.marca ?? s.marca_calzado ?? '',
+    modelo: s.modelo ?? s.modelo_calzado ?? '',
+    talla: s.talla ?? undefined,
+    color: s.color ?? undefined,
+    descripcion: s.descripcion ?? undefined,
+  });
+  
+  const toExistingLocation = (s: OrderService): LocationData => ({
+    detalleServicioId: s.detalle_servicio_id,
+    ordenId: order!.orden_id,
+    marca: s.marca ?? s.marca_calzado ?? '',
+    modelo: s.modelo ?? s.modelo_calzado ?? '',
+    talla: s.talla ?? undefined,
+    color: s.color ?? undefined,
+    cajaAlmacenamiento: s.caja_almacenamiento as string,
+    codigoUbicacion: s.codigo_ubicacion as string,
+    notasEspeciales: s.notas_especiales ?? undefined,
+  });
+  
+
 
 
   // Modal states
+
+
+const [showStorageModal, setShowStorageModal] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -210,10 +254,71 @@ export default function OrderDetailPage() {
     }
   };
 
-  const openStorageModal = (shoeId: number, shoeName: string) => {
-    setSelectedShoe({ id: shoeId, name: shoeName });
-    setIsStorageModalOpen(true);
-  };
+// Un solo servicio (desde la fila)
+const openStorageModalForService = (s: OrderService) => {
+  const items = [toStorageItem(s)];
+  const existing = s.caja_almacenamiento && s.codigo_ubicacion ? [toExistingLocation(s)] : [];
+  setStorageItems(items);
+  setExistingLocations(existing);
+  setShowStorageModal(true);
+};
+
+// Todos los PENDIENTES de ubicación
+const openStorageModalForPending = () => {
+  if (!order) return;
+  const pending = order.servicios.filter(s => !s.caja_almacenamiento || !s.codigo_ubicacion);
+  if (pending.length === 0) return;
+  setStorageItems(pending.map(toStorageItem));
+  setExistingLocations([]); // sólo pendientes → no precargamos
+  setShowStorageModal(true);
+};
+
+// Todos (para editar en bloque)
+const openStorageModalForAll = () => {
+  if (!order) return;
+  setStorageItems(order.servicios.map(toStorageItem));
+  setExistingLocations(
+    order.servicios
+      .filter(s => s.caja_almacenamiento && s.codigo_ubicacion)
+      .map(toExistingLocation)
+  );
+  setShowStorageModal(true);
+};
+
+
+const handleStorageLocationSubmit = async (locations: LocationData[]) => {
+  try {
+    const res = await fetch('/api/admin/storage-locations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        locations: locations.map(l => ({
+          detalleServicioId: l.detalleServicioId,
+          ordenId: l.ordenId,
+          cajaAlmacenamiento: l.cajaAlmacenamiento,
+          codigoUbicacion: l.codigoUbicacion,
+          notasEspeciales: l.notasEspeciales,
+        })),
+        empleadoId: currentEmpleadoId,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Error al asignar ubicaciones');
+    }
+
+    setShowStorageModal(false);
+    setStorageItems([]);
+    setExistingLocations([]);
+    await loadOrderDetails(); // 🔄 refresca la orden
+  } catch (err) {
+    console.error(err);
+    alert(err instanceof Error ? err.message : 'Error al asignar ubicaciones');
+    throw err; // para que el modal muestre el error si lo necesita
+  }
+};
+
 
   
 
@@ -392,10 +497,7 @@ const [shoeToEdit, setShoeToEdit] = useState<null | {
                           {/* Editar/Asignar ubicación */}
                           <button
                             onClick={() =>
-                              openStorageModal(
-                                s.detalle_servicio_id,
-                                `${marca || ''} ${modelo || ''} (${s.servicio_nombre})`.trim()
-                              )
+                              openStorageModalForService(s)
                             }
                             className="p-1.5 rounded hover:bg-[#f5f9f8] border border-transparent hover:border-[#e0e6e5]"
                             title={tieneUbicacion ? 'Editar ubicación' : 'Asignar ubicación'}
@@ -509,10 +611,7 @@ const submitEditShoe = async (vals: {
 
   // al cerrar el modal de edición, abre el de ubicación del mismo par
   setIsEditShoeOpen(false);
-  openStorageModal(
-    shoeToEdit.detalle_servicio_id,
-    `${vals.marca || ''} ${vals.modelo || ''} (${shoeToEdit.servicio_nombre})`.trim()
-  );
+  
 };
 
 
@@ -814,16 +913,6 @@ const submitEditShoe = async (vals: {
                             </div>
                           )}
                         </div>
-                        <button
-                          onClick={() => openStorageModal(
-                            shoe.detalle_servicio_id,
-                            `${shoe.marca || ''} ${shoe.modelo || ''} (${shoe.servicio_nombre})`.trim()
-                          )}
-                          className="text-xs text-[#006e54] hover:underline flex items-center"
-                        >
-                          <Edit size={12} className="mr-1" />
-                          Editar ubicación
-                        </button>
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full">
@@ -831,18 +920,7 @@ const submitEditShoe = async (vals: {
                         <p className="text-sm text-amber-700 text-center mb-2">
                           Sin ubicación asignada
                         </p>
-                        {order.estado_actual_id >= 2 && (
-                          <button
-                            onClick={() => openStorageModal(
-                              shoe.detalle_servicio_id,
-                              `${shoe.marca || ''} ${shoe.modelo || ''} (${shoe.servicio_nombre})`.trim()
-                            )}
-                            className="px-3 py-1 bg-white text-amber-700 rounded text-sm font-medium hover:bg-amber-100 transition-colors"
-                          >
-                            <Plus size={12} className="inline mr-1" />
-                            Asignar ahora
-                          </button>
-                        )}
+                        
                       </div>
                     )}
                   </div>
@@ -999,42 +1077,7 @@ const submitEditShoe = async (vals: {
 
     {/* Fila: Productos (izq) + (der) Timeline y Pagos apilados */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Productos */}
-      <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-        <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-          <h2 className="font-medium text-[#313D52] flex items-center">
-            <ShoppingBag size={18} className="mr-2 text-[#6c7a89]" />
-            Productos
-          </h2>
-        </div>
-        <div className="p-4">
-          {order.productos.length === 0 ? (
-            <div className="text-center py-4 text-[#6c7a89]">
-              <p>No hay productos registrados en esta orden</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {order.productos.map((product) => (
-                <div key={product.detalle_producto_id} className="border-b border-[#e0e6e5] pb-4 last:border-b-0 last:pb-0">
-                  <div className="flex justify-between">
-                    <h3 className="font-medium text-[#313D52]">{product.producto_nombre}</h3>
-                    <div className="text-right">
-                      <p className="text-[#313D52] font-medium">{formatCurrency(product.subtotal)}</p>
-                      <p className="text-xs text-[#6c7a89]">
-                        {product.cantidad} x {formatCurrency(product.precio_unitario)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Derecha: Timeline + Pagos apilados */}
-      <div className="space-y-6">
-
+     
         {/* Timeline */}
         <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
           <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
@@ -1113,6 +1156,43 @@ const submitEditShoe = async (vals: {
             )}
           </div>
         </div>
+      {/* Derecha: Timeline + Pagos apilados */}
+      <div className="space-y-6">
+
+
+         {/* Productos */}
+      <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+        <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+          <h2 className="font-medium text-[#313D52] flex items-center">
+            <ShoppingBag size={18} className="mr-2 text-[#6c7a89]" />
+            Productos
+          </h2>
+        </div>
+        <div className="p-4">
+          {order.productos.length === 0 ? (
+            <div className="text-center py-4 text-[#6c7a89]">
+              <p>No hay productos registrados en esta orden</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {order.productos.map((product) => (
+                <div key={product.detalle_producto_id} className="border-b border-[#e0e6e5] pb-4 last:border-b-0 last:pb-0">
+                  <div className="flex justify-between">
+                    <h3 className="font-medium text-[#313D52]">{product.producto_nombre}</h3>
+                    <div className="text-right">
+                      <p className="text-[#313D52] font-medium">{formatCurrency(product.subtotal)}</p>
+                      <p className="text-xs text-[#6c7a89]">
+                        {product.cantidad} x {formatCurrency(product.precio_unitario)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
 
         {/* Pagos Registrados */}
         <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
@@ -1389,17 +1469,21 @@ const submitEditShoe = async (vals: {
         />
       )}
 
-      {isStorageModalOpen && selectedShoe && (
-        <ShoesStorageModal
-          shoeId={selectedShoe.id}
-          shoeName={selectedShoe.name}
-          onClose={() => {
-            setIsStorageModalOpen(false);
-            setSelectedShoe(null);
-          }}
-          onSubmit={handleAssignStorage}
-        />
-      )}
+{showStorageModal && (
+  <StorageLocationModal
+    isOpen={showStorageModal}
+    onClose={() => {
+      setShowStorageModal(false);
+      setStorageItems([]);
+      setExistingLocations([]);
+    }}
+    onSubmit={handleStorageLocationSubmit}
+    orderItems={storageItems}
+    existingLocations={existingLocations}
+    empleadoId={currentEmpleadoId}
+  />
+)}
+
       {isEditShoeOpen && shoeToEdit && (
         <EditShoeModal
           isOpen={isEditShoeOpen}

@@ -33,11 +33,12 @@ const AdminSidebar = () => {
     { name: 'Clientes', href: '/admin/clients', icon: Users },
     { name: 'Pagos', href: '/admin/payments', icon: CreditCard },
     { name: 'Reportes', href: '/admin/reports', icon: BarChart2 },
-    { name: 'Configuración', href: '/admin/settings', icon: Settings },
     { name: 'Almacenamiento', href: '/admin/warehouse', icon: Warehouse },
     { name: 'Servicios ', href: '/admin/services', icon: Bubbles },
     { name: 'Productos', href: '/admin/products', icon: Box },
-    { name: 'Inventario', href: '/admin/inventory', icon: Archive },
+
+    //{ name: 'Configuración', href: '/admin/settings', icon: Settings },
+    //{ name: 'Inventario', href: '/admin/inventory', icon: Archive },
   ];
 
   const isActive = (href: string) => {

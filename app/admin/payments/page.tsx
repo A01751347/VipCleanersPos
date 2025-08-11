@@ -53,9 +53,12 @@ interface CashRegisterReport {
 }
 
 export default function PaymentsPage() {
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const today = new Date();
+  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split('T')[0];
+  
+  const [selectedDate, setSelectedDate] = useState<string>(localDate);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [employees, setEmployees] = useState<any[]>([]);
   const [report, setReport] = useState<CashRegisterReport | null>(null);

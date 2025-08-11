@@ -150,7 +150,7 @@ export default function ProductsPage() {
       descripcion: product.descripcion || '',
       precio: product.precio.toString(),
       costo: product.costo?.toString() || '0',
-      categoria_id: product.categoria_id.toString(),
+      categoria_id: product.categoria_id?.toString()|| '0',
       codigo_barras: product.codigo_barras || '',
       stock: product.stock.toString(),
       stock_minimo: product.stock_minimo.toString(),

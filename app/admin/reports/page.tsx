@@ -103,9 +103,11 @@ interface CashRegisterData {
 }
 
 export default function ReportsPage() {
+
+  const today = new Date();
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+    startDate: new Date(new Date(today.getTime() - today.getTimezoneOffset() * 60000).setDate(new Date(today.getTime() - today.getTimezoneOffset() * 60000).getDate() - 30)).toISOString().split('T')[0],
+    endDate: new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0]
   });
   
   const [reportType, setReportType] = useState<'sales' | 'employees' | 'customers' | 'cashRegister'>('sales');
