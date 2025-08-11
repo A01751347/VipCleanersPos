@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
         modeloId: s.modeloId ? parseInt(s.modeloId) : null,
         marca: s.marca?.trim() || null,
         modelo: s.modelo?.trim() || null,
+        talla: s.talla?.trim() || null,
+        color: s.color?.trim() || null,
         descripcion: s.descripcion?.trim() || null
       })),
       productos: productos.map((p: any) => ({
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
         // Obtener los detalles de servicios recién creados para mapear con las ubicaciones
         const serviciosCreados = await executeQuery<any[]>({
           query: `
-            SELECT detalle_servicio_id, marca, modelo, descripcion_calzado
+            SELECT detalle_servicio_id, marca, modelo, talla, color, descripcion_calzado
             FROM detalles_orden_servicios 
             WHERE orden_id = ? AND (marca IS NOT NULL OR modelo IS NOT NULL)
             ORDER BY detalle_servicio_id ASC

@@ -367,6 +367,8 @@ export default function POSPage() {
                     modeloId: item.modeloId ? (typeof item.modeloId === 'string' ? parseInt(item.modeloId, 10) : item.modeloId) : null,
                     marca: item.marca || '',
                     modelo: item.modelo || '',
+                    talla: item.talla?.trim() || null,
+                    color: item.color?.trim() || null,
                     descripcion: item.descripcion || ''
                 }));
 

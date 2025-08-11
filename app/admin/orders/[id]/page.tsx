@@ -28,7 +28,6 @@ import {
   ArrowRight,
   Brush,
   Box,
-  Tag,
   Mail
 } from 'lucide-react';
 import Link from 'next/link';
@@ -39,6 +38,7 @@ import OrderStatusUpdateModal from '../../../../components/admin/OrderStatusUpda
 import OrderPaymentModal from '../../../../components/admin/OrderPaymentModal';
 import UploadIdentificationModal from '../../../../components/admin/UploadIdentificationModal';
 import ShoesStorageModal from '../../../../components/admin/ShoesStorageModal';
+import EditShoeModal from '../../../../components/admin/orders/EditShoeModal';
 
 import SendTicketModal from '../../../../components/admin/SendTicketModal';
 // Interfaces for type checking
@@ -92,6 +92,8 @@ interface OrderService {
   marca: string | null;
   modelo: string | null;
   descripcion: string | null;
+  talla: string | null;
+  color: string  | null;
   // Additional fields for storage location
   caja_almacenamiento?: string | null;
   codigo_ubicacion?: string | null;
@@ -237,6 +239,17 @@ export default function OrderDetailPage() {
     }
   };
 
+  const [isEditShoeOpen, setIsEditShoeOpen] = useState(false);
+const [shoeToEdit, setShoeToEdit] = useState<null | {
+  detalle_servicio_id: number;
+  marca?: string | null;
+  modelo?: string | null;
+  descripcion?: string | null;
+  talla?: string | null;
+  color?: string | null;
+  servicio_nombre: string;
+}>(null);
+
   // Load data on component mount
   useEffect(() => {
     loadOrderDetails();
@@ -263,6 +276,162 @@ export default function OrderDetailPage() {
       currency: 'MXN'
     }).format(amount);
   };
+
+  const renderShoesTable = () => {
+    if (!order) return null;
+  
+    // Filtra servicios que tienen detalle de calzado (marca/modelo/desc), pero
+    // si quieres mostrar TODOS, simplemente usa order.servicios sin filtrar.
+    const rows = order.servicios;
+  
+    return (
+      <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+        <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+          <h2 className="font-semibold text-[#313D52]">Detalles del Calzado</h2>
+        </div>
+  
+        <div className="overflow-auto">
+          <table className="min-w-full table-fixed">
+            {/* columnas fijas (no se recorren) */}
+            <colgroup>
+              <col style={{ width: '20%' }} /> {/* Servicio */}
+              <col style={{ width: '24%' }} /> {/* Detalle de calzado */}
+              <col style={{ width: '20%' }} /> {/* Comentarios */}
+              <col style={{ width: '10%' }} /> {/* Color */}
+              <col style={{ width: '10%' }} /> {/* Talla */}
+              <col style={{ width: '16%' }} /> {/* Ubicación */}
+              <col style={{ width: '10%' }} /> {/* Precio */}
+              <col style={{ width: '6%'  }} /> {/* Acciones */}
+            </colgroup>
+  
+            <thead className="bg-[#f5f9f8]">
+              <tr className="text-[#6c7a89] text-xs uppercase tracking-wider">
+                <th className="px-3 py-3 text-left">Servicio</th>
+                <th className="px-3 py-3 text-left">Detalle de Calzado</th>
+                <th className="px-3 py-3 text-left">Comentarios</th>
+                <th className="px-3 py-3 text-left">Color</th>
+                <th className="px-3 py-3 text-left">Talla</th>
+                <th className="px-3 py-3 text-left">Ubicación</th>
+                <th className="px-3 py-3 text-right">Precio</th>
+                <th className="px-2 py-3 text-right" />
+              </tr>
+            </thead>
+  
+            <tbody className="divide-y divide-[#e0e6e5] text-sm">
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 text-center text-[#6c7a89] italic">
+                    No hay servicios registrados en esta orden
+                  </td>
+                </tr>
+              ) : (
+                rows.map((s, idx) => {
+                  const marca = s.marca ?? s.marca_calzado ?? '';
+                  const modelo = s.modelo ?? s.modelo_calzado ?? '';
+                  const detalle = (marca || modelo) ? `${marca} ${modelo}`.trim() : 'Tenis sin especificar';
+                  const comentarios = s.descripcion?.trim() || 'Sin Comentarios';
+                  const color = s.color?.trim() || 'Sin Color';
+                  const talla = s.talla?.trim() || 'Sin Talla';
+                  const tieneUbicacion = Boolean(s.caja_almacenamiento);
+  
+                  return (
+                    <tr key={s.detalle_servicio_id} className={idx % 2 ? 'bg-[#fafbfb]' : 'bg-white'}>
+                      {/* Servicio */}
+                      <td className="px-3 py-3 text-[#313D52] font-medium whitespace-nowrap">
+                        {s.servicio_nombre}
+                      </td>
+  
+                      {/* Detalle */}
+                      <td className="px-3 py-3 text-[#313D52] truncate">{detalle || '—'}</td>
+  
+                      {/* Comentarios */}
+                      <td className="px-3 py-3 text-[#6c7a89] truncate">{comentarios}</td>
+  
+                      {/* Color */}
+                      <td className="px-3 py-3 text-[#313D52] whitespace-nowrap">{color}</td>
+  
+                      {/* Talla */}
+                      <td className="px-3 py-3 text-[#313D52] whitespace-nowrap">{talla}</td>
+  
+                      {/* Ubicación */}
+                      <td className="px-3 py-3">
+                        {tieneUbicacion ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-[#e0f7f0] text-[#007a60]">
+                            Caja {s.caja_almacenamiento}
+                            {s.codigo_ubicacion && (
+                              <span className="ml-1 opacity-80">({s.codigo_ubicacion})</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-50 text-amber-700">
+                            Pendiente de Ubicar
+                          </span>
+                        )}
+                      </td>
+  
+                      {/* Precio */}
+                      <td className="px-3 py-3 text-right text-[#313D52] tabular-nums">
+                        {formatCurrency(s.precio_unitario)}
+                      </td>
+  
+                      {/* Acciones */}
+                      <td className="px-2 py-2">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Editar calzado */}
+                          <button
+                            onClick={() => openEditShoe(s)}
+                            className="p-1.5 rounded hover:bg-[#f5f9f8] border border-transparent hover:border-[#e0e6e5]"
+                            title="Editar calzado"
+                          >
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 text-[#6c7a89]" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                            </svg>
+                          </button>
+  
+                          {/* Editar/Asignar ubicación */}
+                          <button
+                            onClick={() =>
+                              openStorageModal(
+                                s.detalle_servicio_id,
+                                `${marca || ''} ${modelo || ''} (${s.servicio_nombre})`.trim()
+                              )
+                            }
+                            className="p-1.5 rounded hover:bg-[#f5f9f8] border border-transparent hover:border-[#e0e6e5]"
+                            title={tieneUbicacion ? 'Editar ubicación' : 'Asignar ubicación'}
+                          >
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 text-[#6c7a89]" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 10c0 6-9 12-9 12S3 16 3 10a9 9 0 1 1 18 0z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                          </button>
+  
+                          {/* Eliminar (opcional) */}
+                          <button
+                            //onClick={() => handleRemoveService(s.detalle_servicio_id)}
+                            className="p-1.5 rounded hover:bg-red-50 border border-transparent hover:border-red-200"
+                            title="Eliminar"
+                          >
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+  
 
   // Get payment status badge
   const getPaymentStatusBadge = (status: string) => {
@@ -305,6 +474,47 @@ export default function OrderDetailPage() {
   const handlePrintTicket = () => {
     window.print();
   };
+
+  // Abre modal de edición con valores actuales
+const openEditShoe = (shoe: any) => {
+  setShoeToEdit({
+    detalle_servicio_id: shoe.detalle_servicio_id,
+    marca: shoe.marca ?? shoe.marca_calzado ?? '',
+    modelo: shoe.modelo ?? shoe.modelo_calzado ?? '',
+    descripcion: shoe.descripcion ?? '',
+    talla: (shoe as any).talla ?? '',
+    color: (shoe as any).color ?? '',
+    servicio_nombre: shoe.servicio_nombre
+  });
+  setIsEditShoeOpen(true);
+};
+
+// Guardar edición y luego abrir ubicación
+const submitEditShoe = async (vals: {
+  marca: string | null; modelo: string | null; descripcion: string | null; talla: string | null; color: string | null;
+}) => {
+  if (!shoeToEdit || !order) return;
+  const url = `/api/admin/orders/${order.orden_id}/shoes/${shoeToEdit.detalle_servicio_id}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(vals),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.error || 'No se pudo actualizar el calzado');
+  }
+  // refresca datos
+  await loadOrderDetails();
+
+  // al cerrar el modal de edición, abre el de ubicación del mismo par
+  setIsEditShoeOpen(false);
+  openStorageModal(
+    shoeToEdit.detalle_servicio_id,
+    `${vals.marca || ''} ${vals.modelo || ''} (${shoeToEdit.servicio_nombre})`.trim()
+  );
+};
+
 
   // Improved handleUpdateStatus function for your React component
   const handleUpdateStatus = async (newStatusId: number, comentario: string) => {
@@ -513,9 +723,10 @@ export default function OrderDetailPage() {
     if (!order || !order.servicios || order.servicios.length === 0) return null;
 
     // Filter only shoe-related services
-    const shoesServices = order.servicios.filter(service =>
-      service.marca || service.modelo || service.descripcion
+    const shoesServices = order.servicios.filter(s =>
+      s.marca || s.modelo || s.descripcion || s.marca_calzado || s.modelo_calzado
     );
+    
 
     if (shoesServices.length === 0) return null;
 
@@ -533,26 +744,29 @@ export default function OrderDetailPage() {
               <div key={shoe.detalle_servicio_id} className="bg-white p-4 rounded-lg border border-[#e0e6e5] hover:shadow-md transition-shadow">
                 {/* Shoe header with service information */}
                 <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold text-[#313D52] flex items-center text-lg">
-                      <Brush size={20} className="mr-2 text-[#78f3d3]" />
-                      1x {shoe.servicio_nombre}
-                    </h3>
-                    <div className="text-sm text-[#313D52] mt-1 font-medium">
-                      {shoe.marca && shoe.modelo
-                        ? `${shoe.marca} - ${shoe.modelo}`
-                        : shoe.marca
-                          ? shoe.marca
-                          : shoe.modelo
-                            ? `- ${shoe.modelo}`
-                            : 'Sin detalles registrados'}
-                    </div>
+  <div>
+    <h3 className="font-semibold text-[#313D52] flex items-center text-lg">
+      <Brush size={20} className="mr-2 text-[#78f3d3]" />
+      1x {shoe.servicio_nombre}
+    </h3>
+    <div className="text-sm text-[#313D52] mt-1 font-medium">
+      {shoe.marca_calzado || shoe.marca || ''} {shoe.modelo_calzado || shoe.modelo || ''}
+    </div>
+  </div>
 
-                  </div>
-                  <span className="font-bold text-base text-[#313D52] bg-[#f5f9f8] px-3 py-1 rounded-lg">
-                    {formatCurrency(shoe.subtotal)}
-                  </span>
-                </div>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => openEditShoe(shoe)}
+      className="px-3 py-1.5 text-xs rounded-lg border border-[#e0e6e5] hover:bg-[#f5f9f8]"
+      title="Editar calzado"
+    >
+      Editar
+    </button>
+    <span className="font-bold text-base text-[#313D52] bg-[#f5f9f8] px-3 py-1 rounded-lg">
+      {formatCurrency(shoe.subtotal)}
+    </span>
+  </div>
+</div>
 
                 {/* Shoe details and specifications */}
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -704,6 +918,8 @@ export default function OrderDetailPage() {
     );
   }
 
+  
+
   const balance = calculateBalance();
   const direccionPickup = order.direccion[0]
   console.log("faaa", direccionPickup)
@@ -773,485 +989,380 @@ export default function OrderDetailPage() {
           </button>
         </div>
       </div>
+{/* Main information grid — NUEVO LAYOUT */}
+<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-      {/* Main information grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Client info and identification */}
-        <div className="space-y-6">
-          {/* Client */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-              <h2 className="font-medium text-[#313D52] flex items-center">
-                <User size={18} className="mr-2 text-[#6c7a89]" />
-                Información del Cliente
-              </h2>
+  {/* COLUMNA IZQUIERDA (2/3) */}
+  <div className="lg:col-span-8 space-y-6">
+    {/* Detalles del Calzado (tabla ancha) */}
+    {renderShoesTable()}
+
+    {/* Fila: Productos (izq) + (der) Timeline y Pagos apilados */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Productos */}
+      <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+        <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+          <h2 className="font-medium text-[#313D52] flex items-center">
+            <ShoppingBag size={18} className="mr-2 text-[#6c7a89]" />
+            Productos
+          </h2>
+        </div>
+        <div className="p-4">
+          {order.productos.length === 0 ? (
+            <div className="text-center py-4 text-[#6c7a89]">
+              <p>No hay productos registrados en esta orden</p>
             </div>
-            <div className="p-4">
-              <div className="mb-4">
-                <h3 className="font-semibold text-[#313D52] text-lg">
-                  {order.cliente_nombre}
-                </h3>
-                <div className="text-sm text-[#6c7a89]">
-                  <p>ID: {order.cliente_id}</p>
-                  <p>Email: {order.cliente_email || 'No registrado'}</p>
-                  <p>Teléfono: {order.cliente_telefono || 'No registrado'}</p>
-                </div>
-              </div>
-              <Link
-                href={`/admin/clients/${order.cliente_id}`}
-                className="text-[#78f3d3] hover:text-[#4de0c0] text-sm font-medium inline-flex items-center"
-              >
-                Ver perfil completo
-                <ArrowRight size={16} className="ml-1" />
-              </Link>
-            </div>
-          </div>
-
-
-          {/* Identification (conditional) */}
-          {renderIdentificationSection()}
-
-          {/* Dates */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-              <h2 className="font-medium text-[#313D52] flex items-center">
-                <Calendar size={18} className="mr-2 text-[#6c7a89]" />
-                Fechas
-              </h2>
-            </div>
-            <div className="p-4">
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-[#6c7a89]">Recepción:</span>
-                  <span className="text-[#313D52]">{formatDate(order.fecha_recepcion)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6c7a89]">Entrega estimada:</span>
-                  <span className="text-[#313D52]">{formatDate(order.fecha_entrega_estimada)}</span>
-                </div>
-                {order.fecha_entrega_real && (
+          ) : (
+            <div className="space-y-4">
+              {order.productos.map((product) => (
+                <div key={product.detalle_producto_id} className="border-b border-[#e0e6e5] pb-4 last:border-b-0 last:pb-0">
                   <div className="flex justify-between">
-                    <span className="text-[#6c7a89]">Entrega real:</span>
-                    <span className="text-[#313D52]">{formatDate(order.fecha_entrega_real)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Payment info */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-              <h2 className="font-medium text-[#313D52] flex items-center">
-                <Banknote size={18} className="mr-2 text-[#6c7a89]" />
-                Información de Pago
-              </h2>
-            </div>
-            <div className="p-4">
-              <div className="mb-3 flex justify-between items-center">
-                <span className="text-[#6c7a89]">Estado:</span>
-                {getPaymentStatusBadge(order.estado_pago)}
-              </div>
-              <div className="mb-3 flex justify-between">
-                <span className="text-[#6c7a89]">Método de pago:</span>
-                <span className="text-[#313D52] flex items-center">
-                  {getPaymentMethodIcon(order.metodo_pago)}
-                  <span className="ml-1">{getPaymentMethodTranslation(order.metodo_pago)}</span>
-                </span>
-              </div>
-              <div className="flex justify-between mb-1">
-                  <span className="text-[#6c7a89]">Envio:</span>
-                  <span className="text-[#313D52]">{formatCurrency(order.costo_pickup)}</span>
-                </div>
-                {order.descuento > 0 && (
-                  <div className="flex justify-between mb-1 text-green-600">
-                    <span>Descuento:</span>
-                    <span>-{formatCurrency(order.descuento)}</span>
-                  </div>
-                )}
-              <div className="border-t border-[#e0e6e5] my-3 pt-3">
-                <div className="flex justify-between mb-1">
-                  <span className="text-[#6c7a89]">Subtotal:</span>
-                  <span className="text-[#313D52]">{formatCurrency((order.subtotal))}</span>
-                </div>
-                {order.descuento > 0 && (
-                  <div className="flex justify-between mb-1 text-green-600">
-                    <span>Descuento:</span>
-                    <span>-{formatCurrency(order.descuento)}</span>
-                  </div>
-                )}
-                
-                <div className="flex justify-between mb-3">
-                  <span className="text-[#6c7a89]">IVA (16%):</span>
-                  <span className="text-[#313D52]">{formatCurrency(order.impuestos)}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-lg">
-                  <span className="text-[#313D52]">Total:</span>
-                  <span className="text-[#313D52]">{formatCurrency(order.total)}</span>
-                </div>
-                <div className="flex justify-between mt-3 pt-3 border-t border-[#e0e6e5]">
-                  <span className="text-[#6c7a89]">Pagado:</span>
-                  <span className="text-[#313D52]">{formatCurrency(calculateAmountPaid())}</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                  <span className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {balance > 0 ? 'Pendiente:' : 'Cambio:'}
-                  </span>
-                  <span className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {formatCurrency(Math.abs(balance))}
-                  </span>
-                </div>
-              </div>
-
-              {balance > 0 && (
-                <button
-                  onClick={() => setIsPaymentModalOpen(true)}
-                  className="w-full mt-4 py-2 bg-[#313D52] text-white rounded-lg flex items-center justify-center hover:bg-[#3e4a61] transition-colors"
-                >
-                  <DollarSign size={16} className="mr-2" />
-                  Registrar Pago
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Middle column: Services and products list */}
-        <div className="space-y-6">
-          {/* Shoes Details - New section to highlight shoes information */}
-          {renderShoesDetails()}
-
-          {/* Services */}
-
-          <div className="">
-            <div className="overflow-hidden rounded-lg border border-[#e0e6e5]">
-              {/* — Encabezado fijo — */}
-              <table className="min-w-full divide-y divide-[#e0e6e5] table-fixed">
-                <thead className="bg-[#f5f9f8]">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-3 py-4 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-                    >
-                      Servicio
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-                    >
-                      Detalle de Calzado
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-center text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-                    >
-                      Cant
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-3 py-2 text-right text-xs font-medium text-[#6c7a89] uppercase tracking-wider"
-                    >
-                      Precio
-                    </th>
-                  </tr>
-                </thead>
-              </table>
-
-              {/* — Zona central con altura mínima y scroll — */}
-              <div className="min-h-[150px]  overflow-y-auto">
-                <table className="min-w-full divide-y divide-[#e0e6e5] table-fixed">
-                  <tbody className="bg-white divide-y divide-[#e0e6e5]">
-
-                    {/* — Si no hay servicios, dibujo una fila vacía pero con min-height — */}
-                    {order.servicios.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="py-10 text-center text-sm text-[#6c7a89] italic">
-                          No hay servicios registrados en esta orden
-                        </td>
-                      </tr>
-                    ) : (
-                      /* — Si hay servicios, las mapeo normalmente — */
-                      order.servicios.map((service, idx) => (
-                        <tr
-                          key={service.detalle_servicio_id}
-                          className={idx % 2 === 0 ? 'bg-white' : 'bg-[#f9fafa]'}
-                        >
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <span className="font-medium text-sm text-[#313D52]">
-                              {service.servicio_nombre}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 text-sm text-[#6c7a89]">
-                          {(service.marca_calzado || service.modelo_calzado) ? (
-  <>
-    <div className="font-medium text-sm text-[#313D52]">
-      {service.marca_calzado ?? ''} {service.modelo_calzado ?? ''}
-    </div>
-    {service.descripcion && (
-      <div className="block text-xs text-[#6c7a89] mt-1">
-        {service.descripcion}
-      </div>
-    )}
-  </>
-) : service.descripcion ? (
-  <span className="text-sm text-[#313D52]">
-    {service.descripcion}
-  </span>
-) : (
-  <span className="italic text-sm text-[#6c7a89]">
-    Sin detalle
-  </span>
-)}
-
-                            {service.caja_almacenamiento && (
-                              <div className="mt-1 flex items-center">
-                                <Box size={12} className="text-[#78f3d3] mr-1" />
-                                <span className="text-xs bg-[#e0f7f0] px-1.5 py-0.5 rounded">
-                                  Caja {service.caja_almacenamiento}
-                                  {service.codigo_ubicacion && ` (${service.codigo_ubicacion})`}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-center text-sm text-[#313D52]">
-                            {service.cantidad ?? 1}
-                          </td>
-                          <td className="px-3 py-3 text-right text-sm text-[#313D52]">
-                            {formatCurrency(service.precio_unitario)}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-
-                    {/* — Fila de totales sólo si hay servicios — */}
-                    {order.servicios.length > 0 && (
-                      <tr className="bg-[#f5f9f8]">
-                        <td colSpan={3} className="px-3 py-2 text-right text-sm font-medium text-[#6c7a89]">
-                          Total Servicios:
-                        </td>
-                        <td className="px-3 py-2 text-right text-sm font-bold text-[#313D52]">
-                          {formatCurrency(totalServicios)}
-                        </td>
-                      </tr>
-                    )}
-
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-
-          {/* Products */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-              <h2 className="font-medium text-[#313D52] flex items-center">
-                <ShoppingBag size={18} className="mr-2 text-[#6c7a89]" />
-                Productos
-              </h2>
-            </div>
-            <div className="p-4">
-              {order.productos.length === 0 ? (
-                <div className="text-center py-4 text-[#6c7a89]">
-                  <p>No hay productos registrados en esta orden</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {order.productos.map((product) => (
-                    <div key={product.detalle_producto_id} className="border-b border-[#e0e6e5] pb-4 last:border-b-0 last:pb-0">
-                      <div className="flex justify-between">
-                        <h3 className="font-medium text-[#313D52]">{product.producto_nombre}</h3>
-                        <div className="text-right">
-                          <p className="text-[#313D52] font-medium">{formatCurrency(product.subtotal)}</p>
-                          <p className="text-xs text-[#6c7a89]">
-                            {product.cantidad} x {formatCurrency(product.precio_unitario)}
-                          </p>
-                        </div>
-                      </div>
+                    <h3 className="font-medium text-[#313D52]">{product.producto_nombre}</h3>
+                    <div className="text-right">
+                      <p className="text-[#313D52] font-medium">{formatCurrency(product.subtotal)}</p>
+                      <p className="text-xs text-[#6c7a89]">
+                        {product.cantidad} x {formatCurrency(product.precio_unitario)}
+                      </p>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          </div>
-
-          {/* Notes */}
-          {order.notas && (
-            <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-              <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-                <h2 className="font-medium text-[#313D52] flex items-center">
-                  <Info size={18} className="mr-2 text-[#6c7a89]" />
-                  Notas
-                </h2>
-              </div>
-              <div className="p-4">
-                <p className="text-[#6c7a89]">{order.notas}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right column: Current status, timeline and payments */}
-        <div className="space-y-6">
-          {/* PickUp */}
-{ direccionPickup&&(
-  <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-    <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-      <h2 className="font-medium text-[#313D52] flex items-center">
-        <MapPin size={18} className="mr-2 text-[#6c7a89]" />
-        Pickup
-      </h2>
-    </div>
-    <div className="p-4">
-      <div className="mb-4">
-        <h3 className="font-semibold text-[#313D52] text-lg mb-1">
-          {direccionPickup.alias}
-        </h3>
-        <div className="text-sm text-[#6c7a89] space-y-1">
-          <p>
-            {direccionPickup.calle} {direccionPickup.numero_exterior}
-            {direccionPickup.numero_interior && `, Int. ${direccionPickup.numero_interior}`}
-          </p>
-          <p>
-            {direccionPickup.colonia}, {direccionPickup.municipio_delegacion}
-          </p>
-          <p>
-            {direccionPickup.ciudad}, {direccionPickup.estado}, CP {direccionPickup.codigo_postal}
-          </p>
-          <p>Teléfono de contacto: {direccionPickup.telefono_contacto || 'No registrado'}</p>
-          {direccionPickup.instrucciones_entrega && (
-            <p>Instrucciones: {direccionPickup.instrucciones_entrega}</p>
           )}
         </div>
       </div>
-    </div>
-  </div>
-)}
 
-          {/* Timeline */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-              <h2 className="font-medium text-[#313D52] flex items-center">
-                <Clock size={18} className="mr-2 text-[#6c7a89]" />
-                Historial de Estado
-              </h2>
-            </div>
-            <div className="p-4">
-              {order.historial.length === 0 ? (
-                <div className="text-center py-4 text-[#6c7a89]">
-                  <p>No hay historial disponible</p>
-                </div>
-              ) : (
-                <div className="relative">
-                  {/* Vertical line */}
-                  <div className="absolute left-2.5 top-0 bottom-0 w-0.5 bg-[#e0e6e5]"></div>
+      {/* Derecha: Timeline + Pagos apilados */}
+      <div className="space-y-6">
 
-                  {/* Timeline items */}
-                  <div className="space-y-6">
-                    {order.historial.map((history, index) => (
-                      <div key={history.historial_id} className="relative ml-7">
-                        {/* Indicator circle */}
-                        <div
-                          className="absolute -left-7 top-0 w-5 h-5 rounded-full border-2 flex items-center justify-center"
-                          style={{
-                            backgroundColor: history.estado_color ? `#${history.estado_color}20` : '#e0e6e5',
-                            borderColor: history.estado_color ? `#${history.estado_color}` : '#6c7a89'
-                          }}
-                        >
-                          {index === 0 && (
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: history.estado_color ? `#${history.estado_color}` : '#6c7a89' }}
-                            ></div>
+        {/* Timeline */}
+        <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+          <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+            <h2 className="font-medium text-[#313D52] flex items-center">
+              <Clock size={18} className="mr-2 text-[#6c7a89]" />
+              Historial de Estado
+            </h2>
+          </div>
+
+          <div className="p-4">
+            {(order.historial ?? []).length === 0 ? (
+              <div className="text-center py-4 text-[#6c7a89]">No hay historial disponible</div>
+            ) : (
+              <div className="max-h-80 overflow-auto pr-2">
+                <ul className="space-y-5">
+                  {(order.historial ?? []).map((history, index, arr) => {
+                    const raw = String(history.estado_color || '').trim();
+                    const toHex = (c: string) => {
+                      if (!c) return '#6c7a89';
+                      if (c.startsWith('#')) return c;
+                      const named: Record<string, string> = {
+                        yellow: '#eab308',
+                        green: '#16a34a',
+                        red: '#dc2626',
+                        blue: '#2563eb',
+                        gray: '#6c7a89'
+                      };
+                      return named[c.toLowerCase()] ?? '#6c7a89';
+                    };
+                    const stroke = toHex(raw);
+                    const fill = `${stroke}33`;
+                    const isLast = index === arr.length - 1;
+
+                    return (
+                      <li key={history.historial_id} className="grid grid-cols-[32px_1fr] gap-3">
+                        <div className="relative">
+                          <span
+                            className="absolute top-0 left-1/2 -translate-x-1/2 z-10 h-5 w-5 rounded-full border-2"
+                            style={{ borderColor: stroke, backgroundColor: fill }}
+                            aria-hidden
+                          >
+                            <span
+                              className={`absolute inset-0 m-auto h-2 w-2 rounded-full ${index === 0 ? 'ring-2 ring-offset-1' : ''}`}
+                              style={{ backgroundColor: stroke, boxShadow: index === 0 ? `0 0 0 2px ${stroke}` : undefined }}
+                            />
+                          </span>
+                          {!isLast && (
+                            <span
+                              className="absolute left-1/2 -translate-x-1/2 top-5 bottom-[-8px] w-px bg-[#e0e6e5]"
+                              aria-hidden
+                            />
                           )}
                         </div>
 
-                        {/* Content */}
                         <div>
-                          <h3 className="font-medium text-[#313D52]">{history.estado_nombre}</h3>
-                          <p className="text-sm text-[#6c7a89]">{formatDate(history.fecha_cambio)}</p>
-                          <p className="text-sm text-[#6c7a89]">Por: {history.empleado_nombre}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-[#313D52]">{history.estado_nombre}</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-[#f5f9f8] text-[#6c7a89]">
+                              {formatDate(history.fecha_cambio)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[#6c7a89]">
+                            Por: {history.empleado_nombre || 'Sistema'}
+                          </p>
                           {history.comentario && (
                             <p className="mt-1 text-sm italic text-[#6c7a89] bg-[#f5f9f8] p-2 rounded">
-                              &quot;{history.comentario}&quot;
+                              “{history.comentario}”
                             </p>
                           )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Registered payments */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
-              <h2 className="font-medium text-[#313D52] flex items-center">
-                <Banknote size={18} className="mr-2 text-[#6c7a89]" />
-                Pagos Registrados
-              </h2>
-            </div>
-            <div className="p-4">
-              {order.pagos.length === 0 ? (
-                <div className="text-center py-4 text-[#6c7a89]">
-                  <p>No hay pagos registrados</p>
+        {/* Pagos Registrados */}
+        <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+          <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+            <h2 className="font-medium text-[#313D52] flex items-center">
+              <Banknote size={18} className="mr-2 text-[#6c7a89]" />
+              Pagos Registrados
+            </h2>
+          </div>
+          <div className="p-4">
+            {order.pagos.length === 0 ? (
+              <div className="text-center py-4 text-[#6c7a89]">
+                <p>No hay pagos registrados</p>
+                <button
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="mt-3 inline-flex items-center px-3 py-1.5 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors text-sm"
+                  disabled={balance <= 0}
+                >
+                  <Plus size={16} className="mr-1.5" />
+                  Registrar Pago
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {order.pagos.map((payment) => (
+                  <div key={payment.pago_id} className="border-b border-[#e0e6e5] pb-4 last:border-b-0 last:pb-0">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center">
+                          {getPaymentMethodIcon(payment.metodo)}
+                          <h3 className="font-medium text-[#313D52] ml-2">
+                            {getPaymentMethodTranslation(payment.metodo)}
+                          </h3>
+                        </div>
+                        <p className="text-sm text-[#6c7a89] mt-1">
+                          {formatDate(payment.fecha_pago)}
+                        </p>
+                        <p className="text-xs text-[#6c7a89]">
+                          Por: {payment.empleado_nombre}
+                        </p>
+                        {payment.referencia && (
+                          <p className="text-xs text-[#6c7a89]">
+                            Ref: {payment.referencia}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-medium text-[#313D52]">
+                        {formatCurrency(payment.monto)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {balance > 0 && (
                   <button
                     onClick={() => setIsPaymentModalOpen(true)}
-                    className="mt-3 inline-flex items-center px-3 py-1.5 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors text-sm"
-                    disabled={balance <= 0}
+                    className="w-full mt-2 py-2 bg-[#313D52] text-white rounded-lg flex items-center justify-center hover:bg-[#3e4a61] transition-colors text-sm"
                   >
                     <Plus size={16} className="mr-1.5" />
                     Registrar Pago
                   </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {order.pagos.map((payment) => (
-                    <div key={payment.pago_id} className="border-b border-[#e0e6e5] pb-4 last:border-b-0 last:pb-0">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="flex items-center">
-                            {getPaymentMethodIcon(payment.metodo)}
-                            <h3 className="font-medium text-[#313D52] ml-2">
-                              {getPaymentMethodTranslation(payment.metodo)}
-                            </h3>
-                          </div>
-                          <p className="text-sm text-[#6c7a89] mt-1">
-                            {formatDate(payment.fecha_pago)}
-                          </p>
-                          <p className="text-xs text-[#6c7a89]">
-                            Por: {payment.empleado_nombre}
-                          </p>
-                          {payment.referencia && (
-                            <p className="text-xs text-[#6c7a89]">
-                              Ref: {payment.referencia}
-                            </p>
-                          )}
-                        </div>
-                        <span className="font-medium text-[#313D52]">
-                          {formatCurrency(payment.monto)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
 
-                  {balance > 0 && (
-                    <button
-                      onClick={() => setIsPaymentModalOpen(true)}
-                      className="w-full mt-2 py-2 bg-[#313D52] text-white rounded-lg flex items-center justify-center hover:bg-[#3e4a61] transition-colors text-sm"
-                    >
-                      <Plus size={16} className="mr-1.5" />
-                      Registrar Pago
-                    </button>
-                  )}
-                </div>
+    {/* Notas (ocupa las dos columnas izquierdas cuando existe) */}
+    {order.notas && (
+      <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+        <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+          <h2 className="font-medium text-[#313D52] flex items-center">
+            <Info size={18} className="mr-2 text-[#6c7a89]" />
+            Notas
+          </h2>
+        </div>
+        <div className="p-4">
+          <p className="text-[#6c7a89]">{order.notas}</p>
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* COLUMNA DERECHA (1/3): rail con tarjetas */}
+  <div className="lg:col-span-4 space-y-6">
+    {/* Información del Cliente */}
+    <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+      <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+        <h2 className="font-medium text-[#313D52] flex items-center">
+          <User size={18} className="mr-2 text-[#6c7a89]" />
+          Información del Cliente
+        </h2>
+      </div>
+      <div className="p-4">
+        <div className="mb-4">
+          <h3 className="font-semibold text-[#313D52] text-lg">
+            {order.cliente_nombre}
+          </h3>
+          <div className="text-sm text-[#6c7a89]">
+            <p>ID: {order.cliente_id}</p>
+            <p>Email: {order.cliente_email || 'No registrado'}</p>
+            <p>Teléfono: {order.cliente_telefono || 'No registrado'}</p>
+          </div>
+        </div>
+        <Link
+          href={`/admin/clients/${order.cliente_id}`}
+          className="text-[#78f3d3] hover:text-[#4de0c0] text-sm font-medium inline-flex items-center"
+        >
+          Ver perfil completo
+          <ArrowRight size={16} className="ml-1" />
+        </Link>
+      </div>
+    </div>
+
+    {/* Pickup (si existe) */}
+    {direccionPickup && (
+      <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+        <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+          <h2 className="font-medium text-[#313D52] flex items-center">
+            <MapPin size={18} className="mr-2 text-[#6c7a89]" />
+            Pickup
+          </h2>
+        </div>
+        <div className="p-4">
+          <div className="mb-4">
+            <h3 className="font-semibold text-[#313D52] text-lg mb-1">
+              {direccionPickup.alias}
+            </h3>
+            <div className="text-sm text-[#6c7a89] space-y-1">
+              <p>
+                {direccionPickup.calle} {direccionPickup.numero_exterior}
+                {direccionPickup.numero_interior && `, Int. ${direccionPickup.numero_interior}`}
+              </p>
+              <p>
+                {direccionPickup.colonia}, {direccionPickup.municipio_delegacion}
+              </p>
+              <p>
+                {direccionPickup.ciudad}, {direccionPickup.estado}, CP {direccionPickup.codigo_postal}
+              </p>
+              <p>Teléfono de contacto: {direccionPickup.telefono_contacto || 'No registrado'}</p>
+              {direccionPickup.instrucciones_entrega && (
+                <p>Instrucciones: {direccionPickup.instrucciones_entrega}</p>
               )}
             </div>
           </div>
         </div>
       </div>
+    )}
+
+    {/* Fechas */}
+    <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+      <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+        <h2 className="font-medium text-[#313D52] flex items-center">
+          <Calendar size={18} className="mr-2 text-[#6c7a89]" />
+          Fechas
+        </h2>
+      </div>
+      <div className="p-4">
+        <div className="space-y-3">
+          <div className="flex justify-between">
+            <span className="text-[#6c7a89]">Recepción:</span>
+            <span className="text-[#313D52]">{formatDate(order.fecha_recepcion)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#6c7a89]">Entrega estimada:</span>
+            <span className="text-[#313D52]">{formatDate(order.fecha_entrega_estimada)}</span>
+          </div>
+          {order.fecha_entrega_real && (
+            <div className="flex justify-between">
+              <span className="text-[#6c7a89]">Entrega real:</span>
+              <span className="text-[#313D52]">{formatDate(order.fecha_entrega_real)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* Información de Pago (resumen de totales) */}
+    <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
+      <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5]">
+        <h2 className="font-medium text-[#313D52] flex items-center">
+          <Banknote size={18} className="mr-2 text-[#6c7a89]" />
+          Información de Pago
+        </h2>
+      </div>
+      <div className="p-4">
+        <div className="mb-3 flex justify-between items-center">
+          <span className="text-[#6c7a89]">Estado:</span>
+          {getPaymentStatusBadge(order.estado_pago)}
+        </div>
+        <div className="mb-3 flex justify-between">
+          <span className="text-[#6c7a89]">Método de pago:</span>
+          <span className="text-[#313D52] flex items-center">
+            {getPaymentMethodIcon(order.metodo_pago)}
+            <span className="ml-1">{getPaymentMethodTranslation(order.metodo_pago)}</span>
+          </span>
+        </div>
+        <div className="flex justify-between mb-1">
+          <span className="text-[#6c7a89]">Envio:</span>
+          <span className="text-[#313D52]">{formatCurrency(order.costo_pickup)}</span>
+        </div>
+        {order.descuento > 0 && (
+          <div className="flex justify-between mb-1 text-green-600">
+            <span>Descuento:</span>
+            <span>-{formatCurrency(order.descuento)}</span>
+          </div>
+        )}
+        <div className="border-t border-[#e0e6e5] my-3 pt-3">
+          <div className="flex justify-between mb-1">
+            <span className="text-[#6c7a89]">Subtotal:</span>
+            <span className="text-[#313D52]">{formatCurrency(order.subtotal)}</span>
+          </div>
+          <div className="flex justify-between mb-3">
+            <span className="text-[#6c7a89]">IVA (16%):</span>
+            <span className="text-[#313D52]">{formatCurrency(order.impuestos)}</span>
+          </div>
+          <div className="flex justify-between font-semibold text-lg">
+            <span className="text-[#313D52]">Total:</span>
+            <span className="text-[#313D52]">{formatCurrency(order.total)}</span>
+          </div>
+          <div className="flex justify-between mt-3 pt-3 border-t border-[#e0e6e5]">
+            <span className="text-[#6c7a89]">Pagado:</span>
+            <span className="text-[#313D52]">{formatCurrency(calculateAmountPaid())}</span>
+          </div>
+          <div className="flex justify-between font-medium">
+            <span className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
+              {balance > 0 ? 'Pendiente:' : 'Cambio:'}
+            </span>
+            <span className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
+              {formatCurrency(Math.abs(balance))}
+            </span>
+          </div>
+        </div>
+
+        {balance > 0 && (
+          <button
+            onClick={() => setIsPaymentModalOpen(true)}
+            className="w-full mt-2 py-2 bg-[#313D52] text-white rounded-lg flex items-center justify-center hover:bg-[#3e4a61] transition-colors"
+          >
+            <DollarSign size={16} className="mr-2" />
+            Registrar Pago
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
+
 
       {/* Modals */}
       {isStatusModalOpen && (
@@ -1289,6 +1400,20 @@ export default function OrderDetailPage() {
           onSubmit={handleAssignStorage}
         />
       )}
+      {isEditShoeOpen && shoeToEdit && (
+        <EditShoeModal
+          isOpen={isEditShoeOpen}
+          onClose={() => setIsEditShoeOpen(false)}
+          initialValues={{
+            marca: shoeToEdit.marca || '',
+            modelo: shoeToEdit.modelo || '',
+            descripcion: shoeToEdit.descripcion || '',
+            talla: shoeToEdit.talla || '',
+            color: shoeToEdit.color || ''
+          }}
+          onSubmit={submitEditShoe}
+        />
+      )}
       {showSendTicketModal && order && (
         <SendTicketModal
           isOpen={showSendTicketModal}
@@ -1302,6 +1427,7 @@ export default function OrderDetailPage() {
             total: order.total
           }}
         />
+        
       )}
     </div>
   );

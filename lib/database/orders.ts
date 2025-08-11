@@ -202,6 +202,8 @@ export async function createPosOrder({
     marca?: string | null;
     modelo?: string | null;
     descripcion?: string | null;
+    talla?: string| null;
+    color?: string | null;
   }[];
   productos: {
     productoId: number;
@@ -247,14 +249,15 @@ export async function createPosOrder({
         await executeQuery({
           query: `
             INSERT INTO detalles_orden_servicios (
-              orden_id, servicio_id, cantidad, precio_unitario, descuento, subtotal,
-              modelo_id, marca, modelo, descripcion_calzado
-            ) VALUES (?, ?, 1, ?, 0.00, ?, ?, ?, ?, ?)
+  orden_id, servicio_id, cantidad, precio_unitario, descuento, subtotal,
+  modelo_id, marca, modelo, talla, color, descripcion_calzado
+) VALUES (?, ?, 1, ?, 0.00, ?, ?, ?, ?, ?, ?, ?)
           `,
           values: [
             ordenId, servicio.servicioId, precioUnitario, precioUnitario,
             servicio.modeloId ?? null, servicio.marca?.trim() || null,
-            servicio.modelo?.trim() || null, servicio.descripcion?.trim() || null
+            servicio.modelo?.trim() || null, servicio.talla?.trim() || null,   
+            servicio.color?.trim() || null,   servicio.descripcion?.trim() || null
           ]
         });
       }
@@ -265,8 +268,8 @@ export async function createPosOrder({
         query: `
           INSERT INTO detalles_orden_servicios (
             orden_id, servicio_id, cantidad, precio_unitario, descuento, subtotal,
-            modelo_id, marca, modelo, descripcion_calzado
-          ) VALUES (?, ?, ?, ?, 0.00, ?, NULL, NULL, NULL, NULL)
+            modelo_id, marca, modelo, talla, color, descripcion_calzado
+          ) VALUES (?, ?, ?, ?, 0.00, ?, NULL, NULL, NULL, NULL, NULL, NULL)
         `,
         values: [ordenId, servicio.servicioId, servicio.cantidad, precioUnitario, subtotalServicio]
       });
