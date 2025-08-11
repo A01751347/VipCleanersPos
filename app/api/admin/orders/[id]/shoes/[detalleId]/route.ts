@@ -3,15 +3,16 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../../../auth';
 import { executeQuery } from '../../../../../../../lib/database';
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string, detalleId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string, detalleId: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const ordenId = parseInt(params.id, 10);
-    const detalleId = parseInt(params.detalleId, 10);
+    const resolvedParams = await params;
+    const ordenId = parseInt(resolvedParams.id, 10);
+    const detalleId = parseInt(resolvedParams.detalleId, 10);
     if (Number.isNaN(ordenId) || Number.isNaN(detalleId)) {
       return NextResponse.json({ error: 'IDs inválidos' }, { status: 400 });
     }
@@ -36,6 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         (talla ?? '').trim() || null,
         (color ?? '').trim() || null,
         (descripcion ?? '').trim() || null,
+        
         detalleId, ordenId
       ]
     });
