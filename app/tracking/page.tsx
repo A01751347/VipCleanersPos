@@ -173,7 +173,7 @@ function normalizeTrackingPayload(input: any): OrderTracking {
   // Fechas (acepta camel/snake y fallback a created_at / updated_at)
   const fechas = {
     recepcion: input.fechas?.recepcion ?? input.fecha_recepcion ?? input.fechaRecepcion ?? input.fechaCreacion ?? input.fecha_creacion,
-    fecha_entrega_estimada: input.fecha_entrega_estimada ,
+    fecha_entrega_estimada: input.fecha_entrega_estimada,
     fecha_entrega_real: input.fecha_entrega_real,
     creacion: input.fechaCreacion ?? input.fecha_creacion ?? input.created_at,
     actualizacion: input.updated_at ?? input.fecha_actualizacion,
@@ -183,7 +183,7 @@ function normalizeTrackingPayload(input: any): OrderTracking {
   const historial: OrderHistory[] | undefined = (input.historial || input.estados || []).map((h: any, idx: number) => ({
     historial_id: h.historial_id ?? h.id ?? idx,
     estado_nombre: h.estado_nombre ?? h.estado ?? h.nombre ?? '',
-    estado_color: (h.estado_color ?? h.color ?? '78f3d3').replace('#',''),
+    estado_color: (h.estado_color ?? h.color ?? '78f3d3').replace('#', ''),
     fecha_cambio: h.fecha_cambio ?? h.fecha ?? h.created_at ?? '',
     empleado_nombre: h.empleado_nombre ?? h.empleado ?? '',
     comentario: h.comentario ?? h.descripcion ?? '',
@@ -194,7 +194,7 @@ function normalizeTrackingPayload(input: any): OrderTracking {
     cantidad: Number(s.cantidad ?? 1),
     servicio_nombre: s.servicio_nombre ?? s.nombre ?? '',
     servicio_descripcion: s.servicio_descripcion ?? s.descripcion ?? '',
-    marca_calzado: s.marca_calzado ,
+    marca_calzado: s.marca_calzado,
     modelo_calzado: s.modelo_calzado ?? s.modelo ?? '',
     descripcion_calzado: s.descripcion_calzado ?? s.descripcionCalzado ?? '',
     precio_unitario: Number(s.precio_unitario ?? s.precio ?? 0),
@@ -364,7 +364,7 @@ const TrackingPage: React.FC = () => {
         )}
 
         {!data && status === 'error' && <ErrorState message={message} />}
-        {!data && status === 'idle' && <EmptyHints />}
+
       </main>
       <Footer />
     </div>
@@ -417,7 +417,9 @@ const Hero: React.FC<{
         <div className="lg:col-span-5 hidden lg:block">
           <div className="relative h-[360px]">
             <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#a7f3d0] via-[#99f6e4] to-[#f0fdfa] blur-2xl opacity-60" />
-            <div className="relative h-full w-full rounded-3xl bg-white/60 ring-1 ring-black/5 backdrop-blur-md" />
+            <div className="relative h-full w-full rounded-3xl bg-white/60 ring-1 ring-black/5 backdrop-blur-md flex-">
+              <EmptyHints />
+            </div>
           </div>
         </div>
       </div>
@@ -433,8 +435,8 @@ const CompactSearch: React.FC<{
   status: 'idle' | 'loading' | 'ok' | 'error'
   message: string
 }> = ({ code, setCode, onSubmit, onReset, status, message }) => (
-  <div className="bg-white/80 backdrop-blur-sm border-b border-[#e2e8f0] sticky top-0 z-50">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+  <div className="bg-white/80 backdrop-blur-sm border-b border-[#e2e8f0] mt-8 top-0 z-50">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <form onSubmit={onSubmit} className="flex gap-2">
@@ -469,7 +471,7 @@ const CompactSearch: React.FC<{
 )
 
 const Results: React.FC<{ data: OrderTracking; currentStep: number }> = ({ data, currentStep }) => (
-  <section className="py-6 sm:py-8">
+  <section className="py-2 ">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Encabezado ancho completo */}
       <Header data={data} />
@@ -507,26 +509,18 @@ const Results: React.FC<{ data: OrderTracking; currentStep: number }> = ({ data,
           {data.pago && (
             <Card>
               <Payment data={data} />
+              <br />
+              {data.totales && (
+                <Card>
+                  <Totals data={data} />
+                </Card>
+              )}
             </Card>
           )}
-          {data.direccion && (
-            <Card>
-              <Address data={data} />
-            </Card>
-          )}
-          {data.totales && (
-            <Card>
-              <Totals data={data} />
-            </Card>
-          )}
+
           {(data.tipo || data.reservacionOriginal || data.meta?.origen || data.meta?.sla) && (
             <Card>
               <Meta data={data} />
-            </Card>
-          )}
-          {data.notas && (
-            <Card>
-              <Notes notas={data.notas} />
             </Card>
           )}
         </div>
@@ -585,8 +579,8 @@ const Header: React.FC<{ data: OrderTracking }> = ({ data }) => (
 const Client: React.FC<{ data: OrderTracking }> = ({ data }) => (
   <div>
     <div className="flex items-center mb-4">
-      <User size={20} className="text-[#14b8a6] mr-3" />
-      <h3 className="text-lg font-semibold text-[#0f172a]">Cliente</h3>
+      <User size={18} className="text-[#14b8a6] mr-2" />
+      <h4 className=" font-semibold text-[#0f172a]">Cliente</h4>
     </div>
     <div className="grid grid-cols-1 gap-3 text-sm">
       <div>
@@ -613,10 +607,10 @@ const Dates: React.FC<{ data: OrderTracking }> = ({ data }) => (
     </div>
     <div className="grid grid-cols-1 gap-2 text-sm">
       <div><span className="text-[#64748b]">Recepción:</span> <span className="font-medium text-[#0f172a]">{fmtDate(data.fechas?.recepcion)}</span></div>
-      
+
       <div><span className="text-[#64748b]">Entrega estimada:</span> <span className="font-medium text-[#0f172a]">{fmtDate(data.fechas?.fecha_entrega_estimada)}</span></div>
       <div><span className="text-[#64748b]">Entrega real:</span> <span className="font-medium text-[#0f172a]">{fmtDate(data.fechas?.fecha_entrega_real)}</span></div>
-      
+
     </div>
   </div>
 )
@@ -640,7 +634,7 @@ const Services: React.FC<{ data: OrderTracking }> = ({ data }) => {
                 <p className="text-sm text-[#64748b] mt-1">
                   <span className="font-medium">Calzado:</span> {s.marca_calzado} {s.modelo_calzado} {s.descripcion_calzado && `- ${s.descripcion_calzado}`}
                 </p>
-                
+
               </div>
               <div className="text-right ml-4 shrink-0">
                 <p className="font-semibold text-[#0f172a]">{fmtMoney(s.subtotal)}</p>
@@ -701,21 +695,26 @@ const Totals: React.FC<{ data: OrderTracking }> = ({ data }) => {
 
 const payBadgeClasses = (estado?: string) => {
   const st = (estado || '').toLowerCase()
-  if (['pagado','paid','completado','completada'].includes(st)) return 'bg-green-50 text-green-700 ring-green-200'
-  if (['pendiente','pending'].includes(st)) return 'bg-yellow-50 text-yellow-700 ring-yellow-200'
-  if (['fallido','failed','cancelado','cancelada'].includes(st)) return 'bg-red-50 text-red-700 ring-red-200'
+  if (['pagado', 'paid', 'completado', 'completada'].includes(st)) return 'bg-green-50 text-green-700 ring-green-200'
+  if (['pendiente', 'pending'].includes(st)) return 'bg-yellow-50 text-yellow-700 ring-yellow-200'
+  if (['fallido', 'failed', 'cancelado', 'cancelada'].includes(st)) return 'bg-red-50 text-red-700 ring-red-200'
   return 'bg-slate-50 text-slate-700 ring-slate-200'
 }
 
 const Payment: React.FC<{ data: OrderTracking }> = ({ data }) => (
   <div>
-    <div className="flex items-center mb-3">
+    <div className=" grid grid-cols-2 content-between mb-3">
+      <div className="flex items-center">
       <CreditCard size={18} className="text-[#14b8a6] mr-2" />
+      
       <h4 className="font-semibold text-[#0f172a]">Pago</h4>
-    </div>
-    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ring ${payBadgeClasses(data.pago?.estado)}`}>
+      </div>
+      <div className='flex items-baseline'>
+      <div className={`flex items-center px-3 py-1 rounded-full text-sm font-medium ring ${payBadgeClasses(data.pago?.estado)}`}>
       {data.pago?.estado || 'Desconocido'} {data.pago?.metodo ? `· ${data.pago.metodo}` : ''}
+      </div></div>
     </div>
+    
   </div>
 )
 
@@ -769,7 +768,7 @@ const Progress: React.FC<{ data: OrderTracking; currentStep: number }> = ({ data
         style={{ width: `${(currentStep / 4) * 100}%` }}
       />
       <div className="flex justify-between">
-        {[0,1,2,3,4].map((step) => {
+        {[0, 1, 2, 3, 4].map((step) => {
           const isActive = step <= currentStep
           const isCurrent = step === currentStep
           return (
@@ -858,7 +857,7 @@ const ErrorState: React.FC<{ message: string }> = ({ message }) => (
 )
 
 const EmptyHints: React.FC = () => (
-  <section className="py-16 px-4 sm:px-6 lg:px-8">
+  <section className="py-16 px-6">
     <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="bg-white p-6 rounded-xl shadow-sm ring-1 ring-black/5">
         <div className="inline-flex items-center justify-center w-12 h-12 bg-[#78f3d3] bg-opacity-20 rounded-full mb-3">

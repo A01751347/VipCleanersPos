@@ -298,14 +298,38 @@ const Gallery: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <AnimateOnScroll>
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-[#313D52] mb-6">
-              Galería de <span className="text-[#78f3d3]">Transformaciones</span>
-            </h2>
-            <p className="text-xl text-[#6c7a89] max-w-3xl mx-auto">
-              Descubre el increíble antes y después de nuestros trabajos. Cada par de tenis tiene una historia única de restauración.
+        <div className="max-w-7xl mx-auto px-4 pb-12 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="inline-flex items-center  text-[#78f3d3] px-4 py-2 rounded-full text-sm font-medium mb-6">
+           
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#313D52] mb-6">
+              Transformaciones que
+              <span className="text-[#78f3d3] block">Inspiran Confianza</span>
+            </h1>
+            
+            <p className="text-xl text-[#6c7a89] max-w-3xl mx-auto mb-8 leading-relaxed">
+              Explora nuestra colección completa de transformaciones reales. Cada imagen cuenta 
+              la historia de un cliente satisfecho y un par de zapatillas devuelto a la vida.
             </p>
+
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-[#6c7a89]">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-[#78f3d3] rounded-full mr-2"></div>
+                500+ trabajos documentados
+              </div>
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-[#78f3d3] rounded-full mr-2"></div>
+                Todas las marcas premium
+              </div>
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-[#78f3d3] rounded-full mr-2"></div>
+                Resultados garantizados
+              </div>
+            </div>
           </div>
+        </div>
         </AnimateOnScroll>
 
         {/* Controls and Filters */}

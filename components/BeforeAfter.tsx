@@ -163,8 +163,8 @@ const BeforeAfter: React.FC = () => {
   // Array of images for multiple comparisons
   const comparisonImages: ComparisonImage[] = [
     {
-      before: '/assets/gallery/ultimoLimpio.png',
-      after: '/assets/gallery/ultimoSucio.png',
+      before: '/assets/gallery/ultimoSucio.png',
+      after: '/assets/gallery/ultimoLimpio.png',
     },
     // Add more comparison images as needed
   ];

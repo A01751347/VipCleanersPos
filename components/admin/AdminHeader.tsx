@@ -37,27 +37,6 @@ const AdminHeader = () => {
         </h1>
         
         <div className="flex items-center space-x-4">
-          {/* Búsqueda - visible solo en escritorio */}
-          <form onSubmit={handleSearch} className="hidden md:flex items-center relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={18} className="text-[#6c7a89]" />
-            </div>
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="py-2 pl-10 pr-4 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] text-sm w-64"
-            />
-          </form>
-          
-          {/* Notificaciones */}
-          <button className="relative p-2 text-[#6c7a89] hover:bg-[#f5f9f8] rounded-full">
-            <Bell size={20} />
-            <span className="absolute top-1 right-1 w-4 h-4 bg-[#78f3d3] rounded-full text-[10px] text-white flex items-center justify-center">
-              3
-            </span>
-          </button>
           
           {/* Perfil de usuario */}
           <div className="flex items-center">

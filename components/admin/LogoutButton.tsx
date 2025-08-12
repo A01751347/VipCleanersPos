@@ -1,5 +1,4 @@
 'use client'
-// components/admin/LogoutButton.tsx
 import React, { useState } from 'react';
 import { LogOut, Loader2 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
@@ -8,28 +7,21 @@ import { useRouter } from 'next/navigation';
 interface LogoutButtonProps {
   className?: string;
   iconOnly?: boolean;
+  collapsed?: boolean;
 }
 
-const LogoutButton: React.FC<LogoutButtonProps> = ({ className, iconOnly = false }) => {
+const LogoutButton: React.FC<LogoutButtonProps> = ({ className = '', iconOnly = false, collapsed = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogout = async () => {
     try {
       setIsLoading(true);
-      
-      // Esperar a que el proceso de cierre de sesión se complete
-      await signOut({ 
-        redirect: false,
-        callbackUrl: '/admin/login'
-      });
-      
-      // Redirigir manualmente después de cerrar sesión
+      await signOut({ redirect: false, callbackUrl: '/admin/login' });
       router.push('/admin/login');
-      router.refresh();
+      // router.refresh(); // usually not needed after push to a different route
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
-      // Incluso si hay error, intentamos redirigir
       router.push('/admin/login');
     } finally {
       setIsLoading(false);
@@ -40,15 +32,22 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({ className, iconOnly = false
     <button
       onClick={handleLogout}
       disabled={isLoading}
-      className={`flex items-center ${isLoading ? 'opacity-70 cursor-not-allowed' : ''} ${className || ''}`}
+      aria-busy={isLoading}
       aria-label="Cerrar sesión"
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#6c7a89] transition-colors hover:bg-zinc-100 hover:text-[#313D52] ${className}`}
+      title={collapsed ? 'Cerrar sesión' : undefined}
     >
       {isLoading ? (
-        <Loader2 size={20} className="animate-spin mr-2" />
+        <Loader2 size={20} className="animate-spin" />
       ) : (
-        <LogOut size={20} className={iconOnly ? '' : 'mr-2'} />
+        <LogOut size={20} className={iconOnly || collapsed ? '' : 'mr-2'} />
       )}
-      {!iconOnly && <span>{isLoading ? 'Cerrando sesión...' : 'Cerrar Sesión'}</span>}
+      {/* Hide label if iconOnly OR collapsed */}
+      {!iconOnly && (
+        <span className={`${collapsed ? 'hidden' : 'block'}`}>
+          {isLoading ? 'Cerrando sesión...' : 'Cerrar Sesión'}
+        </span>
+      )}
     </button>
   );
 };

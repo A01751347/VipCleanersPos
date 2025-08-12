@@ -94,13 +94,13 @@ const MainNavbar: React.FC<{
   pathname: string;
 }> = ({ scrolled, isHomePage, menuOpen, toggleMenu, scrollToSection, pathname }) => {
   const topPosition = !scrolled && isHomePage ? 'top-8 xl:top-10' : 'top-0';
-  const navbarClasses = `fixed ${topPosition} left-0 w-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 transition-all duration-300 ${
-    scrolled ? 'bg-white/95 backdrop-blur-md shadow-lg py-2 sm:py-3' : 'bg-transparent'
+  const navbarClasses = `fixed ${topPosition} lg:py-2 left-0 w-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 transition-all duration-300 ${
+    scrolled ? 'bg-white/95 backdrop-blur-md shadow-lg  sm:py-3' : 'bg-transparent'
   } ${!isHomePage && !scrolled ? 'bg-white shadow-sm' : ''}`;
 
   return (
     <nav className={navbarClasses} style={{ zIndex: 40 }}>
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <div className="max-w-7xl mx-auto p-0 flex justify-between items-center">
         <Logo isHomePage={isHomePage} scrolled={scrolled} scrollToSection={scrollToSection} />
         <DesktopNavigation scrolled={scrolled} isHomePage={isHomePage} scrollToSection={scrollToSection} />
         <DesktopCTAButton />
@@ -116,8 +116,7 @@ const Logo: React.FC<{ isHomePage: boolean; scrolled: boolean; scrollToSection: 
   const logoClasses = 'text-xl sm:text-2xl lg:text-3xl font-bold';
   const logoContent = (
     <>
-      <span className={`${scrolled ? 'text-[#313D52]' : 'text-white'} transition-colors`}>Vip</span>
-      <span className="text-[#78f3d3]">Cleaners</span>
+    <img src="../assets/Logo_VIP.svg" alt=""  className='h-12 md:h-14 lg:h-18'/>
     </>
   );
 
@@ -151,18 +150,31 @@ const NavLinkItem: React.FC<{
     scrolled || !isHomePage ? 'text-[#313D52]' : 'text-white'
   }`;
 
+  // Links externos: igual que antes
   if (link.external) return <Link href={link.href} className={linkClasses}>{link.name}</Link>;
 
+  // Si estoy en home, hago smooth scroll; si no, navego a /#id
+  const href = `/#${link.id}`;
+
+  if (isHomePage) {
+    return (
+      <a
+        href={href}
+        onClick={(e) => { e.preventDefault(); scrollToSection(link.id); }}
+        className={linkClasses}
+      >
+        {link.name}
+      </a>
+    );
+  }
+
   return (
-    <a
-      href={link.href}
-      onClick={(e) => { e.preventDefault(); scrollToSection(link.id); }}
-      className={linkClasses}
-    >
+    <Link href={href} className={linkClasses}>
       {link.name}
-    </a>
+    </Link>
   );
 };
+
 
 const DesktopCTAButton: React.FC = () => (
   <div className="hidden xl:block">
@@ -248,13 +260,20 @@ const MobileMenuContent: React.FC<{ scrollToSection: (id: string) => void; toggl
 const MobileNavLink: React.FC<{ link: NavLink; scrollToSection: (id: string) => void; toggleMenu: () => void }>
 = ({ link, scrollToSection, toggleMenu }) => {
   const classes = 'block py-3 sm:py-4 px-3 sm:px-4 text-[#313D52] text-base sm:text-lg font-medium hover:bg-[#f5f9f8] hover:text-[#78f3d3] transition-colors rounded-lg';
-  if (link.external) return <Link href={link.href} className={classes} onClick={() => toggleMenu()}>{link.name}</Link>;
+
+  if (link.external) return <Link href={link.href} className={classes} onClick={toggleMenu}>{link.name}</Link>;
+
+  // Usa /#id para navegar desde páginas internas
+  const href = `/#${link.id}`;
+
+  // Si quieres conservar el smooth scroll solo en home, puedes pasar isHomePage como prop
   return (
-    <a href={link.href} onClick={(e) => { e.preventDefault(); scrollToSection(link.id); }} className={classes}>
+    <Link href={href} className={classes} onClick={toggleMenu}>
       {link.name}
-    </a>
+    </Link>
   );
 };
+
 
 const MobileContactInfo: React.FC = () => (
   <div className="mt-6 sm:mt-8 mx-4 sm:mx-6 p-4 sm:p-6 bg-[#f5f9f8] rounded-lg">
