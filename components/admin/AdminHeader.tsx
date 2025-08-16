@@ -2,7 +2,7 @@
 // components/admin/AdminHeader.tsx
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bell, User, Search } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 const AdminHeader = () => {
@@ -33,7 +33,7 @@ const AdminHeader = () => {
     <header className="bg-white border-b border-[#e0e6e5] sticky top-0 z-10">
       <div className="flex justify-between items-center px-4 py-3">
         <h1 className="text-lg md:text-xl font-semibold text-[#313D52] md:pl-2">
-          {getPageTitle()}
+          {/*{getPageTitle()}*/}
         </h1>
         
         <div className="flex items-center space-x-4">

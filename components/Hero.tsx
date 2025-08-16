@@ -77,7 +77,7 @@ const Hero: React.FC = () => {
           <div className="relative w-full flex justify-center">
             <div aria-hidden className="absolute -inset-6 rounded-full bg-gradient-to-br from-[color:var(--brand-primary,#78f3d3)]/30 to-transparent blur-3xl" />
             <Image
-              src="/assets/Logo_VIP.png"
+              src="/assets/LOGO_VIPS.svg"
               alt="VipCleaners Logo"
               width={900}
               height={700}
@@ -152,7 +152,7 @@ const BadgeLine: React.FC = () => (
 const SocialProof: React.FC = () => (
   <div className="mt-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 justify-center lg:justify-start">
     <div className="flex -space-x-2">
-      {['/assets/Logo_VIP.png','/assets/Logo_VIP.png','/assets/Logo_VIP.png','/assets/Logo_VIP.png','/assets/Logo_VIP.png'].map((src, i) => (
+      {['/assets/LOGO_VIPS.svg','/assets/LOGO_VIPS.svg','/assets/LOGO_VIPS.svg','/assets/LOGO_VIPS.svg','/assets/LOGO_VIPS.svg'].map((src, i) => (
         <Image
           key={i}
           src={src}
