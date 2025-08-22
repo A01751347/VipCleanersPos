@@ -75,8 +75,8 @@ export default function BlogPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const featuredPosts = blogPosts.filter(post => post.featured);
-  const regularPosts = filteredPosts.filter(post => !post.featured);
+  //const featuredPosts = blogPosts.filter(post => post.featured);
+  const regularPosts = filteredPosts.filter(post => !post.featured || post.featured);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-MX', {
@@ -104,13 +104,10 @@ export default function BlogPage() {
           <div className="absolute bottom-20 right-20 w-96 h-96 bg-[#4de0c0] rounded-full blur-3xl"></div>
         </div>
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32">
           <div className="text-center">
             <div className="flex items-center justify-center mb-6">
-              <div className="flex items-center bg-gradient-to-r from-[#78f3d3] to-[#4de0c0] text-[#313D52] px-6 py-3 rounded-full font-bold">
-                <BookOpen size={20} className="mr-2" />
-                Blog VIP Cleaners Sneaker Care
-              </div>
+              
             </div>
             
             <h1 className="text-5xl md:text-7xl font-black mb-8 bg-gradient-to-r from-white via-[#78f3d3] to-white bg-clip-text text-transparent leading-tight">
@@ -123,20 +120,6 @@ export default function BlogPage() {
               tus zapatillas en perfecto estado como el primer día.
             </p>
             
-            <div className="flex items-center justify-center mt-12 space-x-8 text-white/60">
-              <div className="flex items-center">
-                <TrendingUp size={20} className="mr-2 text-[#78f3d3]" />
-                <span>+50 Artículos</span>
-              </div>
-              <div className="flex items-center">
-                <Eye size={20} className="mr-2 text-[#78f3d3]" />
-                <span>+100k Lectores</span>
-              </div>
-              <div className="flex items-center">
-                <Sparkles size={20} className="mr-2 text-[#78f3d3]" />
-                <span>Tips Exclusivos</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -146,7 +129,7 @@ export default function BlogPage() {
         {/* Search and Filter Section */}
         <div className="mb-16">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-3xl shadow-xl p-8 border border-[#e0e6e5]">
+            <div className="bg-white rounded-3xl shadow-xl p-4 border border-[#e0e6e5]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Search Input */}
                 <div className="relative">
@@ -187,77 +170,7 @@ export default function BlogPage() {
         </div>
 
         {/* Featured Posts */}
-        {featuredPosts.length > 0 && searchTerm === '' && selectedCategory === 'Todos' && (
-          <section className="mb-20">
-            <div className="flex items-center justify-center mb-12">
-              <div className="flex items-center bg-gradient-to-r from-[#78f3d3] to-[#4de0c0] text-[#313D52] px-6 py-3 rounded-full font-bold">
-                <Star size={20} className="mr-2" />
-                Artículos Destacados
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {featuredPosts.map((post) => (
-                <Link key={post.id} href={`/blog/${post.slug}`}>
-                  <article className="group relative overflow-hidden rounded-3xl bg-white shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 border border-[#e0e6e5]">
-                    <div className="relative h-64">
-                      <div 
-                        className="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-700"
-                        style={{ backgroundImage: `url(${post.image})` }}
-                      ></div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                      
-                      {/* Featured Badge */}
-                      <div className="absolute top-6 left-6">
-                        <span className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 px-4 py-2 rounded-full text-sm font-bold flex items-center shadow-lg">
-                          <Star size={16} className="mr-1" />
-                          Destacado
-                        </span>
-                      </div>
-
-                      {/* Stats */}
-                      <div className="absolute top-6 right-6 flex space-x-3">
-                        <span className="bg-black/20 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm flex items-center">
-                          <Eye size={14} className="mr-1" />
-                          {formatNumber(post.views || 0)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-8">
-                      <div className="flex items-center justify-between text-sm text-[#6c7a89] mb-4">
-                        <span className="bg-[#78f3d3]/10 text-[#313D52] px-3 py-1 rounded-full font-medium">
-                          {post.category}
-                        </span>
-                        <span>{post.readTime}</span>
-                      </div>
-
-                      <h2 className="text-2xl font-bold text-[#313D52] mb-4 group-hover:text-[#78f3d3] transition-colors leading-tight">
-                        {post.title}
-                      </h2>
-
-                      <p className="text-[#6c7a89] mb-6 leading-relaxed">
-                        {post.excerpt}
-                      </p>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <Calendar size={16} className="text-[#78f3d3] mr-2" />
-                          <span className="text-sm text-[#6c7a89]">{formatDate(post.date)}</span>
-                        </div>
-                        
-                        <div className="flex items-center text-[#78f3d3] group-hover:text-[#4de0c0] font-semibold">
-                          <span className="mr-2">Leer más</span>
-                          <ArrowRight size={16} className="group-hover:translate-x-2 transition-transform" />
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+       
 
         {/* Regular Posts Grid */}
         <section>

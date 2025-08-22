@@ -19,7 +19,7 @@ const blogPosts = [
     author: "VIP Sneaker Care",
     readTime: "8 min",
     tags: ["Limpieza", "Zapatillas Blancas", "Cuidado"],
-    featured: true,
+    featured: false,
     category: "Guías",
     views: 2340,
     likes: 156,
