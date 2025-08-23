@@ -22,24 +22,27 @@ import SmoothScroll from '../components/SmoothScroll';
 import { FullPageLoading } from '../components/LoadingStates';
 
 // SEO optimized metadata (sin referencias a pickup/garantías)
+// SEO optimized metadata (ajustado a México, sin garantías/restauración/zapatillas)
 export const metadata: Metadata = {
-  title: 'Servicio Premium de Limpieza de Sneakers en CDMX',
+  title: 'VipCleaners | Limpieza Premium de Sneakers en CDMX',
   description:
-    'Servicios profesionales de limpieza, restauración e impermeabilización para tus zapatillas en Ciudad de México. Renovamos tus favoritas con técnicas avanzadas y productos de alta calidad.',
+    'Servicio profesional de limpieza de sneakers en Ciudad de México. Técnicas avanzadas, productos eco-friendly y resultados que sorprenden.',
   keywords: [
     'limpieza de sneakers CDMX',
-    'limpieza de tenis CDMX',
+    'limpieza de tenis México',
     'limpieza de calzado deportivo',
+    'servicio premium sneakers',
     'VipCleaners',
-    'limpieza sneakers Roma Norte'
+    'limpieza tenis CDMX',
+    'lavado sneakers Roma Norte'
   ].join(', '),
   authors: [{ name: 'VipCleaners', url: 'https://vipcleaners.asec.store' }],
   viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
   openGraph: {
-    title: 'Servicio Premium de Limpieza de Sneakers CDMX',
+    title: 'Limpieza Premium de Sneakers y Tenis en CDMX',
     description:
-      'Especialistas en limpieza de sneakers en CDMX con técnicas profesionales y materiales de alta calidad.',
+      'Especialistas en limpieza de sneakers y calzado deportivo en CDMX con técnicas profesionales y productos eco-friendly.',
     url: 'https://vipcleaners.asec.store',
     siteName: 'VipCleaners',
     images: [
@@ -47,7 +50,7 @@ export const metadata: Metadata = {
         url: 'https://vipcleaners.asec.store/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'VipCleaners - Expertos en Limpieza de Zapatillas'
+        alt: 'VipCleaners - Limpieza de Sneakers en CDMX'
       }
     ],
     locale: 'es_MX',
@@ -55,16 +58,18 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'VipCleaners | Servicio Premium de Limpieza de Zapatillas',
+    title: 'VipCleaners | Limpieza de Sneakers en CDMX',
     description:
-      'Especialistas en limpieza y restauración de sneakers en CDMX con técnicas profesionales y materiales de alta calidad.',
+      'Servicio premium de limpieza de sneakers y tenis en Ciudad de México. Resultados de alta calidad, sin dañar tus pares.',
     images: ['https://vipcleaners.asec.store/twitter-image.jpg'],
     creator: '@vipcleaners'
   },
   alternates: {
     canonical: 'https://vipcleaners.asec.store'
-  }
+  },
+  publisher: 'VipCleaners'
 };
+
 
 // Lazy loading wrapper for heavy components
 const LazySection: React.FC<{ children: React.ReactNode; fallback?: React.ReactNode }> = ({ children, fallback }) => (
