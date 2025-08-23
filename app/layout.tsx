@@ -12,6 +12,11 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 
 export const metadata: RootMetadata = {
   title: 'VipCleaners | Servicio Premium de Limpieza de Zapatillas',
+  icons: {
+    icon: "/fav.svg",
+    shortcut: "/fav.svg",
+    apple: "/fav.svg",
+  },
   description:
     'Servicios profesionales de limpieza, restauración e impermeabilización para tus zapatillas. Renovamos tus favoritas con técnicas avanzadas y productos de alta calidad.',
   keywords:

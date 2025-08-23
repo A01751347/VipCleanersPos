@@ -33,18 +33,18 @@ export const metadata: Metadata = {
     'VipCleaners',
     'limpieza sneakers Roma Norte'
   ].join(', '),
-  authors: [{ name: 'VipCleaners', url: 'https://www.vipcleaners.asec.store' }],
+  authors: [{ name: 'VipCleaners', url: 'https://vipcleaners.asec.store' }],
   viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
   openGraph: {
     title: 'Servicio Premium de Limpieza de Sneakers CDMX',
     description:
       'Especialistas en limpieza de sneakers en CDMX con técnicas profesionales y materiales de alta calidad.',
-    url: 'https://www.vipcleaners.asec.store',
+    url: 'https://vipcleaners.asec.store',
     siteName: 'VipCleaners',
     images: [
       {
-        url: 'https://www.vipcleaners.asec.store/og-image.jpg',
+        url: 'https://vipcleaners.asec.store/og-image.jpg',
         width: 1200,
         height: 630,
         alt: 'VipCleaners - Expertos en Limpieza de Zapatillas'
@@ -58,11 +58,11 @@ export const metadata: Metadata = {
     title: 'VipCleaners | Servicio Premium de Limpieza de Zapatillas',
     description:
       'Especialistas en limpieza y restauración de sneakers en CDMX con técnicas profesionales y materiales de alta calidad.',
-    images: ['https://www.vipcleaners.asec.store/twitter-image.jpg'],
+    images: ['https://vipcleaners.asec.store/twitter-image.jpg'],
     creator: '@vipcleaners'
   },
   alternates: {
-    canonical: 'https://www.vipcleaners.asec.store'
+    canonical: 'https://vipcleaners.asec.store'
   }
 };
 
@@ -125,7 +125,7 @@ export default function Home() {
             name: 'VipCleaners',
             description:
               'Servicio premium de limpieza de sneakers en Ciudad de México',
-            url: 'https://www.vipcleaners.asec.store',
+            url: 'https://vipcleaners.asec.store',
             telephone: '55-5929-3000',
             email: 'info@vipcleaners.com',
             address: {
@@ -143,7 +143,7 @@ export default function Home() {
             },
             openingHours: ['Mo-Fr 09:00-19:00', 'Sa 10:00-18:00'],
             priceRange: '$139-$259',
-            image: 'https://www.vipcleaners.asec.store/logo.jpg',
+            image: 'https://vipcleaners.asec.store/logo.jpg',
             sameAs: [
               'https://www.facebook.com/vipcleaners',
               'https://www.instagram.com/vipcleaners',
