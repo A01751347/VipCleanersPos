@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     siteName: 'VipCleaners',
     images: [
       {
-        url: 'https://vipcleaners.asec.store/LOGO_VIPS.svg',
+        url: 'https://vipcleaners.asec.store/assets/LOGO_VIPS.svg',
         width: 1200,
         height: 630,
         alt: 'VipCleaners - Limpieza de Sneakers en CDMX'
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     title: 'VipCleaners | Limpieza de Sneakers en CDMX',
     description:
       'Servicio premium de limpieza de sneakers y tenis en Ciudad de México. Resultados de alta calidad, sin dañar tus pares.',
-    images: ['https://vipcleaners.asec.store/LOGO_VIPS.svg'],
+    images: ['https://vipcleaners.asec.store/assets/LOGO_VIPS.svg'],
     creator: '@vipcleaners'
   },
   alternates: {
@@ -126,7 +126,7 @@ export default function Home() {
             },
             openingHours: ['Mo-Fr 09:00-19:00', 'Sa 10:00-18:00'],
             priceRange: '$139-$259',
-            image: 'https://vipcleaners.asec.store/LOGO_VIPS.svg',
+            image: 'https://vipcleaners.asec.store/assets/LOGO_VIPS.svg',
             sameAs: [
               'https://www.facebook.com/vipcleaners',
               'https://www.instagram.com/vipcleaners',
