@@ -81,7 +81,7 @@ const AdminSidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleColla
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 overflow-y-auto py-3">
+      <nav className="flex-1 overflow-y py-3">
         {groups.map((group) => (
           <div key={group.label} className="mb-2">
             {/* Encabezado de grupo */}

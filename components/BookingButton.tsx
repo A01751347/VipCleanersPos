@@ -147,6 +147,66 @@ declare global {
 }
 
 // ======================
+// Toasts (top-right)
+// ======================
+
+type ToastKind = 'success' | 'error' | 'info';
+
+interface ToastItem {
+  id: number;
+  kind: ToastKind;
+  message: string;
+}
+
+const Toasts: React.FC<{
+  toasts: ToastItem[];
+  onClose: (id: number) => void;
+}> = ({ toasts, onClose }) => {
+  return (
+    <div
+      aria-live="polite"
+      aria-atomic="true"
+      className="fixed top-4 right-4 z-[100000] flex flex-col gap-2"
+    >
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            className={[
+              "pointer-events-auto rounded-lg shadow-lg border px-4 py-3 w-80 backdrop-blur",
+              t.kind === 'success' && "bg-green-50/95 border-green-200 text-green-800",
+              t.kind === 'error' && "bg-red-50/95 border-red-200 text-red-800",
+              t.kind === 'info' && "bg-sky-50/95 border-sky-200 text-sky-900",
+            ].join(' ')}
+            role="status"
+          >
+            <div className="flex items-start gap-3">
+              {t.kind === 'success' && <CheckCircle size={18} className="mt-[2px]" />}
+              {t.kind === 'error' && <AlertCircle size={18} className="mt-[2px]" />}
+              {t.kind === 'info' && <Shield size={18} className="mt-[2px]" />}
+
+              <div className="text-sm leading-snug">{t.message}</div>
+
+              <button
+                onClick={() => onClose(t.id)}
+                className="ml-auto text-black/60 hover:text-black transition p-1 rounded"
+                aria-label="Cerrar notificación"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+
+// ======================
 // Turnstile Component
 // ======================
 
@@ -154,7 +214,8 @@ const TurnstileWidget: React.FC<{
   onVerify: (token: string) => void;
   onError: () => void;
   onExpire: () => void;
-}> = ({ onVerify, onError, onExpire }) => {
+  nonce?: string; // 👈 optional
+}> = ({ onVerify, onError, onExpire, nonce }) => {
   const turnstileRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState<boolean>(!!window.turnstile);
   const [widgetId, setWidgetId] = useState<string | null>(null);
@@ -169,14 +230,14 @@ const TurnstileWidget: React.FC<{
 
     const script = document.createElement("script");
     script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-    script.async = true;
-    script.defer = true;
+    script.async = true; script.defer = true;
+    if (nonce) script.nonce = nonce; 
     script.onload = () => setIsLoaded(true);
     document.head.appendChild(script);
     window.__TURNSTILE_SCRIPT_ADDED__ = true;
 
     // Importante: NO retiramos el script en cleanup para evitar romper otros widgets.
-  }, []);
+  }, [nonce]);
 
   // Renderizar el widget cuando esté cargado
   useEffect(() => {
@@ -448,6 +509,23 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     acceptWhatsapp: false, // 👈 nuevo
   });
 
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+const toastIdRef = useRef(0);
+
+const showToast = useCallback((message: string, kind: ToastKind = 'error', ttl = 4000) => {
+  const id = ++toastIdRef.current;
+  setToasts((prev) => [...prev, { id, kind, message }]);
+  // autodescartar
+  window.setTimeout(() => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, ttl);
+}, []);
+
+const closeToast = useCallback((id: number) => {
+  setToasts((prev) => prev.filter((t) => t.id !== id));
+}, []);
+
+
   const [formStatus, setFormStatus] = useState<FormStatus>({
     status: "idle",
     message: "",
@@ -681,10 +759,11 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     );
   
     if (!firstWithRoom) {
-      // Opcional: feedback visual (toast/estado)
+      showToast("Límite alcanzado: máximo 25 pares por tipo de servicio.", 'info');
       setFormStatus({ status: "error", message: "Límite alcanzado: 25 por tipo de servicio." });
       return;
     }
+    
   
     setFormData((p) => ({
       ...p,
@@ -737,23 +816,25 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
   // Validación
   const validateAll = useCallback((): boolean => {
     const issues: string[] = [];
-    if (!formData.fullName.trim()) issues.push("Nombre completo es requerido.");
-    if (!/\S+@\S+\.\S+/.test(formData.email)) issues.push("Email válido es requerido.");
-    if (formData.phone.length !== 10) issues.push("El teléfono debe tener 10 dígitos.");
+    if (!formData.fullName.trim()) issues.push("Completa tu nombre completo.");
+    if (!/\S+@\S+\.\S+/.test(formData.email)) issues.push("Escribe un email válido.");
+    if (formData.phone.length !== 10) issues.push("Tu teléfono debe tener 10 dígitos.");
     if (formData.services.length === 0) issues.push("Agrega al menos un servicio.");
     if (!formData.bookingDate || !formData.bookingTime) issues.push("Selecciona fecha y hora.");
     if (!turnstileToken) issues.push("Completa la verificación de seguridad.");
-    if (!formData.acceptTerms)
-      issues.push("Debes aceptar los términos y condiciones para continuar.");
+    if (!formData.acceptTerms) issues.push("Debes aceptar los términos y condiciones.");
+  
     if (issues.length) {
-      setFormStatus({ status: "error", message: issues[0] });
+      // muestra solo la primera para no saturar (o lanza varias, como prefieras)
+      showToast(issues[0], 'error');
+      setFormStatus({ status: 'error', message: issues[0] });
       return false;
     }
-    
-    setFormStatus({ status: "idle", message: "" });
+  
+    setFormStatus({ status: 'idle', message: '' });
     return true;
-  }, [formData, turnstileToken]);
-
+  }, [formData, turnstileToken, showToast]);
+  
   // Submit dentro de <form>
   const handleSubmit = useCallback(
     async (e?: FormEvent) => {
@@ -837,6 +918,10 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
           window.turnstile?.reset();
         } catch {}
       } catch (error: any) {
+        showToast(
+          error instanceof Error ? error.message : "Hubo un error al procesar tu reserva. Intenta nuevamente.",
+          'error'
+        );
         setFormStatus({
           status: "error",
           message:
@@ -846,11 +931,15 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
         });
         // Reset del widget para permitir nuevo intento
         try {
+          showToast("¡Orden creada exitosamente! 🎉", 'success');
+
           window.turnstile?.reset();
         } catch {}
       }
     },
+    
     [validateAll, formData, byId, calculateTotal, turnstileToken]
+    
   );
 
   const getMinDate = useCallback(() => {
@@ -871,6 +960,8 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
     <AnimatePresence>
       {isOpen && (
         <motion.div
+
+        
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -880,6 +971,8 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
             if (e.target === e.currentTarget) onClose();
           }}
         >
+          <Toasts toasts={toasts} onClose={closeToast} />
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -1280,14 +1373,6 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                     )}
                   </div>
 
-                  {/* Error */}
-                  {formStatus.status === "error" && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
-                      <AlertCircle size={16} className="mr-2 flex-shrink-0" />
-                      <span className="text-sm">{formStatus.message}</span>
-                    </div>
-                  )}
-
                   {/* Success Overlay (sin segundo portal) */}
                   <AnimatePresence>
                     {formStatus.status === "success" && (
@@ -1346,6 +1431,7 @@ const BookingSimple: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
                         </motion.div>
                       </motion.div>
                     )}
+
                   </AnimatePresence>
                 </div>
               </div>

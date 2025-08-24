@@ -24,14 +24,15 @@ const securityHeaders = [
   },
   {
     key: 'Content-Security-Policy',
-    // ⚠️ Ajusta los orígenes según lo que uses (fuentes, imágenes, analytics, WhatsApp, etc.)
     value: [
       "default-src 'self'",
       "img-src 'self' https: data:",
       "font-src 'self' https: data:",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+      // 👇 se agrega challenges.cloudflare.com a script-src y frame-src
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https:",
       "style-src 'self' 'unsafe-inline' https:",
       "connect-src 'self' https:",
+      "frame-src https://challenges.cloudflare.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self' https://api.whatsapp.com",
