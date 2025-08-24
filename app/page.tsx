@@ -34,11 +34,7 @@ export const metadata: Metadata = {
   ].join(', '),
   authors: [{ name: 'VipCleaners', url: 'https://vipcleaners.asec.store' }],
   viewport: 'width=device-width, initial-scale=1',
-  robots: {
-    index: true,
-    follow: true,
-    maxImagePreview: 'large'
-  },
+  robots: 'index, follow, max-image-preview:large',
   openGraph: {
     title: 'Limpieza Premium de Sneakers y Tenis en CDMX',
     description:
