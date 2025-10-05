@@ -40,9 +40,9 @@ const Pricing: React.FC = () => {
   const features = useMemo(
     () => [
       "Limpieza profunda interior y exterior",
-      "Desmanchado especializado y cuidado del material",
+      "Desmanchado y cuidado de los materiales",
       "Desinfección y neutralización de olores",
-      "Acondicionado de suelas y mediasuelas",
+      "Limpieza de suelas y mediasuelas",
       "Entrega express disponible y seguimiento del proceso",
     ],
     []

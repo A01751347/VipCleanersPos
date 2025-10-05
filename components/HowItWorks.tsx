@@ -22,22 +22,22 @@ const HowItWorks: React.FC = () => {
     {
       icon: CalendarCheck,
       title: "Reserva una Limpieza",
-      description: "Programa tu servicio en línea o llámanos para concertar una cita."
+      description: "Reserva en línea o mándanos mensaje para apartar tu lugar."
     },
     {
       icon: Box,
-      title: "Entrega/Recolección",
-      description: "Entrega tus zapatillas o utiliza pregunta por nuestro conveniente servicio de recolección."
+      title: "Entrega o Recolección",
+      description: "Tráenos tus tenis o pide que pasemos por ellos hasta tu casa u oficina."
     },
     {
       icon: Wand2,
       title: "Cuidado Experto",
-      description: "Nuestros especialistas hacen magia con técnicas profesionales."
+      description: "Nuestros especialistas les dan el cuidado que merecen con técnicas profesionales y productos de calidad."
     },
     {
       icon: CheckCircle,
-      title: "Listas para Usar",
-      description: "Recoge tus zapatillas trabajadas o recíbelas en tu puerta."
+      title: "Listos para estrenar",
+      description: "Recoge tus pares impecables o recíbelos directo en tu puerta."
     }
   ];
 
@@ -119,8 +119,8 @@ const HowItWorks: React.FC = () => {
           <span className="text-sm sm:text-base font-medium uppercase tracking-wider text-[#78D5D3]">Un Proceso Simple</span>
           <h2 className="mt-2 text-3xl font-bold text-[#313D52] sm:text-4xl">CÓMO FUNCIONA</h2>
           <p className="mt-4 max-w-2xl mx-auto text-[#6c7a89]">
-            Nuestro proceso simplificado facilita que tus zapatillas sean limpiadas con cuidado profesional.
-            No te quedes solo con nuestras palabras. Escucha lo que dicen nuestros clientes acerca de nuestros servicios.
+          En VIP Cleaners nos encargamos de que tus tenis queden como nuevos, con limpieza profesional y detallada. 
+          Olvídate de complicaciones y confía en nosotros.
           </p>
         </div>
 
@@ -160,7 +160,7 @@ const HowItWorks: React.FC = () => {
                   <div 
                     className={`w-12 h-12 md:w-16 md:h-16 rounded-full z-10 flex items-center justify-center md:mb-6 mr-4 md:mr-0 transition-all duration-500 transform ${
                       isActive 
-                        ? 'bg-gradient-to-br from-[#78f3d3] to-[#4fd1c7] text-white shadow-lg md:scale-110' 
+                        ? 'bg-gradient-to-br from-[#78f3d3] to-[#4cbdb4] text-white shadow-lg md:scale-110' 
                         : 'bg-[#e0e6e5] text-[#6c7a89] scale-100'
                     } ${isCurrentStep ? 'animate-pulse' : ''}`}
                   >
@@ -169,7 +169,7 @@ const HowItWorks: React.FC = () => {
                   
                   <div className="md:text-center">
                     <h3 className={`text-lg font-semibold mb-1 md:mb-2 transition-all duration-500 ${
-                      isActive ? 'text-[#78D5D3] transform scale-105' : 'text-[#313D52]'
+                      isActive ? 'text-[#4cbdb4] transform scale-105' : 'text-[#313D52]'
                     }`}>
                       {step.title}
                     </h3>

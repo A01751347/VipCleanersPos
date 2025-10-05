@@ -11,74 +11,123 @@ interface BlogPostProps {
   date: string;
   slug: string;
   index: number;
+  readTime?: string;
+  category?: string;
+  views?: number;
+  featured?: boolean;
 }
 
-const BlogPost: React.FC<BlogPostProps> = ({ title, excerpt, image, date, slug, index }) => {
+const BlogPost: React.FC<BlogPostProps> = ({ title, excerpt, image, date, slug, index, readTime, category, views, featured }) => {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
   return (
     <AnimateOnScroll type="fade-up" delay={0.1 * index}>
-      <div className="bg-white rounded-xl overflow-hidden shadow-[0_10px_15px_-3px_rgba(49,61,82,0.1),0_4px_6px_-2px_rgba(49,61,82,0.05)] hover:shadow-lg transition-shadow">
-        <div 
-          className="h-48 bg-cover bg-center"
-          style={{ backgroundImage: `url(${image})` }}
-        ></div>
-        <div className="p-6">
-          <div className="text-sm text-[#6c7a89] mb-2">{date}</div>
-          <h3 className="text-xl font-semibold text-[#313D52] mb-2">{title}</h3>
-          <p className="text-[#6c7a89] mb-4">{excerpt}</p>
-          <Link 
-            href={`/blog/${slug}`}
-            className="inline-flex items-center text-[#78f3d3] font-medium hover:text-[#4de0c0] transition-colors"
-          >
-            Leer más <ArrowRight size={16} className="ml-1" />
-          </Link>
-        </div>
-      </div>
+      <Link href={`/blog/${slug}`}>
+        <article className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-200">
+          <div className="h-48 overflow-hidden">
+            <div
+              className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-300"
+              style={{ backgroundImage: `url(${image})` }}
+            ></div>
+          </div>
+
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              {featured && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#78f3d3] text-[#313D52]">
+                  Destacado
+                </span>
+              )}
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                {category}
+              </span>
+            </div>
+
+            <h3 className="text-lg font-semibold text-gray-900 mb-3 group-hover:text-[#313D52] transition-colors">
+              {title}
+            </h3>
+
+            <p className="text-gray-600 mb-4 leading-relaxed">
+              {excerpt}
+            </p>
+
+            <div className="flex items-center justify-between text-sm text-gray-500">
+              <div className="flex items-center gap-4">
+                <span>{formatDate(date)}</span>
+                <span>{readTime}</span>
+              </div>
+              <div className="flex items-center text-[#78f3d3] group-hover:text-[#4de0c0] transition-colors">
+                <span className="mr-1">Leer más</span>
+                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+          </div>
+        </article>
+      </Link>
     </AnimateOnScroll>
   );
 };
 
 const BlogSection: React.FC = () => {
-  // Estos serían posts de ejemplo; en una implementación real, los obtendrías de una API
   const blogPosts = [
     {
       title: "Guía completa para limpiar zapatillas blancas",
       excerpt: "Aprende los mejores trucos y técnicas para mantener tus zapatillas blancas impecables por más tiempo.",
       image: "/assets/blog/white-sneakers.png",
-      date: "12 abril, 2025",
-      slug: "guia-limpiar-zapatillas-blancas"
+      date: "2025-04-12",
+      slug: "guia-limpiar-zapatillas-blancas",
+      readTime: "8 min",
+      category: "Guías",
+      views: 2340,
+      featured: true
     },
     {
       title: "Cómo impermeabilizar tus sneakers para la temporada de lluvias",
       excerpt: "Protege tus zapatillas favoritas contra la humedad y las manchas con estos consejos profesionales.",
       image: "/assets/blog/waterproofing.jpg",
-      date: "28 marzo, 2025",
-      slug: "impermeabilizar-sneakers-lluvia"
+      date: "2025-03-28",
+      slug: "impermeabilizar-sneakers-lluvia",
+      readTime: "6 min",
+      category: "Protección",
+      views: 1890,
+      featured: false
     },
     {
       title: "La guía definitiva para cuidar zapatillas de gamuza",
       excerpt: "Todo lo que necesitas saber para mantener y restaurar tus zapatillas de gamuza como un profesional.",
       image: "/assets/blog/suede-care.jpg",
-      date: "15 marzo, 2025",
-      slug: "cuidar-zapatillas-gamuza"
+      date: "2025-03-15",
+      slug: "cuidar-zapatillas-gamuza",
+      readTime: "10 min",
+      category: "Cuidado Especial",
+      views: 3120,
+      featured: false
     }
   ];
 
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#f5f9f8]" id="blog">
+    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white" id="blog">
       <div className="max-w-7xl mx-auto">
         <AnimateOnScroll>
-          <div className="text-center mb-12">
-            <span className="text-sm sm:text-base font-medium uppercase tracking-wider text-[#78D5D3]">Tips & Consejos</span>
-            <h2 className="mt-2 text-3xl font-bold text-[#313D52] sm:text-4xl">Nuestro Blog</h2>
-            <p className="mt-4 max-w-2xl mx-auto text-[#6c7a89]">
-              Descubre consejos, guías y tendencias para el cuidado de tus zapatillas favoritas.
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Guías de Cuidado Profesional
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Consejos expertos y técnicas profesionales para mantener tus zapatillas en perfecto estado.
             </p>
           </div>
         </AnimateOnScroll>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {blogPosts.map((post, index) => (
-            <BlogPost 
+            <BlogPost
               key={index}
               title={post.title}
               excerpt={post.excerpt}
@@ -86,18 +135,31 @@ const BlogSection: React.FC = () => {
               date={post.date}
               slug={post.slug}
               index={index}
+              readTime={post.readTime}
+              category={post.category}
+              views={post.views}
+              featured={post.featured}
             />
           ))}
         </div>
-        
+
         <AnimateOnScroll>
-          <div className="text-center mt-12">
-            <Link 
-              href="/blog"
-              className="px-8 py-3 bg-[#78f3d3] text-[#313D52] font-semibold rounded-full shadow-sm hover:bg-[#4de0c0] transition-colors inline-flex items-center"
-            >
-              Ver todos los artículos <ArrowRight size={18} className="ml-2" />
-            </Link>
+          <div className="text-center mt-16">
+            <div className="bg-gray-50 rounded-lg p-8 max-w-2xl mx-auto">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                ¿Quieres leer más consejos?
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Explora nuestra colección completa de guías y artículos sobre el cuidado de sneakers.
+              </p>
+              <Link
+                href="/blog"
+                className="inline-flex items-center px-6 py-3 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors font-medium"
+              >
+                Ver todos los artículos
+                <ArrowRight size={16} className="ml-2" />
+              </Link>
+            </div>
           </div>
         </AnimateOnScroll>
       </div>

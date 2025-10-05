@@ -39,24 +39,24 @@ const FAQ: React.FC = () => {
   
   const faqs = [
     {
-      question: "¿Cuánto tiempo tardan en limpiar mis zapatillas?",
-      answer: "El tiempo de entrega varía según el servicio elegido. La limpieza básica se completa en 48 horas, mientras que la limpieza premium tiene un servicio prioritario de 24 horas. En temporadas de alta demanda, podría haber ligeras variaciones que te comunicaremos al momento de la reserva."
+      "question": "¿Cuánto tardan en limpiar mis tenis?",
+      "answer": "Depende de la prioridad que elijas. La limpieza queda lista en 48 horas, mientras que el servicio express lo entregamos en 24 horas. En temporadas con mucha demanda, el tiempo puede variar un poco, pero siempre te avisamos al momento de agendar."
     },
     {
-      question: "¿Qué productos utilizan para la limpieza?",
-      answer: "Utilizamos productos profesionales específicos para cada tipo de material: cuero, gamuza, lona, etc. Todos nuestros productos son ecológicos y no dañinos para tus zapatillas ni para el medio ambiente. Elegimos cuidadosamente limpiadores, acondicionadores y protectores de la más alta calidad."
+      "question": "¿Qué productos usan para limpiar?",
+      "answer": "Usamos productos profesionales para cada material: piel, gamuza, lona, etc. Todos son ecológicos y seguros. Elegimos limpiadores, acondicionadores y protectores de la mejor calidad."
     },
     {
-      question: "¿Puedo enviar cualquier tipo de zapatilla?",
-      answer: "Sí, trabajamos con todo tipo de zapatillas: deportivas, casuales, de vestir y más. Tenemos experiencia con marcas como Nike, Adidas, Jordan, New Balance, Vans, Converse y muchas otras. Cada par recibe un tratamiento personalizado según su material y necesidades específicas."
+      "question": "¿Puedo mandar cualquier tipo de tenis?",
+      "answer": "Sí, trabajamos con todo tipo de pares: deportivos, casuales, de vestir y más. Tenemos experiencia con marcas como Nike, Adidas, Jordan, New Balance, Vans, Converse y muchas otras. Cada par recibe un cuidado especial según su material y estado."
     },
     {
-      question: "¿Qué sucede si mis zapatillas están muy dañadas?",
-      answer: "Antes de iniciar el proceso, evaluamos el estado de tus zapatillas. Si detectamos daños severos, te contactaremos para informarte sobre las posibilidades de restauración y cualquier costo adicional. Mientras que podemos tratar manchas difíciles y desgaste, algunos daños estructurales pueden estar fuera de lo que podemos reparar completamente."
+      "question": "¿Qué pasa si mis tenis están muy dañados?",
+      "answer": "Antes de empezar, revisamos el estado de tus tenis. Si vemos daños fuertes, te avisamos y te decimos qué tan posible es continuar con el servicio."
     },
     {
-      question: "¿Cómo funciona el servicio a domicilio?",
-      answer: "Nuestro servicio a domicilio incluye recolección y entrega en la dirección que nos indiques dentro de nuestra área de cobertura. Programamos la visita en un horario conveniente para ti, recogemos tus zapatillas, realizamos el servicio en nuestras instalaciones y las devolvemos impecables en el tiempo acordado."
+      "question": "¿Cómo funciona el servicio a domicilio?",
+      "answer": "Pasamos por tus tenis hasta tu casa u oficina (en nuestra zona de cobertura) y te los regresamos limpios. Agenda la recolección via WhatsApp en el horario que mejor te quede, nosotros los limpiamos y te los devolvemos impecables en el tiempo acordado."
     }
   ];
   

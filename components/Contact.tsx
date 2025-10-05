@@ -118,7 +118,7 @@ const Contact: React.FC = () => {
             <span className="text-sm sm:text-base font-medium uppercase tracking-wider text-[#78D5D3]">CONTACTO</span>
             <h2 className="mt-2 text-3xl font-bold text-[#313D52] sm:text-4xl">Ponte en Contacto</h2>
             <p className="mt-4 max-w-2xl mx-auto text-[#6c7a89]">
-              ¿Tienes preguntas o necesitas más información? ¡Estamos aquí para ayudarte! Nuestro equipo está siempre listo para responder tus inquietudes y asistirte con el cuidado de tus zapatillas.
+              ¿Tienes preguntas o necesitas más información? ¡Estamos aquí para ayudarte! Nuestro equipo está siempre listo para responder tus dudas y asistirte.
             </p>
           </div>
         </AnimateOnScroll>

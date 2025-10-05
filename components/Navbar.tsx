@@ -206,7 +206,7 @@ const Breadcrumb: React.FC<{ isHomePage: boolean; pathname: string }> = ({ isHom
     }
   };
   return (
-    <div className="max-w-7xl mx-auto mt-2 px-3 sm:px-4 text-xs sm:text-sm text-[#6c7a89]">
+    <div className="max-w-7xl mx-auto h-auto lg:pl-24 px-3 sm:px-4 text-xs sm:text-sm text-[#6c7a89]">
       <Link href="/" className="hover:text-[#78f3d3] transition-colors">Inicio</Link>
       <span className="mx-2">/</span>
       <span className="text-[#313D52] font-medium">{getPageName(pathname)}</span>

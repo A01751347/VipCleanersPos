@@ -57,10 +57,11 @@ export async function POST(request: NextRequest) {
     const requestBody = await request.json();
     
     // Turnstile verification
-    const turnstileToken: string | undefined = requestBody.turnstileToken;
-    if (!turnstileToken) {
-      return NextResponse.json({ error: 'Falta verificación de seguridad' }, { status: 400 });
-    }
+    if (process.env.SKIP_TURNSTILE !== 'true') {
+      const turnstileToken: string | undefined = requestBody.turnstileToken;
+      if (!turnstileToken) {
+        return NextResponse.json({ error: 'Falta verificación de seguridad' }, { status: 400 });
+      }
     const turnstileResponse = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       {
@@ -75,9 +76,10 @@ export async function POST(request: NextRequest) {
       }
     );
     const turnstileData = await turnstileResponse.json();
-    if (!turnstileData.success) {
-      return NextResponse.json({ error: 'Verificación de seguridad falló' }, { status: 400 });
-    }
+  if (!turnstileData.success) {
+    return NextResponse.json({ error: 'Verificación de seguridad falló' }, { status: 400 });
+  }
+}
     
     console.log('📥 Booking request received:', {
       hasFullName: !!requestBody.fullName,
