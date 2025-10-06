@@ -154,7 +154,6 @@ export default function ClientsPage() {
       {/* Cabecera y acciones */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#313D52]">Gestión de Clientes</h1>
           <p className="text-sm text-[#6c7a89]">Administra la información de tus clientes</p>
         </div>
 
@@ -270,7 +269,6 @@ export default function ClientsPage() {
               </thead>
               <tbody className="bg-white divide-y divide-[#e0e6e5]">
                 {clients.map((client) => (
-                    console.log("client",client),
                   <tr key={client.cliente_id} className="hover:bg-[#f5f9f8]">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center">

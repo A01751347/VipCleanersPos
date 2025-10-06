@@ -22,8 +22,8 @@ import Link from 'next/link';
 
 interface Order {
   orden_id: number;
-  codigo_orden: string;estado_servicio: string | undefined;
-
+  codigo_orden: string;
+  estado_servicio: string | undefined;
   cliente_nombre: string;
   cliente_apellidos: string;
   cliente_email: string;

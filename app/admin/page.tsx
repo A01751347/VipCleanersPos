@@ -255,12 +255,12 @@ export default function AdminDashboard() {
       {/* Encabezado */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Panel de Administración</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Resumen general y actividad reciente</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#313D52] dark:text-zinc-100">Panel de Administración</h1>
+          <p className="text-sm text-[#6c7a89] dark:text-zinc-400">Resumen general y actividad reciente</p>
         </div>
         <button
           onClick={refreshAll}
-          className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-2 rounded-xl border border-[#e0e6e5] bg-white px-3 py-2 text-sm font-medium text-[#313D52] shadow-sm transition hover:bg-[#f5f9f8] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           <RefreshCcw className="h-4 w-4" /> Recargar
         </button>
@@ -313,21 +313,21 @@ function KpiCard({
   loading?: boolean
 }) {
   return (
-    <Card className="relative overflow-hidden border-zinc-200/70 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-zinc-800 dark:bg-zinc-900">
-      <CardContent className="px-5">
+    <Card className="relative overflow-hidden border-[#e0e6e5] bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-zinc-800 dark:bg-zinc-900">
+      <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[#6c7a89] dark:text-zinc-400">{title}</p>
             {loading ? (
               <div className="mt-2 h-7 w-24 animate-pulse rounded-md bg-zinc-200 dark:bg-zinc-800" />
             ) : (
-              <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</div>
+              <div className="mt-1 text-2xl font-bold text-[#313D52] dark:text-zinc-100">{value}</div>
             )}
             {!loading && hint ? (
-              <div className="mt-1 inline-flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="mt-1 inline-flex items-center gap-2 text-xs text-[#6c7a89] dark:text-zinc-400">
                 <TrendPill trend={trend} />
                 <span>{hint}</span>
-                <span className="text-zinc-400">•</span>
+                <span className="text-[#6c7a89]">•</span>
                 <span>vs. mes anterior</span>
               </div>
             ) : null}
@@ -364,7 +364,7 @@ function RecentBookingsCard({
   items: Booking[]
 }) {
   return (
-    <Card className="border-zinc-200/70 dark:border-zinc-800">
+    <Card className="border-[#e0e6e5] dark:border-zinc-800">
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="text-base">Reservaciones Recientes</CardTitle>
@@ -401,13 +401,13 @@ function RecentBookingsCard({
                   <Th className="text-right">Acciones</Th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 bg-white dark:divide-zinc-800 dark:bg-zinc-950">
+              <tbody className="divide-y divide-[#e0e6e5] bg-white dark:divide-zinc-800 dark:bg-zinc-950">
                 {items.map((b) => (
-                  <tr key={b.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-900/60">
-                    <Td className="font-medium text-zinc-900 dark:text-zinc-100">{b.booking_reference}</Td>
-                    <Td className="text-zinc-600 dark:text-zinc-400">{b.full_name}</Td>
-                    <Td className="text-zinc-600 dark:text-zinc-400">{serviceLabel(b.service_type)}</Td>
-                    <Td className="text-zinc-600 dark:text-zinc-400">{formatDate(b.booking_date)}</Td>
+                  <tr key={b.id} className="hover:bg-[#f5f9f8] dark:hover:bg-zinc-900/60">
+                    <Td className="font-medium text-[#313D52] dark:text-zinc-100">{b.booking_reference}</Td>
+                    <Td className="text-[#6c7a89] dark:text-zinc-400">{b.full_name}</Td>
+                    <Td className="text-[#6c7a89] dark:text-zinc-400">{serviceLabel(b.service_type)}</Td>
+                    <Td className="text-[#6c7a89] dark:text-zinc-400">{formatDate(b.booking_date)}</Td>
                     <Td>
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         STATUS_MAP[String(b.status)]?.classes || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
@@ -447,7 +447,7 @@ function RecentMessagesCard({
   items: Message[]
 }) {
   return (
-    <Card className="border-zinc-200/70 dark:border-zinc-800">
+    <Card className="border-[#e0e6e5] dark:border-zinc-800">
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="text-base">Mensajes Recientes</CardTitle>
@@ -476,25 +476,25 @@ function RecentMessagesCard({
             {items.slice(0, 5).map((m) => (
               <Link key={m.id} href={`/admin/messages`} className="block">
                 <div
-                  className={`rounded-lg border p-4 transition hover:bg-zinc-50 dark:hover:bg-zinc-900 ${
-                    !m.is_read ? 'border-emerald-300/50 bg-emerald-50/60 dark:border-emerald-400/30 dark:bg-emerald-500/10' : 'border-zinc-200 dark:border-zinc-800'
+                  className={`rounded-lg border p-4 transition hover:bg-[#f5f9f8] dark:hover:bg-zinc-900 ${
+                    !m.is_read ? 'border-[#78f3d3]/50 bg-[#78f3d3]/10 dark:border-[#78f3d3]/30 dark:bg-[#78f3d3]/10' : 'border-[#e0e6e5] dark:border-zinc-800'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center gap-2">
-                        {m.is_read ? <MailOpen className="h-4 w-4 text-zinc-400" /> : <Mail className="h-4 w-4 text-emerald-500" />}
+                        {m.is_read ? <MailOpen className="h-4 w-4 text-[#6c7a89]" /> : <Mail className="h-4 w-4 text-[#78f3d3]" />}
                         {m.is_starred && <Star className="h-4 w-4 text-amber-400" />}
-                        <span className={`truncate text-sm ${!m.is_read ? 'font-semibold text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400'}`}>{m.name}</span>
+                        <span className={`truncate text-sm ${!m.is_read ? 'font-semibold text-[#313D52] dark:text-zinc-100' : 'text-[#6c7a89] dark:text-zinc-400'}`}>{m.name}</span>
                       </div>
-                      <h4 className={`truncate text-sm ${!m.is_read ? 'font-semibold text-zinc-900 dark:text-zinc-100' : 'text-zinc-200/90 dark:text-zinc-200'}`}>{m.subject}</h4>
-                      <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{m.message.substring(0, 100)}...</p>
-                      <div className="mt-1 flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      <h4 className={`truncate text-sm ${!m.is_read ? 'font-semibold text-[#313D52] dark:text-zinc-100' : 'text-[#6c7a89] dark:text-zinc-200'}`}>{m.subject}</h4>
+                      <p className="truncate text-xs text-[#6c7a89] dark:text-zinc-400">{m.message.substring(0, 100)}...</p>
+                      <div className="mt-1 flex items-center gap-1 text-xs text-[#6c7a89] dark:text-zinc-400">
                         <Clock className="h-3 w-3" />
                         {formatSmartDate(m.created_at)}
                       </div>
                     </div>
-                    {!m.is_read && <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500" />}
+                    {!m.is_read && <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-[#78f3d3]" />}
                   </div>
                 </div>
               </Link>
@@ -517,8 +517,8 @@ function WeeklySalesCard({ loading, error, weekly }: { loading?: boolean; error?
         </CardHeader>
         <CardContent className="flex h-[300px] items-center justify-center">
           <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
-            <p className="text-sm text-zinc-500">Cargando datos...</p>
+            <Loader2 className="h-6 w-6 animate-spin text-[#78f3d3]" />
+            <p className="text-sm text-[#6c7a89]">Cargando datos...</p>
           </div>
         </CardContent>
       </Card>

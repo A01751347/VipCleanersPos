@@ -168,10 +168,9 @@ console.log(loadOrders);
       {/* Cabecera y acciones */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#313D52]">Administrar Órdenes</h1>
           <p className="text-sm text-[#6c7a89]">Visualiza y gestiona las órdenes de servicio y venta</p>
         </div>
-        
+
         <div className="flex flex-wrap gap-3">
           <Link 
             href="/admin/pos"

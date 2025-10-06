@@ -216,7 +216,6 @@ export default function MessagesPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[#313D52]">Mensajes de Contacto</h1>
           <p className="text-[#6c7a89] mt-1">Gestiona todos los mensajes recibidos desde el formulario de contacto</p>
         </div>
       </div>

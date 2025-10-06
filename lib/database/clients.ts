@@ -89,13 +89,22 @@ export async function searchClients({
   }
   
   // Contar total de registros para paginación
-  const countQuery = query.replace('c.*,\n      (SELECT COUNT(*) FROM ordenes WHERE cliente_id = c.cliente_id) as total_ordenes', 'COUNT(*) as total');
+  const countQuery = query.replace(
+    `c.*,
+      (SELECT COUNT(*) FROM ordenes WHERE cliente_id = c.cliente_id) as total_ordenes,
+      (SELECT SUM(total) FROM ordenes WHERE cliente_id = c.cliente_id) as total_gastado`,
+    'COUNT(*) as total'
+  );
   
   const [countResult] = await executeQuery<[{total: number}]>({
     query: countQuery,
     values: queryParams
   });
   
+  // Aplicar paginación a la consulta principal
+  query += ` ORDER BY c.fecha_creacion DESC LIMIT ? OFFSET ?`;
+  queryParams.push(pageSize, offset);
+
   const clients = await executeQuery<any[]>({
     query,
     values: queryParams

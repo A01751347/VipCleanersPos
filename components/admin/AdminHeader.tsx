@@ -12,10 +12,19 @@ const AdminHeader = () => {
   
   const getPageTitle = () => {
     if (pathname === '/admin') return 'Dashboard';
+    if (pathname?.startsWith('/admin/pos')) return 'Punto de Venta';
+    if (pathname?.startsWith('/admin/orders')) return 'Órdenes';
+    if (pathname?.startsWith('/admin/messages')) return 'Mensajes';
+    if (pathname?.startsWith('/admin/clients')) return 'Clientes';
+    if (pathname?.startsWith('/admin/payments')) return 'Pagos';
+    if (pathname?.startsWith('/admin/reports')) return 'Reportes';
+    if (pathname?.startsWith('/admin/warehouse')) return 'Almacenamiento';
+    if (pathname?.startsWith('/admin/services')) return 'Servicios';
+    if (pathname?.startsWith('/admin/products')) return 'Productos';
     if (pathname?.startsWith('/admin/bookings')) return 'Reservaciones';
-    if (pathname?.startsWith('/admin/messages')) return 'Mensajes de Contacto';
-    if (pathname?.startsWith('/admin/users')) return 'Usuarios';
+    if (pathname?.startsWith('/admin/inventory')) return 'Inventario';
     if (pathname?.startsWith('/admin/settings')) return 'Configuración';
+    if (pathname?.startsWith('/admin/debug')) return 'Debug';
     return 'Panel de Administración';
   };
 
@@ -33,7 +42,7 @@ const AdminHeader = () => {
     <header className="bg-white border-b border-[#e0e6e5] sticky top-0 z-10">
       <div className="flex justify-between items-center px-4 py-3">
         <h1 className="text-lg md:text-xl font-semibold text-[#313D52] md:pl-2">
-          {/*{getPageTitle()}*/}
+          {getPageTitle()}
         </h1>
         
         <div className="flex items-center space-x-4">
