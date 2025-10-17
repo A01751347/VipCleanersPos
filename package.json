@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.913.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@types/nodemailer": "^6.4.17",
     "add": "^2.0.6",

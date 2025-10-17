@@ -1484,7 +1484,7 @@ const submitEditShoe = async (vals: {
   />
 )}
 
-      {isEditShoeOpen && shoeToEdit && (
+      {isEditShoeOpen && shoeToEdit && order && (
         <EditShoeModal
           isOpen={isEditShoeOpen}
           onClose={() => setIsEditShoeOpen(false)}
@@ -1493,7 +1493,9 @@ const submitEditShoe = async (vals: {
             modelo: shoeToEdit.modelo || '',
             descripcion: shoeToEdit.descripcion || '',
             talla: shoeToEdit.talla || '',
-            color: shoeToEdit.color || ''
+            color: shoeToEdit.color || '',
+            detalleId: shoeToEdit.detalle_servicio_id,
+            ordenId: order.orden_id
           }}
           onSubmit={submitEditShoe}
         />

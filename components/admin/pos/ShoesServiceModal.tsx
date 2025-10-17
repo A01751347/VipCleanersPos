@@ -1,12 +1,12 @@
 'use client';
 // components/admin/pos/ShoesServiceModal.tsx
 import React, { useState, useRef } from 'react';
-import { 
-  X, 
-  Camera, 
-  Upload, 
-  Save, 
-  Loader2, 
+import {
+  X,
+  Camera,
+  Upload,
+  Save,
+  Loader2,
   AlertCircle,
   Trash2,
   Plus
@@ -230,7 +230,8 @@ export default function ShoesServiceModal({
               <label className="block text-sm font-medium text-[#313D52] mb-3">
                 Fotos del calzado (opcional)
               </label>
-              
+
+              {/* Mantener el sistema actual de archivos locales para el registro inicial */}
               {/* Botón para agregar fotos */}
               <div className="mb-4">
                 <input
@@ -250,14 +251,16 @@ export default function ShoesServiceModal({
                 >
                   <Camera size={24} className="mr-3 text-[#6c7a89]" />
                   <span className="text-[#6c7a89]">
-                    {photos.length === 0 
-                      ? 'Agregar fotos del calzado' 
+                    {photos.length === 0
+                      ? 'Agregar fotos del calzado'
                       : `Agregar más fotos (${photos.length} agregadas)`
                     }
                   </span>
                 </button>
                 <p className="text-xs text-[#6c7a89] mt-2">
                   Formatos permitidos: JPG, PNG, WEBP. Máximo 5MB por imagen.
+                  <br />
+                  <strong>Nota:</strong> Las fotos se subirán a la nube después de crear la orden.
                 </p>
               </div>
 

@@ -3,6 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../auth';
 import { registerMediaFile, registerIdentificationImage } from '../../../../lib/database';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+// Configurar cliente S3
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,22 +62,45 @@ const descripcion = (formData.get('descripcion') as string) ?? null;
     // Generar nombre único para el archivo
     const timestamp = Date.now();
     const nombreArchivo = `${tipo}_${entidadTipo}_${entidadId}_${timestamp}.${extension}`;
-    
-    // En un entorno real, aquí subiríamos el archivo a S3 o similar
-    // Para este ejemplo, simularemos el almacenamiento
-    
-    const s3Bucket = 'lavanderia-tenis-files';
+
+    // Configuración de S3
+    const s3Bucket = process.env.AWS_S3_BUCKET!;
     const s3Key = `uploads/${nombreArchivo}`;
-    const s3Url = `https://example.com/${s3Key}`; // URL simulada
-    
+
+    // Subir archivo a S3
+    let s3Url: string;
+    try {
+      const uploadCommand = new PutObjectCommand({
+        Bucket: s3Bucket,
+        Key: s3Key,
+        Body: buffer,
+        ContentType: file.type,
+        ContentLength: file.size,
+      });
+
+      await s3Client.send(uploadCommand);
+
+      // URL pública del archivo en S3
+      s3Url = `https://${s3Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+    } catch (s3Error) {
+      console.error('Error uploading to S3:', s3Error);
+      return NextResponse.json(
+        { error: 'Error al subir el archivo a S3' },
+        { status: 500 }
+      );
+    }
+
     if (!session.user.id) {
-  return NextResponse.json(
-    { error: 'ID de usuario no válido' },
-    { status: 400 }
-  );
-}
-const empleadoId = parseInt(session.user.id, 10);
-    
+      return NextResponse.json(
+        { error: 'ID de usuario no válido' },
+        { status: 400 }
+      );
+    }
+
+    // Obtener el empleado_id basado en el usuario_id de la sesión
+    const { getEmpleadoIdFromUsuarioId } = await import('../../../../lib/utils/auth');
+    const empleadoId = await getEmpleadoIdFromUsuarioId(session.user.id);
+
     // Si es una imagen de identificación, usar la función específica
     if (tipo === 'identificacion' && entidadTipo === 'orden') {
       const result = await registerIdentificationImage({

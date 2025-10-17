@@ -453,15 +453,15 @@ export default function POSPage() {
                         });
                     } else {
                         // Si no se pueden obtener los detalles, proceder sin ubicaciones
-                        completeOrder(result, paymentData, totalOrden);
+                        await completeOrder(result, paymentData, totalOrden);
                     }
                 } catch (detailsError) {
                     console.warn('No se pudieron obtener detalles para ubicaciones:', detailsError);
-                    completeOrder(result, paymentData, totalOrden);
+                    await completeOrder(result, paymentData, totalOrden);
                 }
             } else {
                 // Flujo normal sin ubicaciones
-                completeOrder(result, paymentData, totalOrden);
+                await completeOrder(result, paymentData, totalOrden);
             }
         } catch (err) {
             console.error('❌ Error al procesar orden:', err);
@@ -472,13 +472,16 @@ export default function POSPage() {
     };
 
     // Función helper para completar la orden
-    const completeOrder = (result: any, paymentData: any, totalOrden: number) => {
+    const completeOrder = async (result: any, paymentData: any, totalOrden: number) => {
+        // Subir fotos de los servicios de calzado antes de limpiar el carrito
+        await uploadShoePhotos(result.ordenId, result.servicios);
+
         setCart([]);
         setSelectedClient(null);
         setNotas('');
         setTieneIdentificacion(false);
         setSearchTerm('');
-        
+
         const cambio = paymentData.monto - totalOrden;
         let mensajeExito = `¡Orden ${result.codigoOrden} creada exitosamente!`;
         if (cambio > 0) {
@@ -488,6 +491,51 @@ export default function POSPage() {
             mensajeExito += '\n\n⚠️ IMPORTANTE: Este servicio requiere identificación. Asegúrate de solicitarla al cliente.';
         }
         alert(mensajeExito);
+    };
+
+    // Función para subir fotos de los servicios de calzado
+    const uploadShoePhotos = async (ordenId: number, serviciosCreados: any[]) => {
+        const serviciosConFotos = cart.filter(item =>
+            item.tipo === 'servicio' &&
+            item.fotos &&
+            item.fotos.length > 0
+        );
+
+        if (serviciosConFotos.length === 0) return;
+
+        for (const servicioItem of serviciosConFotos) {
+            // Encontrar el detalle_servicio_id correspondiente
+            const servicioCreado = serviciosCreados.find(s =>
+                s.servicio_id === servicioItem.id &&
+                s.marca === servicioItem.marca &&
+                s.modelo === servicioItem.modelo
+            );
+
+            if (!servicioCreado || !servicioItem.fotos) continue;
+
+            // Subir cada foto
+            for (const foto of servicioItem.fotos) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', foto);
+                    formData.append('tipo', 'calzado_entrada');
+                    formData.append('entidadTipo', 'orden');
+                    formData.append('entidadId', ordenId.toString());
+                    formData.append('descripcion', `Foto de ${servicioItem.marca} ${servicioItem.modelo} - ${foto.name}`);
+
+                    const response = await fetch('/api/admin/upload', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        console.error('Error al subir foto:', await response.text());
+                    }
+                } catch (error) {
+                    console.error('Error uploading photo:', error);
+                }
+            }
+        }
     };
 
     // Función para manejar ubicaciones de almacenamiento
@@ -514,18 +562,23 @@ export default function POSPage() {
                 throw new Error(result.error || 'Error al asignar ubicaciones');
             }
             
+            // Subir fotos antes de completar la orden
+            if (successData) {
+                await uploadShoePhotos(successData.ordenId, []);
+            }
+
             // Completar la orden
             setShowStorageModal(false);
             setPendingLocationAssignment([]);
             setOrderItemsForLocation([]);
-            
+
             // Limpiar carrito
             setCart([]);
             setSelectedClient(null);
             setNotas('');
             setTieneIdentificacion(false);
             setSearchTerm('');
-            
+
             // Mostrar mensaje de éxito
             if (successData) {
                 let mensajeExito = `¡Orden ${successData.codigoOrden} creada exitosamente!`;

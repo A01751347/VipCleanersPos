@@ -28,14 +28,9 @@ export async function registerMediaFile({
   esPublico?: boolean;
   empleadoId: number;
 }) {
-  // Usar el procedimiento almacenado RegistrarArchivoMedia
-  const query = `
-    CALL RegistrarArchivoMedia(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @archivo_id);
-    SELECT @archivo_id as archivo_id;
-  `;
-  
-  const [result] = await executeQuery<any>({
-    query,
+  // Ejecutar el procedimiento almacenado
+  await executeQuery({
+    query: 'CALL RegistrarArchivoMedia(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @archivo_id)',
     values: [
       tipo,
       entidadTipo,
@@ -51,7 +46,13 @@ export async function registerMediaFile({
       empleadoId
     ]
   });
-  
+
+  // Obtener el ID del archivo insertado en una consulta separada
+  const result = await executeQuery<{archivo_id: number}[]>({
+    query: 'SELECT @archivo_id as archivo_id',
+    values: []
+  });
+
   return {
     archivoId: result[0].archivo_id
   };

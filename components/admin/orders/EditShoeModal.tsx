@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2, AlertCircle } from 'lucide-react';
+import PhotoUpload from '../../PhotoUpload';
 
 type InitialValues = {
   marca?: string | null;
@@ -8,6 +9,8 @@ type InitialValues = {
   descripcion?: string | null;
   talla?: string | null;
   color?: string | null;
+  detalleId?: number;
+  ordenId?: number;
 };
 
 export default function EditShoeModal({
@@ -26,10 +29,13 @@ export default function EditShoeModal({
     modelo: '',
     descripcion: '',
     talla: '',
-    color: ''
+    color: '',
+    detalleId: 0,
+    ordenId: 0
   });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -38,9 +44,12 @@ export default function EditShoeModal({
         modelo: initialValues.modelo ?? '',
         descripcion: initialValues.descripcion ?? '',
         talla: initialValues.talla ?? '',
-        color: initialValues.color ?? ''
+        color: initialValues.color ?? '',
+        detalleId: initialValues.detalleId ?? 0,
+        ordenId: initialValues.ordenId ?? 0
       });
       setErr(null);
+      setUploadedPhotos([]);
     }
   }, [isOpen, initialValues]);
 
@@ -105,6 +114,20 @@ export default function EditShoeModal({
             <textarea rows={3} value={form.descripcion ?? ''} onChange={e => handle('descripcion', e.target.value)}
               className="w-full border rounded-lg px-3 py-2 resize-none" />
           </label>
+
+          {/* Sección de fotos */}
+          {form.ordenId && form.ordenId > 0 && (
+            <div className="space-y-2">
+              <span className="block text-[#6c7a89] mb-1 text-sm">Fotos del calzado</span>
+              <PhotoUpload
+                entityType="orden"
+                entityId={form.ordenId}
+                photoType="calzado_entrada"
+                onPhotosUploaded={setUploadedPhotos}
+                maxPhotos={5}
+              />
+            </div>
+          )}
 
           {err && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm flex">
