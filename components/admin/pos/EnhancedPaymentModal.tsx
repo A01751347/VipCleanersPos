@@ -1,16 +1,17 @@
 'use client';
 // components/admin/pos/EnhancedPaymentModal.tsx
 import React, { useState } from 'react';
-import { 
-  X, 
-  CreditCard, 
-  DollarSign, 
-  Smartphone, 
+import {
+  X,
+  CreditCard,
+  DollarSign,
+  Smartphone,
   RefreshCw,
-  Check, 
+  Check,
   Loader2,
   AlertCircle
 } from 'lucide-react';
+import PointPaymentStatus from './PointPaymentStatus';
 
 interface PaymentData {
   metodoPago: 'efectivo' | 'tarjeta' | 'transferencia' | 'mercado_pago';
@@ -55,6 +56,10 @@ export default function EnhancedPaymentModal({
   const [reference, setReference] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Estados para Mercado Pago Point
+  const [showPointStatus, setShowPointStatus] = useState(false);
+  const [mercadoPagoOrderId, setMercadoPagoOrderId] = useState<string | null>(null);
 
   const change = Math.max(0, parseFloat(amountReceived || '0') - total);
   const isValidPayment = parseFloat(amountReceived || '0') >= total;
@@ -109,14 +114,21 @@ export default function EnhancedPaymentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const amount = parseFloat(amountReceived);
-    
+
     if (!isValidPayment) {
       setError(`El monto debe ser mayor o igual a $${total.toFixed(2)}`);
       return;
     }
 
+    // Para Mercado Pago Point, iniciar flujo especial
+    if (paymentMethod === 'mercado_pago') {
+      await handleMercadoPagoPointPayment(amount);
+      return;
+    }
+
+    // Para otros métodos, validar referencia
     if (paymentMethod !== 'efectivo' && !reference.trim()) {
       setError('Por favor ingresa una referencia para el pago electrónico');
       return;
@@ -124,7 +136,7 @@ export default function EnhancedPaymentModal({
 
     setIsProcessing(true);
     setError(null);
-    
+
     try {
       await onSubmit({
         metodoPago: paymentMethod,
@@ -136,6 +148,82 @@ export default function EnhancedPaymentModal({
       setError('Error al procesar el pago. Intenta nuevamente.');
       setIsProcessing(false);
     }
+  };
+
+  const handleMercadoPagoPointPayment = async (amount: number) => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Generar descripción del pedido
+      const itemsDescription = cartItems
+        .map(item => `${item.cantidad}x ${item.nombre}`)
+        .join(', ');
+
+      // Generar IDs temporales (estos serán reemplazados después de crear la orden real)
+      const tempOrderCode = `TEMP-${Date.now()}`;
+      const tempOrderId = Date.now();
+
+      // Crear orden en Mercado Pago Point
+      const response = await fetch('/api/admin/mercadopago', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+          description: itemsDescription,
+          ordenId: tempOrderId,
+          codigoOrden: tempOrderCode,
+          clienteNombre: 'Cliente POS' // Esto debería venir del cliente seleccionado
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear orden en Mercado Pago');
+      }
+
+      const data = await response.json();
+
+      console.log('✅ Orden de Mercado Pago creada:', data);
+
+      // Mostrar pantalla de estado de Point
+      setMercadoPagoOrderId(data.inStoreOrderId);
+      setShowPointStatus(true);
+      setIsProcessing(false);
+
+    } catch (error) {
+      console.error('Error creando orden de Mercado Pago:', error);
+      setError(error instanceof Error ? error.message : 'Error al conectar con Mercado Pago Point');
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePointPaymentSuccess = async () => {
+    // El pago fue aprobado, procesar la orden normalmente
+    setShowPointStatus(false);
+
+    try {
+      await onSubmit({
+        metodoPago: 'mercado_pago',
+        monto: parseFloat(amountReceived),
+        referencia: mercadoPagoOrderId || undefined
+      });
+    } catch (error) {
+      console.error('Error al completar orden:', error);
+      setError('Pago aprobado pero hubo un error al completar la orden');
+    }
+  };
+
+  const handlePointPaymentError = (errorMessage: string) => {
+    setShowPointStatus(false);
+    setError(errorMessage);
+  };
+
+  const handlePointPaymentCancel = () => {
+    setShowPointStatus(false);
+    setMercadoPagoOrderId(null);
   };
 
   const handleClose = () => {
@@ -286,8 +374,8 @@ export default function EnhancedPaymentModal({
                 </div>
               )}
 
-              {/* Referencia (para métodos electrónicos) */}
-              {paymentMethod !== 'efectivo' && (
+              {/* Referencia (para métodos electrónicos, excepto Mercado Pago) */}
+              {paymentMethod !== 'efectivo' && paymentMethod !== 'mercado_pago' && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-[#313D52] mb-2">
                     Referencia / Autorización *
@@ -301,6 +389,24 @@ export default function EnhancedPaymentModal({
                     className="w-full px-4 py-3 border-2 border-[#e0e6e5] rounded-lg focus:outline-none focus:border-[#78f3d3] focus:ring-2 focus:ring-[#78f3d3] disabled:opacity-50"
                     required
                   />
+                </div>
+              )}
+
+              {/* Instrucciones especiales para Mercado Pago Point */}
+              {paymentMethod === 'mercado_pago' && (
+                <div className="mb-6 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
+                  <div className="flex items-start">
+                    <Smartphone size={20} className="text-yellow-700 mr-3 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-900 mb-1">
+                        Pago con Point Smart
+                      </p>
+                      <p className="text-sm text-yellow-700">
+                        Al confirmar, la orden se enviará automáticamente a tu dispositivo Point Smart.
+                        El cliente podrá pagar con tarjeta directamente en el terminal.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -344,6 +450,17 @@ export default function EnhancedPaymentModal({
           </div>
         </div>
       </div>
+
+      {/* Componente de estado de pago para Mercado Pago Point */}
+      {showPointStatus && mercadoPagoOrderId && (
+        <PointPaymentStatus
+          mercadoPagoOrderId={mercadoPagoOrderId}
+          amount={total}
+          onSuccess={handlePointPaymentSuccess}
+          onError={handlePointPaymentError}
+          onCancel={handlePointPaymentCancel}
+        />
+      )}
     </div>
   );
 }
