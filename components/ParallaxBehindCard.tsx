@@ -27,7 +27,6 @@ const ParallaxBehindCard: React.FC<Props> = ({
   rightCapSrc = "/assets/images/gorra-der.png",
 }) => {
   const prefersReduced = useReducedMotion();
-  if (prefersReduced) return null;
 
   // Centramos el efecto en el tramo medio para que “salgan” detrás del card cuando está visible
   const { scrollYProgress } = useScroll({
@@ -52,6 +51,9 @@ const ParallaxBehindCard: React.FC<Props> = ({
 
   const rZslow   = useTransform(p, [0, 1], [-10, 10]);
   const rZfast   = useTransform(p, [0, 1], [-18, 18]);
+
+  // La salida temprana va aquí, después de todos los hooks.
+  if (prefersReduced) return null;
 
   return (
     /**

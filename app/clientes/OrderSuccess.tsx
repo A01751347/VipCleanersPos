@@ -8,13 +8,22 @@ interface OrderSuccessProps {
   ordenId: number;
   codigoOrden: string;
   requiereIdentificacion: boolean;
+  total?: number;
+  cambio?: number;
+  fallosFotos?: number;
   onStartNew: () => void;
 }
+
+const formatoMXN = (n: number) =>
+  n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
 const OrderSuccess: React.FC<OrderSuccessProps> = ({
   ordenId,
   codigoOrden,
   requiereIdentificacion,
+  total,
+  cambio = 0,
+  fallosFotos = 0,
   onStartNew
 }) => {
   const [isUploading, setIsUploading] = useState(false);
@@ -103,11 +112,45 @@ const OrderSuccess: React.FC<OrderSuccessProps> = ({
           <span className="text-xl font-bold text-[#313D52]">{codigoOrden}</span>
         </div>
         
+        {typeof total === 'number' && (
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-[#6c7a89] font-medium">Total cobrado:</span>
+            <span className="text-[#313D52] font-semibold tabular-nums">{formatoMXN(total)}</span>
+          </div>
+        )}
+
+        {/* El cambio se muestra aquí en vez de en un alert() del navegador,
+            que bloqueaba la caja hasta que alguien lo cerraba. */}
+        {cambio > 0 && (
+          <div className="flex justify-between items-center rounded-lg bg-amber-50 px-3 py-2 mb-4">
+            <span className="text-amber-800 font-semibold">Cambio a entregar:</span>
+            <span className="text-amber-900 text-xl font-bold tabular-nums">{formatoMXN(cambio)}</span>
+          </div>
+        )}
+
         <div className="flex justify-between items-center">
           <span className="text-[#6c7a89] font-medium">Orden ID:</span>
           <span className="text-[#313D52] font-medium">{ordenId}</span>
         </div>
       </div>
+
+      {/* Si alguna foto no se pudo subir se avisa: antes se descartaban en
+          silencio y la orden quedaba sin evidencia de entrada. */}
+      {fallosFotos > 0 && (
+        <div className="p-4 bg-red-50 rounded-lg mb-6">
+          <div className="flex items-start">
+            <AlertCircle size={20} className="mr-2 flex-shrink-0 text-red-500" />
+            <div>
+              <p className="font-medium text-red-700">
+                {fallosFotos} foto{fallosFotos > 1 ? 's' : ''} no se pudo subir
+              </p>
+              <p className="text-sm mt-1 text-red-600">
+                Abre el detalle de la orden y vuelve a cargarlas antes de guardar el calzado.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Sección condicional para subir identificación */}
       {requiereIdentificacion && !uploadSuccess && (

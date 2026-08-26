@@ -41,12 +41,12 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['mysql2'],
+  serverExternalPackages: ['pg'],
 
-  env: {
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  },
+  // Sin bloque `env`: insertaba NEXTAUTH_URL y NEXTAUTH_SECRET en los
+  // artefactos del build. Con NEXTAUTH_URL=http://localhost:3001 eso rompía el
+  // login en producción, y el secreto no se podía rotar sin reconstruir.
+  // NextAuth lee ambas del entorno en tiempo de ejecución.
 
   webpack(config) {
     // Trata .svg como React components
@@ -59,7 +59,7 @@ const nextConfig: NextConfig = {
   },
 
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
 
   typescript: {

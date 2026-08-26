@@ -35,13 +35,11 @@ interface StorageItem {
 }
 
 interface StorageStatistics {
-  totalAlmacenados: number;
-  pendientesUbicacion: number;
-  tiempoPromedioAlmacenamiento: number;
-  cajasMasUtilizadas: Array<{
-    caja_almacenamiento: string;
-    total_pares: number;
-  }>;
+  pares_ubicados: number;
+  pares_sin_ubicar: number;
+  cajas_en_uso: number;
+  pares_retrasados: number;
+  porCaja: Array<{ caja: string; ocupados: number }>;
 }
 
 interface LocationMap {
@@ -92,7 +90,7 @@ export default function WarehousePage() {
       const data = await response.json();
       
       if (data.success) {
-        setLocationMap(data.mapa);
+        setLocationMap(data.ubicaciones ?? []);
       }
     } catch (error) {
       console.error('Error cargando mapa:', error);
@@ -105,7 +103,7 @@ export default function WarehousePage() {
       const data = await response.json();
       
       if (data.success) {
-        setPendingItems(data.servicios);
+        setPendingItems(data.servicios ?? []);
       }
     } catch (error) {
       console.error('Error cargando items pendientes:', error);
@@ -128,7 +126,7 @@ export default function WarehousePage() {
       const data = await response.json();
 
       if (data.success) {
-        setSearchResults(data.resultados);
+        setSearchResults(data.resultados ?? []);
         if (data.resultados.length === 0) {
           setError('No se encontraron resultados para la búsqueda');
         }
@@ -200,8 +198,8 @@ export default function WarehousePage() {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-[#e0e6e5]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#6c7a89] text-sm">Total Almacenados</p>
-                <p className="text-2xl font-bold text-[#313D52]">{statistics.totalAlmacenados}</p>
+                <p className="text-[#6c7a89] text-sm">Pares en almacén</p>
+                <p className="text-2xl font-bold text-[#313D52]">{statistics.pares_ubicados ?? 0}</p>
               </div>
               <Box className="text-[#78f3d3]" size={32} />
             </div>
@@ -210,8 +208,8 @@ export default function WarehousePage() {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-[#e0e6e5]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#6c7a89] text-sm">Pendientes Ubicación</p>
-                <p className="text-2xl font-bold text-amber-600">{statistics.pendientesUbicacion}</p>
+                <p className="text-[#6c7a89] text-sm">Sin ubicar</p>
+                <p className="text-2xl font-bold text-amber-600">{statistics.pares_sin_ubicar ?? 0}</p>
               </div>
               <AlertTriangle className="text-amber-500" size={32} />
             </div>
@@ -220,8 +218,10 @@ export default function WarehousePage() {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-[#e0e6e5]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#6c7a89] text-sm">Tiempo Promedio</p>
-                <p className="text-2xl font-bold text-[#313D52]">{statistics.tiempoPromedioAlmacenamiento}d</p>
+                <p className="text-[#6c7a89] text-sm">Retrasados</p>
+                <p className={`text-2xl font-bold ${(statistics.pares_retrasados ?? 0) > 0 ? 'text-red-600' : 'text-[#313D52]'}`}>
+                  {statistics.pares_retrasados ?? 0}
+                </p>
               </div>
               <Clock className="text-[#78f3d3]" size={32} />
             </div>
@@ -230,9 +230,9 @@ export default function WarehousePage() {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-[#e0e6e5]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#6c7a89] text-sm">Caja Más Usada</p>
+                <p className="text-[#6c7a89] text-sm">Caja más usada</p>
                 <p className="text-2xl font-bold text-[#313D52]">
-                  {statistics.cajasMasUtilizadas[0]?.caja_almacenamiento || '-'}
+                  {statistics.porCaja?.[0]?.caja ?? '—'}
                 </p>
               </div>
               <Package className="text-[#78f3d3]" size={32} />
@@ -526,19 +526,26 @@ export default function WarehousePage() {
                 <div className="bg-[#f5f9f8] border border-[#e0e6e5] rounded-lg p-6">
                   <h4 className="font-semibold text-[#313D52] mb-4">Cajas Más Utilizadas</h4>
                   <div className="space-y-3">
-                    {statistics.cajasMasUtilizadas.slice(0, 5).map((caja, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-[#78f3d3] text-[#313D52] rounded-full flex items-center justify-center text-sm font-bold mr-3">
-                            {index + 1}
+                    {(statistics.porCaja ?? []).length === 0 ? (
+                      <p className="text-sm text-[#6c7a89]">Todavía no hay pares guardados.</p>
+                    ) : (
+                      [...(statistics.porCaja ?? [])]
+                        .sort((a, b) => b.ocupados - a.ocupados)
+                        .slice(0, 5)
+                        .map((caja, index) => (
+                          <div key={caja.caja} className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-[#78f3d3] text-[#313D52] rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                                {index + 1}
+                              </div>
+                              <span className="font-mono font-medium">Caja {caja.caja}</span>
+                            </div>
+                            <span className="bg-white px-3 py-1 rounded-full text-sm font-medium">
+                              {caja.ocupados} par{caja.ocupados === 1 ? '' : 'es'}
+                            </span>
                           </div>
-                          <span className="font-mono font-medium">Caja {caja.caja_almacenamiento}</span>
-                        </div>
-                        <span className="bg-white px-3 py-1 rounded-full text-sm font-medium">
-                          {caja.total_pares} pares
-                        </span>
-                      </div>
-                    ))}
+                        ))
+                    )}
                   </div>
                 </div>
 
@@ -546,28 +553,37 @@ export default function WarehousePage() {
                 <div className="bg-[#f5f9f8] border border-[#e0e6e5] rounded-lg p-6">
                   <h4 className="font-semibold text-[#313D52] mb-4">Métricas Generales</h4>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between py-2 border-b border-[#e0e6e5] last:border-b-0">
-                      <span className="text-[#6c7a89]">Total de pares almacenados:</span>
-                      <span className="font-semibold text-[#313D52]">{statistics.totalAlmacenados}</span>
+                    <div className="flex items-center justify-between py-2 border-b border-[#e0e6e5]">
+                      <span className="text-[#6c7a89]">Pares en almacén:</span>
+                      <span className="font-semibold text-[#313D52]">{statistics.pares_ubicados ?? 0}</span>
                     </div>
-                    
-                    <div className="flex items-center justify-between py-2 border-b border-[#e0e6e5] last:border-b-0">
+
+                    <div className="flex items-center justify-between py-2 border-b border-[#e0e6e5]">
                       <span className="text-[#6c7a89]">Pendientes de ubicación:</span>
-                      <span className="font-semibold text-amber-600">{statistics.pendientesUbicacion}</span>
+                      <span className="font-semibold text-amber-600">{statistics.pares_sin_ubicar ?? 0}</span>
                     </div>
-                    
-                    <div className="flex items-center justify-between py-2 border-b border-[#e0e6e5] last:border-b-0">
-                      <span className="text-[#6c7a89]">Tiempo promedio de almacenamiento:</span>
-                      <span className="font-semibold text-[#313D52]">{statistics.tiempoPromedioAlmacenamiento} días</span>
+
+                    <div className="flex items-center justify-between py-2 border-b border-[#e0e6e5]">
+                      <span className="text-[#6c7a89]">Cajas en uso:</span>
+                      <span className="font-semibold text-[#313D52]">{statistics.cajas_en_uso ?? 0}</span>
                     </div>
-                    
+
+                    <div className="flex items-center justify-between py-2 border-b border-[#e0e6e5]">
+                      <span className="text-[#6c7a89]">Pasados de su fecha de entrega:</span>
+                      <span className={`font-semibold ${(statistics.pares_retrasados ?? 0) > 0 ? 'text-red-600' : 'text-[#313D52]'}`}>
+                        {statistics.pares_retrasados ?? 0}
+                      </span>
+                    </div>
+
                     <div className="flex items-center justify-between py-2">
-                      <span className="text-[#6c7a89]">Eficiencia de ubicación:</span>
+                      <span className="text-[#6c7a89]">Pares ya ubicados:</span>
                       <span className="font-semibold text-green-600">
-                        {statistics.totalAlmacenados > 0 
-                          ? Math.round(((statistics.totalAlmacenados - statistics.pendientesUbicacion) / statistics.totalAlmacenados) * 100)
-                          : 100
-                        }%
+                        {(() => {
+                          const total = (statistics.pares_ubicados ?? 0) + (statistics.pares_sin_ubicar ?? 0);
+                          return total > 0
+                            ? Math.round(((statistics.pares_ubicados ?? 0) / total) * 100)
+                            : 100;
+                        })()}%
                       </span>
                     </div>
                   </div>

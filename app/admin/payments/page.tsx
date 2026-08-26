@@ -1,551 +1,383 @@
-'use client'
-import React, { useState, useEffect } from 'react';
-import { 
-  Calendar,
-  DollarSign,
-  CreditCard,
-  RefreshCw,
-  Smartphone,
-  Download,
-  Loader2,
-  TrendingUp,
-  TrendingDown,
-  Filter,
-  User,
-  Calculator,
-  Printer,
-  AlertCircle,
-  Eye,
-  EyeOff
+'use client';
+// app/admin/payments/page.tsx — Caja: apertura, cobros del día y cierre.
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Wallet, Lock, Unlock, RefreshCw, AlertCircle, CheckCircle,
+  Banknote, CreditCard, Smartphone, ArrowLeftRight, TrendingDown,
 } from 'lucide-react';
 
-interface PaymentSummary {
-  metodo: string;
-  total_transacciones: number;
-  monto_total: number;
-  // Campos adicionales para el arqueo correcto
-  total_cambio_dado?: number;
-  monto_fisico_recibido?: number;
+interface Corte {
+  corte_id: number;
+  empleado_nombre: string | null;
+  estado: 'abierto' | 'cerrado';
+  fondo_inicial: number;
+  abierto_en: string;
+  cerrado_en: string | null;
+  efectivo_declarado: number | null;
+  efectivo_esperado: number | null;
+  diferencia: number | null;
 }
 
-interface Payment {
+interface PorMetodo {
+  metodo: string;
+  transacciones: number;
+  monto: number;
+  efectivo_recibido: number;
+  cambio_entregado: number;
+}
+
+interface Movimiento {
   pago_id: number;
-  orden_id: number;
-  codigo_orden: string;
-  cliente: string;
-  empleado: string;
-  monto: number; // Monto real de la venta (orden.total)
-  monto_recibido?: number; // Monto físicamente recibido
-  cambio_dado?: number; // Cambio entregado al cliente
+  monto: number;
   metodo: string;
-  referencia?: string;
-  terminal_id?: string;
   fecha_pago: string;
-  estado?: string;
+  motivo: string | null;
+  es_reembolso: boolean;
+  codigo_orden: string;
+  cliente: string | null;
 }
 
-interface CashRegisterReport {
-  pagos: Payment[];
-  resumen_por_metodo: PaymentSummary[];
-  total: number;
-  total_fisico_recibido?: number;
-  total_cambio_dado?: number;
-}
+const mxn = (n: unknown) =>
+  Number(n ?? 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
-export default function PaymentsPage() {
-  const today = new Date();
-  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
-    .toISOString()
-    .split('T')[0];
-  
-  const [selectedDate, setSelectedDate] = useState<string>(localDate);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [report, setReport] = useState<CashRegisterReport | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+const hora = (v: string) =>
+  new Date(v).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+const ICONOS: Record<string, React.ReactNode> = {
+  efectivo: <Banknote size={16} />,
+  tarjeta: <CreditCard size={16} />,
+  transferencia: <ArrowLeftRight size={16} />,
+  mercado_pago: <Smartphone size={16} />,
+};
+
+const ETIQUETAS: Record<string, string> = {
+  efectivo: 'Efectivo',
+  tarjeta: 'Tarjeta',
+  transferencia: 'Transferencia',
+  mercado_pago: 'Mercado Pago',
+};
+
+export default function CajaPage() {
+  const [caja, setCaja] = useState<Corte | null>(null);
+  const [porMetodo, setPorMetodo] = useState<PorMetodo[]>([]);
+  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showCashDetails, setShowCashDetails] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
 
-  const loadEmployees = async () => {
+  const [fondoInicial, setFondoInicial] = useState('');
+  const [efectivoDeclarado, setEfectivoDeclarado] = useState('');
+  const [notas, setNotas] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    setError(null);
     try {
-      const response = await fetch('/api/admin/employees');
-      const data = await response.json();
-      setEmployees(data.employees || []);
+      const res = await fetch('/api/admin/caja');
+      const datos = await res.json();
+      if (!res.ok) throw new Error(datos.error || 'No se pudo cargar la caja');
+      setCaja(datos.caja ?? null);
+      setPorMetodo(datos.resumen?.porMetodo ?? []);
+      setMovimientos(datos.resumen?.movimientos ?? []);
     } catch (err) {
-      console.error('Error loading employees:', err);
-    }
-  };
-
-  const loadCashRegister = async () => {
-    try {
-      setIsRefreshing(true);
-      setError(null);
-
-      // Usar directamente el endpoint de reportes corregido
-      let url = `/api/admin/reports?type=cashRegister&fecha=${selectedDate}`;
-      if (selectedEmployee) {
-        url += `&empleadoId=${selectedEmployee}`;
-      }
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error('Error al cargar el arqueo de caja');
-      }
-
-      const data = await response.json();
-      
-      setReport({
-        pagos: data.pagos || [],
-        resumen_por_metodo: data.resumen_por_metodo || [],
-        total: data.total || 0,
-        total_fisico_recibido: data.total_fisico_recibido || 0,
-        total_cambio_dado: data.total_cambio_dado || 0
-      });
-
-    } catch (err) {
-      console.error('Error fetching cash register:', err);
-      setError('Error al cargar el arqueo de caja. Intente nuevamente.');
+      setError(err instanceof Error ? err.message : 'No se pudo cargar la caja');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      setCargando(false);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    loadEmployees();
-    loadCashRegister();
-  }, [selectedDate, selectedEmployee]);
+  useEffect(() => { cargar(); }, [cargar]);
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedDate(e.target.value);
-  };
-
-  const handleEmployeeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedEmployee(e.target.value);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN'
-    }).format(amount);
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('es-MX', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getPaymentIcon = (method: string) => {
-    switch (method) {
-      case 'efectivo': return <DollarSign size={20} />;
-      case 'tarjeta': return <CreditCard size={20} />;
-      case 'transferencia': return <RefreshCw size={20} />;
-      case 'mercado_pago': return <Smartphone size={20} />;
-      default: return <DollarSign size={20} />;
-    }
-  };
-
-  const getPaymentMethodName = (method: string) => {
-    switch (method) {
-      case 'efectivo': return 'Efectivo';
-      case 'tarjeta': return 'Tarjeta';
-      case 'transferencia': return 'Transferencia';
-      case 'mercado_pago': return 'Mercado Pago';
-      default: return method;
-    }
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleExport = async () => {
+  const abrir = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnviando(true);
+    setError(null);
     try {
-      const response = await fetch(
-        `/api/admin/reports/export?type=cashRegister&fecha=${selectedDate}${
-          selectedEmployee ? `&empleadoId=${selectedEmployee}` : ''
-        }&format=excel`
-      );
-
-      if (!response.ok) throw new Error('Error al exportar');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `arqueo_caja_${selectedDate}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Error al exportar:', error);
-      alert('Error al exportar los datos');
+      const res = await fetch('/api/admin/caja', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fondoInicial: Number(fondoInicial || 0), notas: notas || null }),
+      });
+      const datos = await res.json();
+      if (!res.ok) throw new Error(datos.error || 'No se pudo abrir la caja');
+      setAviso(datos.message);
+      setFondoInicial('');
+      setNotas('');
+      await cargar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo abrir la caja');
+    } finally {
+      setEnviando(false);
     }
   };
 
-  // Calcular totales por método de pago para efectivo
-  const getCashSummary = () => {
-    const cashPayments = report?.pagos.filter(p => p.metodo === 'efectivo') || [];
-    const totalVentas = cashPayments.reduce((sum, p) => sum + p.monto, 0);
-    const totalRecibido = cashPayments.reduce((sum, p) => sum + (p.monto_recibido || p.monto), 0);
-    const totalCambio = cashPayments.reduce((sum, p) => sum + (p.cambio_dado || 0), 0);
-    
-    return {
-      totalVentas,
-      totalRecibido,
-      totalCambio,
-      diferencia: totalRecibido - totalVentas - totalCambio
-    };
+  const cerrar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!caja) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/caja', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          corteId: caja.corte_id,
+          efectivoDeclarado: Number(efectivoDeclarado || 0),
+          notas: notas || null,
+        }),
+      });
+      const datos = await res.json();
+      if (!res.ok) throw new Error(datos.error || 'No se pudo cerrar la caja');
+      setAviso(datos.message);
+      setEfectivoDeclarado('');
+      setNotas('');
+      await cargar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cerrar la caja');
+    } finally {
+      setEnviando(false);
+    }
   };
 
-  const cashSummary = getCashSummary();
+  const efectivoEsperado =
+    Number(caja?.fondo_inicial ?? 0) +
+    Number(porMetodo.find((m) => m.metodo === 'efectivo')?.efectivo_recibido ?? 0) -
+    Number(porMetodo.find((m) => m.metodo === 'efectivo')?.cambio_entregado ?? 0);
+
+  const totalCobrado = porMetodo.reduce((s, m) => s + Number(m.monto), 0);
 
   return (
-    <div className="space-y-6">
-      {/* Cabecera */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+    <div className="p-6 max-w-5xl">
+      <div className="flex items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[#313D52]">Arqueo de Caja</h1>
-          <p className="text-sm text-[#6c7a89]">Control de pagos y cierre de caja diario</p>
+          <h1 className="text-2xl font-semibold text-[#313D52]">Caja</h1>
+          <p className="text-sm text-[#6c7a89] mt-1">
+            Abre tu turno, cobra, y cierra contando el efectivo.
+          </p>
         </div>
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={handlePrint}
-            className="inline-flex items-center px-4 py-2 bg-[#f5f9f8] text-[#313D52] rounded-lg border border-[#e0e6e5] hover:bg-[#e0e6e5] transition-colors print:hidden"
-          >
-            <Printer size={16} className="mr-2" />
-            Imprimir
-          </button>
-
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center px-4 py-2 bg-[#f5f9f8] text-[#313D52] rounded-lg border border-[#e0e6e5] hover:bg-[#e0e6e5] transition-colors print:hidden"
-          >
-            <Download size={16} className="mr-2" />
-            Exportar
-          </button>
-
-          <button
-            className="inline-flex items-center px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed print:hidden"
-            onClick={loadCashRegister}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <>
-                <Loader2 size={16} className="mr-2 animate-spin" />
-                Actualizando...
-              </>
-            ) : (
-              <>
-                <RefreshCw size={16} className="mr-2" />
-                Actualizar
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          onClick={cargar}
+          disabled={cargando}
+          className="p-2 rounded-lg border border-[#e0e6e5] text-[#6c7a89] hover:bg-[#f5f9f8] disabled:opacity-50"
+          aria-label="Recargar"
+        >
+          <RefreshCw size={18} className={cargando ? 'animate-spin' : ''} />
+        </button>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-lg border border-[#e0e6e5] p-4 print:hidden">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <label htmlFor="date" className="block text-sm font-medium text-[#6c7a89] mb-1">
-              Fecha
-            </label>
-            <div className="relative">
-              <Calendar size={16} className="absolute left-3 top-2.5 text-[#6c7a89]" />
-              <input
-                type="date"
-                id="date"
-                value={selectedDate}
-                onChange={handleDateChange}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
-              />
-            </div>
-          </div>
-
-          <div className="flex-1">
-            <label htmlFor="employee" className="block text-sm font-medium text-[#6c7a89] mb-1">
-              Empleado
-            </label>
-            <div className="relative">
-              <User size={16} className="absolute left-3 top-2.5 text-[#6c7a89]" />
-              <select
-                id="employee"
-                value={selectedEmployee}
-                onChange={handleEmployeeChange}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] appearance-none"
-              >
-                <option value="">Todos los empleados</option>
-                {employees.map((emp) => (
-                  <option key={emp.empleado_id} value={emp.empleado_id}>
-                    {emp.nombre} {emp.apellidos}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-start gap-2">
+          <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+          <span className="text-sm">{error}</span>
         </div>
-      </div>
-
-      {/* Contenido principal */}
-      {isLoading ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 size={40} className="animate-spin text-[#78f3d3]" />
+      )}
+      {aviso && (
+        <div className="mb-4 p-4 bg-green-50 text-green-800 rounded-lg flex items-start gap-2">
+          <CheckCircle size={18} className="mt-0.5 flex-shrink-0" />
+          <span className="text-sm">{aviso}</span>
         </div>
-      ) : error ? (
-        <div className="text-center py-10 text-red-500">
-          <p>{error}</p>
+      )}
+
+      {!caja ? (
+        <form onSubmit={abrir} className="bg-white border border-[#e0e6e5] rounded-xl p-6 max-w-md">
+          <div className="flex items-center gap-2 mb-4">
+            <Unlock size={20} className="text-[#2E9C82]" />
+            <h2 className="font-semibold text-[#313D52]">Abrir caja</h2>
+          </div>
+          <p className="text-sm text-[#6c7a89] mb-4">
+            Cuenta el efectivo con el que arrancas el turno. Al cerrar se compara
+            contra lo que el sistema espera.
+          </p>
+
+          <label htmlFor="fondo" className="block text-sm font-medium text-[#313D52] mb-1">
+            Fondo inicial
+          </label>
+          <input
+            id="fondo"
+            type="number"
+            step="0.01"
+            min="0"
+            required
+            value={fondoInicial}
+            onChange={(e) => setFondoInicial(e.target.value)}
+            placeholder="500.00"
+            className="w-full px-4 py-2.5 rounded-lg border border-[#e0e6e5] tabular-nums mb-4
+                       focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
+          />
+
           <button
-            onClick={loadCashRegister}
-            className="mt-4 px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors"
+            type="submit"
+            disabled={enviando}
+            className="w-full py-2.5 bg-[#78f3d3] text-[#313D52] font-medium rounded-lg
+                       hover:bg-[#4de0c0] transition-colors disabled:opacity-60"
           >
-            Reintentar
+            {enviando ? 'Abriendo…' : 'Abrir caja'}
           </button>
-        </div>
+        </form>
       ) : (
-        <>
-          {/* Tarjetas de resumen */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            {report?.resumen_por_metodo.map((metodo) => (
-              <div key={metodo.metodo} className="bg-white rounded-lg border border-[#e0e6e5] p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="p-2 bg-[#f5f9f8] rounded-lg">
-                    {getPaymentIcon(metodo.metodo)}
-                  </div>
-                  <span className="text-xs text-[#6c7a89]">
-                    {metodo.total_transacciones} trans.
-                  </span>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-6">
+          <div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#e0e6e5] border border-[#e0e6e5] rounded-xl overflow-hidden mb-6">
+              <div className="bg-white p-4">
+                <div className="text-xs uppercase tracking-wide text-[#6c7a89]">Fondo</div>
+                <div className="text-xl font-semibold text-[#313D52] tabular-nums mt-1">
+                  {mxn(caja.fondo_inicial)}
                 </div>
-                <h3 className="text-sm text-[#6c7a89] mb-1">
-                  {getPaymentMethodName(metodo.metodo)}
-                </h3>
-                <p className="text-lg font-bold text-[#313D52]">
-                  {formatCurrency(metodo.monto_total)}
-                </p>
-                {/* Mostrar información adicional para efectivo */}
-                {metodo.metodo === 'efectivo' && metodo.monto_fisico_recibido && (
-                  <div className="mt-2 text-xs text-[#6c7a89]">
-                    <p>Recibido: {formatCurrency(metodo.monto_fisico_recibido)}</p>
-                    {metodo.total_cambio_dado && metodo.total_cambio_dado > 0 && (
-                      <p>Cambio: {formatCurrency(metodo.total_cambio_dado)}</p>
-                    )}
-                  </div>
-                )}
               </div>
-            ))}
-
-            {/* Total general */}
-            <div className="bg-[#313D52] text-white rounded-lg p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div className="p-2 bg-white/10 rounded-lg">
-                  <Calculator size={20} />
+              <div className="bg-white p-4">
+                <div className="text-xs uppercase tracking-wide text-[#6c7a89]">Cobrado</div>
+                <div className="text-xl font-semibold text-[#313D52] tabular-nums mt-1">
+                  {mxn(totalCobrado)}
                 </div>
-                <span className="text-xs opacity-75">
-                  {report?.pagos.length || 0} pagos
-                </span>
               </div>
-              <h3 className="text-sm opacity-75 mb-1">Total Ventas</h3>
-              <p className="text-2xl font-bold">
-                {formatCurrency(report?.total || 0)}
-              </p>
-            </div>
-          </div>
-
-          {/* Resumen de efectivo detallado */}
-          {cashSummary.totalVentas > 0 && (
-            <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-              <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5] flex justify-between items-center">
-                <h2 className="font-medium text-[#313D52]">Resumen de Efectivo</h2>
-                <button
-                  onClick={() => setShowCashDetails(!showCashDetails)}
-                  className="text-sm text-[#78f3d3] hover:underline print:hidden flex items-center"
-                >
-                  {showCashDetails ? <EyeOff size={16} className="mr-1" /> : <Eye size={16} className="mr-1" />}
-                  {showCashDetails ? 'Ocultar' : 'Mostrar'}
-                </button>
-              </div>
-              
-              {showCashDetails && (
-                <div className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <p className="text-sm text-[#6c7a89]">Ventas en Efectivo</p>
-                      <p className="text-lg font-bold text-[#313D52]">
-                        {formatCurrency(cashSummary.totalVentas)}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm text-[#6c7a89]">Efectivo Recibido</p>
-                      <p className="text-lg font-bold text-green-600">
-                        {formatCurrency(cashSummary.totalRecibido)}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm text-[#6c7a89]">Cambio Entregado</p>
-                      <p className="text-lg font-bold text-red-600">
-                        -{formatCurrency(cashSummary.totalCambio)}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm text-[#6c7a89]">Diferencia</p>
-                      <p className={`text-lg font-bold ${
-                        cashSummary.diferencia === 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {formatCurrency(Math.abs(cashSummary.diferencia))}
-                        {cashSummary.diferencia !== 0 && (
-                          <AlertCircle size={16} className="inline ml-1" />
-                        )}
-                      </p>
-                    </div>
-                  </div>
+              <div className="bg-white p-4">
+                <div className="text-xs uppercase tracking-wide text-[#6c7a89]">Movimientos</div>
+                <div className="text-xl font-semibold text-[#313D52] tabular-nums mt-1">
+                  {movimientos.length}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Detalle de transacciones */}
-          <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-            <div className="px-4 py-3 bg-[#f5f9f8] border-b border-[#e0e6e5] flex justify-between items-center">
-              <h2 className="font-medium text-[#313D52]">Detalle de Pagos</h2>
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className="text-sm text-[#78f3d3] hover:underline print:hidden flex items-center"
-              >
-                {showDetails ? <EyeOff size={16} className="mr-1" /> : <Eye size={16} className="mr-1" />}
-                {showDetails ? 'Ocultar detalles' : 'Mostrar detalles'}
-              </button>
+              </div>
+              <div className="bg-white p-4">
+                <div className="text-xs uppercase tracking-wide text-[#6c7a89]">Efectivo esperado</div>
+                <div className="text-xl font-semibold text-[#2E9C82] tabular-nums mt-1">
+                  {mxn(efectivoEsperado)}
+                </div>
+              </div>
             </div>
 
-            {(showDetails || window.matchMedia('print').matches) && (
-              <div className="overflow-x-auto">
-                {report?.pagos && report.pagos.length > 0 ? (
-                  <table className="min-w-full divide-y divide-[#e0e6e5]">
-                    <thead>
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider">
-                          Hora
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider">
-                          Orden
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider">
-                          Cliente
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider">
-                          Método
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider">
-                          Referencia
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-[#6c7a89] uppercase tracking-wider">
-                          Empleado
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-[#6c7a89] uppercase tracking-wider">
-                          Monto Venta
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-[#6c7a89] uppercase tracking-wider print:hidden">
-                          Recibido
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-[#6c7a89] uppercase tracking-wider print:hidden">
-                          Cambio
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#e0e6e5]">
-                      {report.pagos.map((pago) => (
-                        <tr key={pago.pago_id} className="hover:bg-[#f5f9f8]">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-[#6c7a89]">
-                            {new Date(pago.fecha_pago).toLocaleTimeString('es-MX', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-[#313D52]">
-                            {pago.codigo_orden}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-[#313D52]">
-                            {pago.cliente}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="flex items-center text-sm text-[#313D52]">
-                              {getPaymentIcon(pago.metodo)}
-                              <span className="ml-2">{getPaymentMethodName(pago.metodo)}</span>
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-[#6c7a89]">
-                            {pago.referencia || pago.terminal_id || '-'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-[#6c7a89]">
-                            {pago.empleado}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-[#313D52] text-right">
-                            {formatCurrency(pago.monto)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-[#6c7a89] text-right print:hidden">
-                            {pago.monto_recibido ? formatCurrency(pago.monto_recibido) : '-'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-[#6c7a89] text-right print:hidden">
-                            {pago.cambio_dado ? formatCurrency(pago.cambio_dado) : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-[#f5f9f8]">
-                        <td colSpan={6} className="px-4 py-3 text-right font-medium text-[#313D52]">
-                          Total Ventas:
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-[#313D52]">
-                          {formatCurrency(report.total)}
-                        </td>
-                        <td className="px-4 py-3 print:hidden"></td>
-                        <td className="px-4 py-3 print:hidden"></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                ) : (
-                  <div className="text-center py-8 text-[#6c7a89]">
-                    <DollarSign size={48} className="mx-auto mb-4 text-[#e0e6e5]" />
-                    <p>No hay pagos registrados para esta fecha</p>
+            <h2 className="text-sm font-semibold text-[#313D52] mb-3">Por método de pago</h2>
+            {porMetodo.length === 0 ? (
+              <p className="text-sm text-[#6c7a89] mb-6">Todavía no hay cobros en este turno.</p>
+            ) : (
+              <div className="space-y-2 mb-6">
+                {porMetodo.map((m) => (
+                  <div
+                    key={m.metodo}
+                    className="flex items-center justify-between bg-white border border-[#e0e6e5] rounded-lg px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-[#6c7a89]">{ICONOS[m.metodo]}</span>
+                      <div>
+                        <div className="text-sm font-medium text-[#313D52]">
+                          {ETIQUETAS[m.metodo] ?? m.metodo}
+                        </div>
+                        <div className="text-xs text-[#6c7a89]">
+                          {m.transacciones} movimiento{m.transacciones === 1 ? '' : 's'}
+                          {m.metodo === 'efectivo' && Number(m.cambio_entregado) > 0 && (
+                            <> · {mxn(m.cambio_entregado)} de cambio</>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="font-semibold text-[#313D52] tabular-nums">{mxn(m.monto)}</span>
                   </div>
-                )}
+                ))}
               </div>
             )}
-          </div>
 
-          {/* Información de cierre - solo impresión */}
-          <div className="hidden print:block mt-8 border-t pt-4">
-            <div className="text-center">
-              <p className="text-sm text-[#6c7a89]">
-                Arqueo de caja generado el {new Date().toLocaleString('es-MX')}
-              </p>
-              <p className="text-sm text-[#6c7a89] mt-2">
-                Fecha de corte: {new Date(selectedDate).toLocaleDateString('es-MX')}
-              </p>
-              {selectedEmployee && (
-                <p className="text-sm text-[#6c7a89]">
-                  Empleado: {employees.find(e => e.empleado_id.toString() === selectedEmployee)?.nombre} {employees.find(e => e.empleado_id.toString() === selectedEmployee)?.apellidos}
-                </p>
+            <h2 className="text-sm font-semibold text-[#313D52] mb-3">Movimientos del turno</h2>
+            <div className="bg-white border border-[#e0e6e5] rounded-lg divide-y divide-[#e7eaec]">
+              {movimientos.length === 0 ? (
+                <p className="text-sm text-[#6c7a89] p-4">Sin movimientos.</p>
+              ) : (
+                movimientos.map((m) => (
+                  <div key={m.pago_id} className="flex items-center justify-between px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="text-sm text-[#313D52] font-medium truncate">
+                        {m.codigo_orden}
+                        {m.es_reembolso && (
+                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700">
+                            reembolso
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-[#6c7a89] truncate">
+                        {hora(m.fecha_pago)} · {ETIQUETAS[m.metodo] ?? m.metodo}
+                        {m.cliente && ` · ${m.cliente}`}
+                      </div>
+                    </div>
+                    <span
+                      className={`font-medium tabular-nums ${
+                        Number(m.monto) < 0 ? 'text-red-600' : 'text-[#313D52]'
+                      }`}
+                    >
+                      {mxn(m.monto)}
+                    </span>
+                  </div>
+                ))
               )}
-              <p className="mt-8">
-                _______________________________
-              </p>
-              <p className="text-sm text-[#6c7a89]">Firma del responsable</p>
             </div>
           </div>
-        </>
+
+          <form onSubmit={cerrar} className="bg-white border border-[#e0e6e5] rounded-xl p-5 h-fit">
+            <div className="flex items-center gap-2 mb-4">
+              <Lock size={18} className="text-[#9A5B00]" />
+              <h2 className="font-semibold text-[#313D52]">Cerrar caja</h2>
+            </div>
+
+            <p className="text-sm text-[#6c7a89] mb-4">
+              Cuenta el efectivo físico en el cajón e ingrésalo. La diferencia
+              contra lo esperado se guarda en el corte.
+            </p>
+
+            <div className="bg-[#f5f9f8] rounded-lg px-3 py-2 mb-4 flex items-center justify-between">
+              <span className="text-xs text-[#6c7a89]">Esperado</span>
+              <span className="font-semibold text-[#313D52] tabular-nums">{mxn(efectivoEsperado)}</span>
+            </div>
+
+            <label htmlFor="declarado" className="block text-sm font-medium text-[#313D52] mb-1">
+              Efectivo contado
+            </label>
+            <input
+              id="declarado"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              value={efectivoDeclarado}
+              onChange={(e) => setEfectivoDeclarado(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-[#e0e6e5] tabular-nums mb-3
+                         focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
+            />
+
+            {efectivoDeclarado !== '' && (
+              <div
+                className={`text-sm rounded-lg px-3 py-2 mb-3 flex items-center gap-2 ${
+                  Math.abs(Number(efectivoDeclarado) - efectivoEsperado) < 0.005
+                    ? 'bg-green-50 text-green-800'
+                    : 'bg-amber-50 text-amber-800'
+                }`}
+              >
+                <TrendingDown size={15} />
+                Diferencia: {mxn(Number(efectivoDeclarado) - efectivoEsperado)}
+              </div>
+            )}
+
+            <label htmlFor="notas" className="block text-sm font-medium text-[#313D52] mb-1">
+              Notas
+            </label>
+            <textarea
+              id="notas"
+              rows={2}
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Opcional"
+              className="w-full px-3 py-2 rounded-lg border border-[#e0e6e5] text-sm resize-none mb-4
+                         focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
+            />
+
+            <button
+              type="submit"
+              disabled={enviando}
+              className="w-full py-2.5 bg-[#313D52] text-white font-medium rounded-lg
+                         hover:bg-[#3e4a61] transition-colors disabled:opacity-60
+                         inline-flex items-center justify-center gap-2"
+            >
+              <Wallet size={18} />
+              {enviando ? 'Cerrando…' : 'Cerrar caja'}
+            </button>
+          </form>
+        </div>
       )}
     </div>
   );

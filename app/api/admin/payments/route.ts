@@ -1,112 +1,58 @@
-// app/api/admin/payments/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../auth';
-import { 
-  registerPayment, 
-  getOrderPayments, 
-  getPaymentsSummary 
-} from '../../../../lib/database';
+import { requireActor, requireAdmin, rutaProtegida } from '@/lib/auth/guard';
+import { registrarPago, reembolsarPago, getResumenDia, getPagosDeOrden } from '@/lib/db';
+import { validar, pagoSchema, idPositivo } from '@/lib/validation/schemas';
+import { z } from 'zod';
 
-export async function GET(request: NextRequest) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const { searchParams } = new URL(request.url);
-    
-    // Caso: Obtener pagos de una orden específica
-    const ordenId = searchParams.get('ordenId');
-    if (ordenId) {
-      const payments = await getOrderPayments(parseInt(ordenId, 10));
-      return NextResponse.json({ payments }, { status: 200 });
-    }
-    
-    // Caso: Obtener resumen de pagos (para arqueo de caja)
-    if (searchParams.get('summary') === 'true') {
-      const fecha = searchParams.get('fecha') || new Date().toISOString().split('T')[0];
-      const empleadoId = searchParams.get('empleadoId') 
-  ? parseInt(searchParams.get('empleadoId') as string, 10) 
-  : null;
-      const summary = await getPaymentsSummary(fecha, empleadoId);
-      return NextResponse.json(summary, { status: 200 });
-    }
-    
-    return NextResponse.json(
-      { error: 'Parámetros de búsqueda no válidos' },
-      { status: 400 }
-    );
-  } catch (error) {
-    console.error('Error al obtener pagos:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
-  }
-}
+export const GET = rutaProtegida(async (request: NextRequest) => {
+  await requireActor();
+  const sp = request.nextUrl.searchParams;
 
-export async function POST(request: NextRequest) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const data = await request.json();
-    
-    // Validar datos básicos
-    if (!data.ordenId || !data.monto || !data.metodo) {
-      return NextResponse.json(
-        { error: 'Orden, monto y método de pago son obligatorios' },
-        { status: 400 }
-      );
-    }
-    
-    // Validar que el monto sea mayor a 0
-    if (parseFloat(data.monto) <= 0) {
-      return NextResponse.json(
-        { error: 'El monto debe ser mayor a 0' },
-        { status: 400 }
-      );
-    }
-    
-    if (!session.user.id) {
-  return NextResponse.json(
-    { error: 'ID de usuario no válido' },
-    { status: 400 }
-  );
-}
-const empleadoId = parseInt(session.user.id, 10);
-    const result = await registerPayment({
-      ordenId: parseInt(data.ordenId, 10),
-      monto: parseFloat(data.monto),
-      metodo: data.metodo,
-      referencia: data.referencia ?? null,
-      terminalId: data.terminalId ?? null,
-      empleadoId
-    });
-    
-    return NextResponse.json({
-      success: true,
-      pagoId: result.pagoId
-    }, { status: 201 });
-  } catch (error) {
-    console.error('Error al registrar pago:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
+  const ordenId = sp.get('ordenId');
+  if (ordenId) {
+    const pagos = await getPagosDeOrden(parseInt(ordenId, 10));
+    return NextResponse.json({ success: true, pagos, payments: pagos });
   }
-}
+
+  const fecha = sp.get('fecha') ?? new Date().toISOString().slice(0, 10);
+  const empleadoId = sp.get('empleadoId') ? parseInt(sp.get('empleadoId')!, 10) : null;
+  const resumen = await getResumenDia(fecha, empleadoId);
+  return NextResponse.json({ success: true, ...resumen });
+});
+
+const registrarPagoSchema = z.object({ ordenId: idPositivo }).and(pagoSchema);
+
+export const POST = rutaProtegida(async (request: NextRequest) => {
+  const actor = await requireActor();
+  const datos = validar(registrarPagoSchema, await request.json());
+
+  const { pagoId } = await registrarPago({
+    ordenId: datos.ordenId,
+    // Empleado real de la sesión. La consulta anterior tenía el `empleado_id`
+    // escrito como literal `1` dentro del CALL, así que todos los pagos del
+    // sistema quedaban registrados al mismo empleado.
+    empleadoId: actor.empleadoId,
+    pago: {
+      metodo: datos.metodo,
+      monto: datos.monto,
+      efectivoRecibido: datos.efectivoRecibido,
+      referencia: datos.referencia,
+      terminalId: datos.terminalId,
+    },
+  });
+
+  return NextResponse.json({ success: true, pagoId }, { status: 201 });
+});
+
+const reembolsoSchema = z.object({
+  pagoId: idPositivo,
+  monto: z.coerce.number().positive().nullish(),
+  motivo: z.string().trim().min(3, 'describe el motivo del reembolso'),
+});
+
+export const PATCH = rutaProtegida(async (request: NextRequest) => {
+  const actor = await requireAdmin();
+  const datos = validar(reembolsoSchema, await request.json());
+  const resultado = await reembolsarPago({ ...datos, empleadoId: actor.empleadoId });
+  return NextResponse.json({ success: true, ...resultado, message: 'Reembolso registrado.' });
+});

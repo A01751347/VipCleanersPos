@@ -18,6 +18,7 @@ import {
   Box
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 interface Product {
   producto_id: number;
@@ -42,6 +43,7 @@ interface Category {
 }
 
 export default function InventoryPage() {
+  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [onlyLowStock, setOnlyLowStock] = useState(false);
@@ -66,9 +68,9 @@ export default function InventoryPage() {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('/api/admin/products?categories=true');
+      const response = await fetch('/api/admin/categories');
       const data = await response.json();
-      setCategories(data.categories || []);
+      setCategories(data.categorias || data.categories || []);
     } catch (err) {
       console.error('Error loading categories:', err);
     }
@@ -83,14 +85,14 @@ export default function InventoryPage() {
     try {
       setIsRefreshing(true);
 
-      let url = `/api/admin/products?page=${page}&pageSize=${itemsPerPage}`;
+      let url = `/api/admin/inventory?page=${page}&pageSize=${itemsPerPage}`;
 
       if (category) {
-        url += `&categoryIdFilter=${category}`;
+        url += `&categoryId=${category}`;
       }
 
       if (lowStock) {
-        url += `&onlyLowStock=true`;
+        url += `&lowStock=true`;
       }
 
       if (search) {
@@ -105,12 +107,20 @@ export default function InventoryPage() {
 
       const data = await response.json();
 
-      setProducts(data.products || []);
+      setProducts(data.productos || data.products || []);
       setTotalProducts(data.total || 0);
-      setTotalPages(data.totalPages || 1);
+      setTotalPages(data.totalPaginas || data.totalPages || 1);
 
-      // Calcular estadísticas
-      calculateStats(data.products || []);
+      if (data.resumen) {
+        setStats({
+          totalItems: data.total || 0,
+          lowStockItems: Number(data.resumen.bajos || 0),
+          outOfStockItems: Number(data.resumen.agotados || 0),
+          totalValue: Number(data.resumen.valor_total || 0),
+        });
+      } else {
+        calculateStats(data.productos || data.products || []);
+      }
 
       setError(null);
     } catch (err) {
@@ -203,7 +213,7 @@ export default function InventoryPage() {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Error al exportar:', error);
-      alert('Error al exportar los datos');
+      toast.error('Error al exportar los datos');
     }
   };
 

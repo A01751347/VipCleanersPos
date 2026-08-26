@@ -42,13 +42,15 @@ interface DashboardStats {
 }
 
 interface Booking {
-  id: number
-  booking_reference: string
-  full_name: string
-  service_type: string
-  booking_date: string
-  status: string | number
-  created_at: string
+  orden_id: number
+  codigo_orden: string
+  cliente_nombre: string
+  cliente_apellidos: string
+  estado_servicio: string
+  color_estado: string
+  total_pares: number
+  fecha_reservacion: string | null
+  fecha_recepcion: string
 }
 
 interface Message {
@@ -147,10 +149,12 @@ export default function AdminDashboard() {
   async function fetchRecentBookings() {
     try {
       setLoading((p) => ({ ...p, bookings: true }))
-      const res = await fetch('/api/admin/bookings?recent=true&limit=5')
+      // Las reservas son órdenes con origen 'online'; la tabla `reservaciones`
+      // desapareció junto con el modelo paralelo que la sostenía.
+      const res = await fetch('/api/admin/orders?origen=online&pageSize=5')
       if (!res.ok) throw new Error('Error al cargar reservaciones recientes')
       const data = await res.json()
-      setRecentBookings((data?.bookings || []) as Booking[])
+      setRecentBookings((data?.ordenes || []) as Booking[])
     } catch (e) {
       console.error('Error fetching recent bookings:', e)
       setError((p) => ({ ...p, bookings: true }))
@@ -162,10 +166,10 @@ export default function AdminDashboard() {
   async function fetchRecentMessages() {
     try {
       setLoading((p) => ({ ...p, messages: true }))
-      const res = await fetch('/api/admin/messages?recent=true&limit=5')
+      const res = await fetch('/api/admin/messages?pageSize=5')
       if (!res.ok) throw new Error('Error al cargar mensajes recientes')
       const data = await res.json()
-      setRecentMessages((data?.messages || []) as Message[])
+      setRecentMessages((data?.mensajes || data?.messages || []) as Message[])
     } catch (e) {
       console.error('Error fetching recent messages:', e)
       setError((p) => ({ ...p, messages: true }))
@@ -395,7 +399,7 @@ function RecentBookingsCard({
                 <tr>
                   <Th>Referencia</Th>
                   <Th>Cliente</Th>
-                  <Th>Servicio</Th>
+                  <Th>Pares</Th>
                   <Th>Fecha</Th>
                   <Th>Estado</Th>
                   <Th className="text-right">Acciones</Th>
@@ -403,23 +407,29 @@ function RecentBookingsCard({
               </thead>
               <tbody className="divide-y divide-[#e0e6e5] bg-white dark:divide-zinc-800 dark:bg-zinc-950">
                 {items.map((b) => (
-                  <tr key={b.id} className="hover:bg-[#f5f9f8] dark:hover:bg-zinc-900/60">
-                    <Td className="font-medium text-[#313D52] dark:text-zinc-100">{b.booking_reference}</Td>
-                    <Td className="text-[#6c7a89] dark:text-zinc-400">{b.full_name}</Td>
-                    <Td className="text-[#6c7a89] dark:text-zinc-400">{serviceLabel(b.service_type)}</Td>
-                    <Td className="text-[#6c7a89] dark:text-zinc-400">{formatDate(b.booking_date)}</Td>
+                  <tr key={b.orden_id} className="hover:bg-[#f5f9f8] dark:hover:bg-zinc-900/60">
+                    <Td className="font-medium text-[#313D52] dark:text-zinc-100">{b.codigo_orden}</Td>
+                    <Td className="text-[#6c7a89] dark:text-zinc-400">
+                      {`${b.cliente_nombre ?? ''} ${b.cliente_apellidos ?? ''}`.trim()}
+                    </Td>
+                    <Td className="text-[#6c7a89] dark:text-zinc-400">
+                      {b.total_pares} par{b.total_pares === 1 ? '' : 'es'}
+                    </Td>
+                    <Td className="text-[#6c7a89] dark:text-zinc-400">
+                      {formatDate(b.fecha_reservacion ?? b.fecha_recepcion)}
+                    </Td>
                     <Td>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        STATUS_MAP[String(b.status)]?.classes || 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
-                      }`}>
-                        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                        {STATUS_MAP[String(b.status)]?.label || 'Desconocido'}
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
+                        style={{ backgroundColor: b.color_estado }}
+                      >
+                        {b.estado_servicio}
                       </span>
                     </Td>
                     <Td className="text-right">
                       <Link
-                        aria-label={`Ver reservación ${b.booking_reference}`}
-                        href={`/admin/orders/${b.id}`}
+                        aria-label={`Ver reservación ${b.codigo_orden}`}
+                        href={`/admin/orders/${b.orden_id}`}
                         className="inline-flex items-center rounded-lg border border-zinc-200 p-2 text-emerald-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                       >
                         <Eye className="h-4 w-4" />
@@ -700,15 +710,20 @@ function serviceLabel(s: string) {
   return s
 }
 
-function formatDate(dateString?: string) {
-  if (!dateString) return ''
+function formatDate(dateString?: string | null) {
+  if (!dateString) return '—'
+  const fecha = new Date(dateString)
+  // Sin esta guarda, un campo vacío o con otro nombre lanzaba
+  // "RangeError: Invalid time value" y tumbaba el tablero completo.
+  if (Number.isNaN(fecha.getTime())) return '—'
   const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
-  return new Date(dateString).toLocaleDateString('es-MX', options)
+  return fecha.toLocaleDateString('es-MX', options)
 }
 
-function formatSmartDate(dateString?: string) {
-  if (!dateString) return ''
+function formatSmartDate(dateString?: string | null) {
+  if (!dateString) return '—'
   const messageDate = new Date(dateString)
+  if (Number.isNaN(messageDate.getTime())) return '—'
   const today = new Date()
   const yesterday = new Date()
   yesterday.setDate(today.getDate() - 1)

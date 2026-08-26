@@ -1,88 +1,47 @@
-// app/api/admin/reports/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../auth';
-import { 
-  getSalesReport, 
-  getEmployeePerformanceReport, 
-  getTopCustomersReport,
-  getCashRegisterReport
-} from '../../../../lib/database';
+import { requireAdmin, rutaProtegida } from '@/lib/auth/guard';
+import {
+  getReporteVentas, getReporteEmpleados, getMejoresClientes,
+  getResumenDia, getResumenCaja, BusinessError,
+} from '@/lib/db';
 
-export async function GET(request: NextRequest) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
+/** Los reportes exponen ventas, márgenes y desempeño: sólo administradores. */
+export const GET = rutaProtegida(async (request: NextRequest) => {
+  await requireAdmin();
+  const sp = request.nextUrl.searchParams;
+  const tipo = sp.get('type');
+  if (!tipo) throw new BusinessError('Indica el tipo de reporte.');
+
+  const hoy = new Date();
+  const haceUnMes = new Date(hoy);
+  haceUnMes.setMonth(haceUnMes.getMonth() - 1);
+
+  const desde = sp.get('startDate') || haceUnMes.toISOString().slice(0, 10);
+  const hasta = sp.get('endDate') || hoy.toISOString().slice(0, 10);
+
+  switch (tipo) {
+    case 'sales':
       return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
+        await getReporteVentas({ desde, hasta, agrupacion: (sp.get('groupBy') as any) ?? 'day' })
       );
+
+    case 'employees':
+      return NextResponse.json({ empleados: await getReporteEmpleados({ desde, hasta }) });
+
+    case 'customers':
+      return NextResponse.json({
+        clientes: await getMejoresClientes({ desde, hasta, limite: 20 }),
+      });
+
+    case 'cashRegister': {
+      const corteId = sp.get('corteId');
+      if (corteId) return NextResponse.json(await getResumenCaja(parseInt(corteId, 10)));
+      const fecha = sp.get('fecha') || hoy.toISOString().slice(0, 10);
+      const empleadoId = sp.get('empleadoId') ? parseInt(sp.get('empleadoId')!, 10) : null;
+      return NextResponse.json(await getResumenDia(fecha, empleadoId));
     }
-    
-    const { searchParams } = new URL(request.url);
-    const reportType = searchParams.get('type');
-    
-    if (!reportType) {
-      return NextResponse.json(
-        { error: 'Tipo de reporte no especificado' },
-        { status: 400 }
-      );
-    }
-    
-    // Fechas por defecto (último mes)
-    const today = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-    
-    const startDate = searchParams.get('startDate') || oneMonthAgo.toISOString().split('T')[0];
-    const endDate = searchParams.get('endDate') || today.toISOString().split('T')[0];
-    
-    // Generar el reporte según el tipo
-    switch (reportType) {
-      case 'sales':
-        const groupBy = searchParams.get('groupBy') || 'day';
-        const salesReport = await getSalesReport({
-          startDate,
-          endDate,
-          groupBy: groupBy as 'day' | 'week' | 'month'
-        });
-        return NextResponse.json(salesReport, { status: 200 });
-        
-      case 'employees':
-        const empleadoId = searchParams.get('empleadoId') ? parseInt(searchParams.get('empleadoId') as string, 10) : null;
-        const employeeReport = await getEmployeePerformanceReport({
-          startDate,
-          endDate,
-        });
-        return NextResponse.json(employeeReport, { status: 200 });
-        
-      case 'customers':
-        const limit = parseInt(searchParams.get('limit') || '10', 10);
-        const customersReport = await getTopCustomersReport({
-          startDate,
-          endDate,
-        });
-        return NextResponse.json(customersReport, { status: 200 });
-        
-      case 'cashRegister':
-        const fecha = searchParams.get('fecha') || today.toISOString().split('T')[0];
-        const cashEmployeeId = searchParams.get('empleadoId') ? parseInt(searchParams.get('empleadoId') as string, 10) : undefined;
-        const cashReport = await getCashRegisterReport(fecha, cashEmployeeId);
-        return NextResponse.json(cashReport, { status: 200 });
-        
-      default:
-        return NextResponse.json(
-          { error: 'Tipo de reporte no válido' },
-          { status: 400 }
-        );
-    }
-  } catch (error) {
-    console.error('Error al generar reporte:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
+
+    default:
+      throw new BusinessError(`Tipo de reporte no reconocido: ${tipo}`);
   }
-}
+});

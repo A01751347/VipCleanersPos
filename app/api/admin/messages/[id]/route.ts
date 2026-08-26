@@ -1,52 +1,13 @@
-// app/api/admin/messages/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../../auth';
-import { getMessageById } from '../../../../../lib/database';
+import { requireActor, rutaProtegida } from '@/lib/auth/guard';
+import { getMensajePorId, NotFoundError } from '@/lib/db';
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
+interface Ctx { params: Promise<{ id: string }> }
 
-export async function GET(
-  request: NextRequest,
-  context: RouteParams
-) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const { id } = await context.params;
-    const messageId = parseInt(id, 10);
-    
-    if (isNaN(messageId)) {
-      return NextResponse.json(
-        { error: 'ID de mensaje inválido' },
-        { status: 400 }
-      );
-    }
-    
-    const message = await getMessageById(messageId);
-    
-    if (!message) {
-      return NextResponse.json(
-        { error: 'Mensaje no encontrado' },
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json(message, { status: 200 });
-  } catch (error) {
-    console.error('Error al obtener detalles del mensaje:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
-  }
-}
+export const GET = rutaProtegida(async (_req: NextRequest, ctx: Ctx) => {
+  await requireActor();
+  const { id } = await ctx.params;
+  const mensaje = await getMensajePorId(parseInt(id, 10));
+  if (!mensaje) throw new NotFoundError('El mensaje no existe.');
+  return NextResponse.json({ success: true, message: mensaje, mensaje });
+});

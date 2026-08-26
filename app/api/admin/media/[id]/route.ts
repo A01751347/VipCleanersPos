@@ -1,91 +1,42 @@
-// app/api/admin/media/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../../auth';
-import { executeQuery } from '../../../../../lib/database/connection';
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { requireActor, requireAdmin, rutaProtegida } from '@/lib/auth/guard';
+import { getArchivo, eliminarArchivo, BusinessError } from '@/lib/db';
+import { urlFirmada, borrarArchivo } from '@/lib/storage/s3';
 
-// Configurar cliente S3
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION!,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
+interface Ctx { params: Promise<{ id: string }> }
+
+/**
+ * Entrega un archivo mediante redirección a una URL firmada de 5 minutos.
+ * Requiere sesión: las fotos de identificación son datos personales sensibles
+ * y antes quedaban accesibles a quien construyera la URL pública de S3.
+ */
+export const GET = rutaProtegida(async (_req: NextRequest, ctx: Ctx) => {
+  await requireActor();
+  const { id } = await ctx.params;
+  const archivoId = parseInt(id, 10);
+  if (!Number.isInteger(archivoId)) throw new BusinessError('Id inválido.');
+
+  const archivo = await getArchivo(archivoId);
+  const url = await urlFirmada(archivo.s3_bucket, archivo.s3_key, 300);
+
+  return NextResponse.redirect(url, {
+    headers: { 'Cache-Control': 'private, max-age=240' },
+  });
 });
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = rutaProtegida(async (_req: NextRequest, ctx: Ctx) => {
+  await requireAdmin();
+  const { id } = await ctx.params;
+  const archivo = await eliminarArchivo(parseInt(id, 10));
+  if (!archivo) throw new BusinessError('El archivo no existe.', 404);
+
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions);
-
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-
-    const { id } = await params;
-    const archivoId = parseInt(id, 10);
-    if (isNaN(archivoId)) {
-      return NextResponse.json(
-        { error: 'ID de archivo inválido' },
-        { status: 400 }
-      );
-    }
-
-    // Obtener información del archivo antes de eliminarlo
-    const fileInfo = await executeQuery<{
-      s3_bucket: string;
-      s3_key: string;
-      archivo_id: number;
-    }[]>({
-      query: 'SELECT s3_bucket, s3_key, archivo_id FROM archivos_media WHERE archivo_id = ?',
-      values: [archivoId]
-    });
-
-    if (!fileInfo || fileInfo.length === 0) {
-      return NextResponse.json(
-        { error: 'Archivo no encontrado' },
-        { status: 404 }
-      );
-    }
-
-    const file = fileInfo[0];
-
-    // Eliminar archivo de S3
-    try {
-      const deleteCommand = new DeleteObjectCommand({
-        Bucket: file.s3_bucket,
-        Key: file.s3_key,
-      });
-
-      await s3Client.send(deleteCommand);
-    } catch (s3Error) {
-      console.error('Error deleting from S3:', s3Error);
-      // Continuar con la eliminación de la base de datos aunque falle S3
-    }
-
-    // Eliminar registro de la base de datos
-    await executeQuery({
-      query: 'DELETE FROM archivos_media WHERE archivo_id = ?',
-      values: [archivoId]
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Archivo eliminado correctamente'
-    });
-
-  } catch (error) {
-    console.error('Error al eliminar archivo:', error);
-    return NextResponse.json(
-      { error: 'Error al eliminar archivo' },
-      { status: 500 }
-    );
+    await borrarArchivo((archivo as any).s3_bucket, (archivo as any).s3_key);
+  } catch (err) {
+    // El registro ya se borró; que el objeto quede huérfano en S3 es
+    // preferible a dejar una fila apuntando a algo que ya no existe.
+    console.error('[media] no se pudo borrar el objeto en S3', err);
   }
-}
+
+  return NextResponse.json({ success: true, message: 'Archivo eliminado.' });
+});

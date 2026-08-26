@@ -44,7 +44,6 @@ interface StorageLocationModalProps {
   onSubmit: (locations: LocationData[]) => Promise<void>;
   orderItems: OrderItem[];
   existingLocations?: LocationData[];
-  empleadoId: number;
 }
 
 export default function StorageLocationModal({
@@ -53,7 +52,6 @@ export default function StorageLocationModal({
   onSubmit,
   orderItems,
   existingLocations = [],
-  empleadoId
 }: StorageLocationModalProps) {
   const [locations, setLocations] = useState<{[key: number]: { cajaAlmacenamiento: string; codigoUbicacion: string; notasEspeciales: string }}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);

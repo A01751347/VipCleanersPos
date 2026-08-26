@@ -1,69 +1,28 @@
-// app/api/admin/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../auth';
-import { getOrders, getOrderById } from '../../../../lib/database';
+import { requireActor, rutaProtegida } from '@/lib/auth/guard';
+import { getOrdenes } from '@/lib/db';
 
-export async function GET(request: NextRequest) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const { searchParams } = new URL(request.url);
-    
-    // Caso: Obtener detalle de una orden específica
-    const orderId = searchParams.get('id');
-    if (orderId) {
-      const order = await getOrderById(parseInt(orderId, 10));
-      
-      if (!order) {
-        return NextResponse.json(
-          { error: 'Orden no encontrada' },
-          { status: 404 }
-        );
-      }
-      
-      return NextResponse.json({ order }, { status: 200 });
-    }
-    
-    // Caso: Obtener listado de órdenes con filtros
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
-    const estadoIdParam = searchParams.get('estadoId');
-    const estadoId = estadoIdParam ? estadoIdParam.split(',') : null; 
+export const GET = rutaProtegida(async (request: NextRequest) => {
+  await requireActor();
+  const sp = request.nextUrl.searchParams;
 
-    const estadoPago = searchParams.get('estadoPago') || null;
-    const fechaInicio = searchParams.get('fechaInicio') || null;
-    const fechaFin = searchParams.get('fechaFin') || null;
-    const searchQuery = searchParams.get('search') || null;
-    const empleadoId = searchParams.get('empleadoId') ? parseInt(searchParams.get('empleadoId') as string, 10) : null;
-    
-    const orders = await getOrders({
-      page,
-      pageSize,
-      estadoId,
-      estadoPago,
-      fechaInicio,
-      fechaFin,
-      searchQuery,
-      empleadoId
-    });
-    
+  const estadoIds = (sp.get('estadoId') ?? sp.get('status') ?? '')
+    .split(',')
+    .map((s) => parseInt(s, 10))
+    .filter((n) => Number.isInteger(n));
 
-    
-    return NextResponse.json(orders, { status: 200 });
-  } catch (error) {
-    console.error('Error al obtener órdenes:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
-  }
-}
+  const resultado = await getOrdenes({
+    pagina: parseInt(sp.get('page') ?? '1', 10),
+    porPagina: parseInt(sp.get('pageSize') ?? '10', 10),
+    estadoIds: estadoIds.length ? estadoIds : undefined,
+    estadoPago: sp.get('estadoPago'),
+    origen: (sp.get('origen') as 'pos' | 'online' | null) ?? null,
+    desde: sp.get('startDate'),
+    hasta: sp.get('endDate'),
+    busqueda: sp.get('search'),
+    empleadoId: sp.get('empleadoId') ? parseInt(sp.get('empleadoId')!, 10) : null,
+    incluirCanceladas: sp.get('incluirCanceladas') === 'true',
+  });
+
+  return NextResponse.json(resultado);
+});

@@ -127,7 +127,7 @@ const StepDelivery: React.FC<StepProps> = ({ onNext, onPrev }) => {
           </div>
           <p className="text-sm text-red-700">
             Lo sentimos, actualmente no ofrecemos servicio de pickup en la zona: <strong>{zoneInfo.zone}</strong>. 
-            Te recomendamos seleccionar "Traer a la tienda" como método de entrega.
+            Te recomendamos seleccionar &quot;Traer a la tienda&quot; como método de entrega.
           </p>
         </div>
       )}

@@ -1,31 +1,41 @@
-// middleware.ts
 import { getToken } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
-  // Obtener el token de la sesión actual
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+const ROLES_PANEL = new Set(['admin', 'empleado']);
 
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Solo proteger rutas que empiezan con /admin pero NO la de login
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    // Si no hay token, redirigir al login
-    if (!token) {
-      const loginUrl = new URL('/admin/login', req.url);
-      return NextResponse.redirect(loginUrl);
+  if (pathname === '/admin/login') return NextResponse.next();
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const esApi = pathname.startsWith('/api/admin');
+
+  if (!token) {
+    // Las rutas de API responden 401; las páginas redirigen al login.
+    if (esApi) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
+    const login = new URL('/admin/login', req.url);
+    login.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(login);
   }
 
-  // Permitir la navegación normalmente
+  // Antes sólo se comprobaba que existiera token: un usuario con rol `cliente`
+  // podía cargar todas las páginas del panel.
+  if (!ROLES_PANEL.has(String(token.role))) {
+    if (esApi) {
+      return NextResponse.json({ error: 'No tienes permiso' }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL('/unauthorized', req.url));
+  }
+
   return NextResponse.next();
 }
 
-// Configurar para que se ejecute solo en las rutas necesarias
 export const config = {
-  matcher: ['/admin/:path*'], // Aplica a todas las rutas bajo /admin
+  // Se agregó /api/admin: el matcher anterior sólo cubría las páginas, así que
+  // cada ruta de API tenía que acordarse de protegerse sola — y cuatro no lo hacían.
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };

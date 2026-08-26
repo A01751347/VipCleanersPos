@@ -25,6 +25,7 @@ import {
   StarIcon
 } from 'lucide-react';
 import MessageReplyModal from '../../../components/admin/MessageReplyModal';
+import { useToast } from '@/components/Toast';
 
 interface Message {
   id: number;
@@ -49,6 +50,7 @@ interface MessageStats {
 }
 
 export default function MessagesPage() {
+  const toast = useToast();
   // Estados principales
   const [messages, setMessages] = useState<Message[]>([]);
   const [stats, setStats] = useState<MessageStats>({
@@ -158,7 +160,7 @@ export default function MessagesPage() {
       fetchStats();
     } catch (err) {
       console.error('Error updating status:', err);
-      alert('Error al actualizar el estado del mensaje');
+      toast.error('Error al actualizar el estado del mensaje');
     } finally {
       setUpdatingStates(prev => ({ ...prev, [messageId]: false }));
     }

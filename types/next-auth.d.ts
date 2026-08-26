@@ -1,36 +1,29 @@
-// types/next-auth.d.ts
-import NextAuth from "next-auth";
-import { JWT } from "next-auth/jwt";
+import 'next-auth';
+import 'next-auth/jwt';
 
-declare module "next-auth" {
-  /**
-   * Extiende la interfaz User para incluir roles y otros campos personalizados
-   */
-  interface User {
-    role?: string;
-    // otros campos personalizados que quieras añadir
-  }
-
-  /**
-   * Extiende la interfaz Session para incluir información adicional en la sesión
-   */
+declare module 'next-auth' {
   interface Session {
     user: {
-      id?: string;
-      name?: string | null;
+      id: string;
       email?: string | null;
+      name?: string | null;
       image?: string | null;
-      role?: string;
-    }
+      role: string;
+      empleadoId: number | null;
+    };
+  }
+
+  interface User {
+    id: string;
+    role: string;
+    empleadoId: number | null;
   }
 }
 
-declare module "next-auth/jwt" {
-  /**
-   * Extiende el objeto token de JWT
-   */
+declare module 'next-auth/jwt' {
   interface JWT {
+    id?: string;
     role?: string;
-    // otros campos personalizados que quieras añadir al token
+    empleadoId?: number | null;
   }
 }

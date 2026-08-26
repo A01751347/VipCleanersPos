@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 interface Message {
   id: number;
@@ -38,6 +39,7 @@ interface MessagesTableProps {
 }
 
 const MessagesTable: React.FC<MessagesTableProps> = ({ messages = [], onStatusChange, showArchived = false }) => {
+  const toast = useToast();
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
@@ -111,7 +113,7 @@ const MessagesTable: React.FC<MessagesTableProps> = ({ messages = [], onStatusCh
       }
     } catch (error) {
       console.error(error);
-      alert('Error al actualizar el estado del mensaje');
+      toast.error('Error al actualizar el estado del mensaje');
     } finally {
       setIsUpdating(null);
     }
@@ -132,7 +134,7 @@ const MessagesTable: React.FC<MessagesTableProps> = ({ messages = [], onStatusCh
       }
     } catch (error) {
       console.error(error);
-      alert('Error al eliminar el mensaje');
+      toast.error('Error al eliminar el mensaje');
     } finally {
       setIsUpdating(null);
     }

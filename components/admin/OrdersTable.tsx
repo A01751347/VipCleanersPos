@@ -19,6 +19,7 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 interface Order {
   orden_id: number;
@@ -44,6 +45,7 @@ interface OrdersTableProps {
 }
 
 const OrdersTable: React.FC<OrdersTableProps> = ({ orders = [], onStatusChange }) => {
+  const toast = useToast();
   const [sortField, setSortField] = useState('fecha_recepcion');
   const [sortDirection, setSortDirection] = useState('desc');
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
@@ -155,7 +157,7 @@ const getStatusIcon = (status?: string) => {
       }
     } catch (error) {
       console.error('Error al eliminar la orden:', error);
-      alert('Error al eliminar la orden');
+      toast.error('Error al eliminar la orden');
     } finally {
       setActiveDropdown(null);
       setIsUpdating(null);
@@ -184,7 +186,7 @@ const getStatusIcon = (status?: string) => {
       }
     } catch (error) {
       console.error('Error al actualizar el estado de la orden:', error);
-      alert('Error al actualizar el estado de la orden');
+      toast.error('Error al actualizar el estado de la orden');
     } finally {
       setActiveDropdown(null);
       setIsUpdating(null);

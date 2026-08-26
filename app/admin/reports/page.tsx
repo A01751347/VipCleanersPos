@@ -14,6 +14,7 @@ import {
   FileText,
   Activity
 } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface SalesReportData {
   por_periodo: Array<{
@@ -103,6 +104,7 @@ interface CashRegisterData {
 }
 
 export default function ReportsPage() {
+  const toast = useToast();
 
   const today = new Date();
   const [dateRange, setDateRange] = useState({
@@ -191,7 +193,7 @@ export default function ReportsPage() {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Error al exportar:', error);
-      alert('Error al exportar el reporte');
+      toast.error('Error al exportar el reporte');
     }
   };
 

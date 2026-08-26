@@ -1,195 +1,72 @@
-// app/api/admin/pos/route.ts - VERSIÓN ACTUALIZADA
+// app/api/admin/pos/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  createPosOrder, 
-  createClient, 
-  findClientByPhoneOrEmail,
-  assignStorageLocations, 
-  executeQuery
-} from '@/lib/database';
+import { requireActor, rutaProtegida } from '@/lib/auth/guard';
+import { crearOrden, crearOEncontrarCliente } from '@/lib/db';
+import { validar, crearOrdenPosSchema } from '@/lib/validation/schemas';
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    const {
-      cliente,
-      servicios,
-      productos = [],
-      subtotal,
-      iva, 
-      total,
-      metodoPago,
-      monto,
-      tieneIdentificacion = false,
-      notas = null,
-      ubicaciones = [] // 🆕 Nuevo campo para ubicaciones
-    } = body;
+/**
+ * Alta de venta en mostrador.
+ *
+ * Cambios frente a la versión anterior:
+ *  - Exige sesión. Antes cualquiera en internet podía crear órdenes y pagos.
+ *  - Los importes se calculan en el servidor a partir del catálogo; el cuerpo
+ *    de la petición ya no trae subtotal, iva ni total.
+ *  - Todo ocurre en una transacción, sobre una sola conexión.
+ *  - El empleado sale de la sesión, no de un `1` escrito a mano.
+ *  - Devuelve los ids de cada par para poder adjuntarles sus fotos.
+ */
+export const POST = rutaProtegida(async (request: NextRequest) => {
+  const actor = await requireActor();
+  const datos = validar(crearOrdenPosSchema, await request.json());
 
-    // Validaciones básicas
-    if (!cliente || !servicios || servicios.length === 0) {
-      return NextResponse.json(
-        { error: 'Faltan datos requeridos: cliente y servicios' },
-        { status: 400 }
-      );
-    }
+  const clienteId =
+    datos.cliente.cliente_id ??
+    (await crearOEncontrarCliente({
+      nombre: datos.cliente.nombre,
+      apellidos: datos.cliente.apellidos,
+      telefono: datos.cliente.telefono,
+      email: datos.cliente.email,
+    }));
 
-    if (!metodoPago || !monto || monto <= 0) {
-      return NextResponse.json(
-        { error: 'Datos de pago inválidos' },
-        { status: 400 }
-      );
-    }
+  const resultado = await crearOrden({
+    clienteId,
+    empleadoId: actor.empleadoId,
+    origen: 'pos',
+    servicios: datos.servicios,
+    productos: datos.productos,
+    descuentoPorcentaje: datos.descuentoPorcentaje,
+    motivoDescuento: datos.motivoDescuento,
+    notas: datos.notas,
+    tieneIdentificacion: datos.tieneIdentificacion,
+    pago: datos.pago ?? null,
+  });
 
-    // Manejar cliente (existente o nuevo)
-    let clienteId = cliente.cliente_id;
-    
-    if (!clienteId) {
-      // Buscar cliente existente por teléfono o email
-      const clienteExistente = await findClientByPhoneOrEmail(
-        cliente.telefono || cliente.email
-      );
-      
-      if (clienteExistente) {
-        clienteId = clienteExistente.cliente_id;
-      } else {
-        // Crear nuevo cliente
-        clienteId = await createClient(
-          cliente.nombre,
-          cliente.apellidos || '',
-          cliente.telefono || '',
-          cliente.email || '',
-          undefined, // direccion
-          undefined, // codigo_postal
-          undefined, // ciudad
-          undefined  // estado
-        );
-      }
-    }
-
-    // Calcular fecha de entrega estimada (3 días hábiles por defecto)
-    const fechaEntregaEstimada = new Date();
-    fechaEntregaEstimada.setDate(fechaEntregaEstimada.getDate() + 3);
-
-    // Crear la orden usando el empleado ID por defecto (deberías obtenerlo del contexto de autenticación)
-    const empleadoId = 1; // TODO: Obtener del token de autenticación
-
-    const { ordenId, codigoOrden } = await createPosOrder({
-      clienteId,
-      empleadoId,
-      servicios: servicios.map((s: any) => ({
-        servicioId: parseInt(s.servicioId),
-        cantidad: parseInt(s.cantidad),
-        modeloId: s.modeloId ? parseInt(s.modeloId) : null,
-        marca: s.marca?.trim() || null,
-        modelo: s.modelo?.trim() || null,
-        talla: s.talla?.trim() || null,
-        color: s.color?.trim() || null,
-        descripcion: s.descripcion?.trim() || null
-      })),
-      productos: productos.map((p: any) => ({
-        productoId: parseInt(p.productoId),
-        cantidad: parseInt(p.cantidad)
-      })),
-      requiereIdentificacion: false, // Se calcula automáticamente en el procedimiento
-      tieneIdentificacionRegistrada: tieneIdentificacion,
-      fechaEntregaEstimada,
-      metodoPago,
-      monto: parseFloat(monto),
-      notasOrder: notas,
-      subtotal: parseFloat(subtotal),
-      iva: parseFloat(iva),
-      total: parseFloat(total)
-    });
-
-    // 🆕 Si hay ubicaciones especificadas, asignarlas
-    if (ubicaciones && ubicaciones.length > 0) {
-      try {
-        // Obtener los detalles de servicios recién creados para mapear con las ubicaciones
-        const serviciosCreados = await executeQuery<any[]>({
-          query: `
-            SELECT detalle_servicio_id, marca, modelo, talla, color, descripcion_calzado
-            FROM detalles_orden_servicios 
-            WHERE orden_id = ? AND (marca IS NOT NULL OR modelo IS NOT NULL)
-            ORDER BY detalle_servicio_id ASC
-          `,
-          values: [ordenId]
-        });
-
-        // Mapear ubicaciones con servicios (esto podría necesitar lógica más sofisticada)
-        const ubicacionesParaAsignar = ubicaciones.map((ubicacion: any, index: number) => {
-          const servicioCorrespondiente = serviciosCreados[index];
-          return {
-            detalleServicioId: servicioCorrespondiente?.detalle_servicio_id,
-            ordenId,
-            cajaAlmacenamiento: ubicacion.cajaAlmacenamiento,
-            codigoUbicacion: ubicacion.codigoUbicacion,
-            notasEspeciales: ubicacion.notasEspeciales || null,
-            empleadoId
-          };
-        }).filter((u: any) => u.detalleServicioId); // Filtrar ubicaciones sin servicio correspondiente
-
-        if (ubicacionesParaAsignar.length > 0) {
-          await assignStorageLocations(ubicacionesParaAsignar);
-        }
-      } catch (ubicacionError) {
-        console.warn('Error asignando ubicaciones:', ubicacionError);
-        // No fallar la orden por error en ubicaciones, solo registrar warning
-      }
-    }
-
-    // Determinar si requiere identificación (esto se hace en el backend)
-    const requiereIdentificacion = servicios.some((s: any) => s.servicioId === 2); // Servicio premium por ejemplo
-
-    return NextResponse.json({
+  return NextResponse.json(
+    {
       success: true,
-      ordenId,
-      codigoOrden,
-      requiereIdentificacion,
-      message: 'Orden creada exitosamente'
-    });
+      ordenId: resultado.ordenId,
+      codigoOrden: resultado.codigoOrden,
+      subtotal: resultado.subtotal,
+      impuestos: resultado.impuestos,
+      total: resultado.total,
+      requiereIdentificacion: resultado.requiereIdentificacion,
+      // El front las necesita para subir las fotos de cada par y para el
+      // modal de ubicaciones. Antes no se devolvían y las fotos se perdían.
+      servicios: resultado.detallesServicios,
+      message: 'Orden creada correctamente',
+    },
+    { status: 201 }
+  );
+});
 
-  } catch (error) {
-    console.error('Error creando orden:', error);
-    
-    return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : 'Error interno del servidor',
-        success: false 
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// GET - Obtener órdenes (opcional, para consultas)
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-    
-    switch (action) {
-      case 'recent':
-        // Obtener órdenes recientes
-        const limit = parseInt(searchParams.get('limit') || '10');
-        // Implementar lógica para obtener órdenes recientes
-        return NextResponse.json({
-          success: true,
-          ordenes: [] // Implementar consulta
-        });
-        
-      default:
-        return NextResponse.json(
-          { error: 'Acción no válida' },
-          { status: 400 }
-        );
-    }
-    
-  } catch (error) {
-    console.error('Error en GET /api/admin/pos:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
-  }
-}
+/** Datos que el punto de venta necesita al abrir. */
+export const GET = rutaProtegida(async () => {
+  await requireActor();
+  const { getServicios, getProductos, getCategorias } = await import('@/lib/db');
+  const [servicios, { productos }, categorias] = await Promise.all([
+    getServicios(true),
+    getProductos({ soloActivos: true, porPagina: 200 }),
+    getCategorias(true),
+  ]);
+  return NextResponse.json({ success: true, servicios, productos, categorias });
+});

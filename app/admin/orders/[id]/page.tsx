@@ -41,6 +41,7 @@ import EditShoeModal from '../../../../components/admin/orders/EditShoeModal';
 import StorageLocationModal, { LocationData } from '../../../../components/admin/pos/StorageLocationModal';
 
 import SendTicketModal from '../../../../components/admin/SendTicketModal';
+import { useToast } from '@/components/Toast';
 // Interfaces for type checking
 interface OrderDetail {
   orden_id: number;
@@ -169,13 +170,13 @@ type StorageOrderItem = {
 
 
 export default function OrderDetailPage() {
+  const toast = useToast();
   const params = useParams();
   const orderId = params.id as string;
 
 
   const [storageItems, setStorageItems] = useState<StorageOrderItem[]>([]);
   const [existingLocations, setExistingLocations] = useState<LocationData[]>([]);
-  const [currentEmpleadoId] = useState(1); // TODO: obtén del contexto/auth real
   
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -234,14 +235,15 @@ const [showStorageModal, setShowStorageModal] = useState(false);
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          caja_almacenamiento: data.boxName,
-          codigo_ubicacion: data.locationCode,
-          notas_especiales: data.specialNotes || null
+          cajaAlmacenamiento: data.boxName,
+          codigoUbicacion: data.locationCode || null,
+          notasEspeciales: data.specialNotes || null
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Error al asignar ubicación de almacenamiento');
+      const resultado = await response.json();
+      if (!response.ok || !resultado.success) {
+        throw new Error(resultado.error || 'No se pudo asignar la ubicación');
       }
 
       // Close modal and reload data
@@ -299,7 +301,6 @@ const handleStorageLocationSubmit = async (locations: LocationData[]) => {
           codigoUbicacion: l.codigoUbicacion,
           notasEspeciales: l.notasEspeciales,
         })),
-        empleadoId: currentEmpleadoId,
       }),
     });
 
@@ -314,8 +315,7 @@ const handleStorageLocationSubmit = async (locations: LocationData[]) => {
     await loadOrderDetails(); // 🔄 refresca la orden
   } catch (err) {
     console.error(err);
-    alert(err instanceof Error ? err.message : 'Error al asignar ubicaciones');
-    throw err; // para que el modal muestre el error si lo necesita
+    throw err; // el modal muestra el mensaje en su propio recuadro de error
   }
 };
 
@@ -666,7 +666,7 @@ const submitEditShoe = async (vals: {
       }
 
       // Show error to user (you can replace alert with a better notification system)
-      alert(`Error: ${errorMessage}`);
+      toast.error(`Error: ${errorMessage}`);
 
       // Don't close the modal on error, so user can try again
     }
@@ -700,7 +700,7 @@ const submitEditShoe = async (vals: {
       loadOrderDetails();
     } catch (error) {
       console.error('Error registering payment:', error);
-      alert('Error al registrar el pago');
+      toast.error('Error al registrar el pago');
     }
   };
 
@@ -727,7 +727,7 @@ const submitEditShoe = async (vals: {
       loadOrderDetails();
     } catch (error) {
       console.error('Error uploading identification:', error);
-      alert('Error al subir la identificación');
+      toast.error('Error al subir la identificación');
     }
   };
 
@@ -1480,7 +1480,6 @@ const submitEditShoe = async (vals: {
     onSubmit={handleStorageLocationSubmit}
     orderItems={storageItems}
     existingLocations={existingLocations}
-    empleadoId={currentEmpleadoId}
   />
 )}
 

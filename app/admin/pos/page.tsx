@@ -114,6 +114,10 @@ export default function POSPage() {
         ordenId: number;
         codigoOrden: string;
         requiereIdentificacion: boolean;
+        total: number;
+        cambio: number;
+        fallosFotos: number;
+        ubicacionesAsignadas?: boolean;
     } | null>(null);
 
     // Estados para los modales mejorados
@@ -127,9 +131,7 @@ export default function POSPage() {
     } | null>(null);
     
     // Estados para ubicaciones
-    const [pendingLocationAssignment, setPendingLocationAssignment] = useState<CartItem[]>([]);
     const [orderItemsForLocation, setOrderItemsForLocation] = useState<any[]>([]);
-    const [currentEmpleadoId] = useState(1); // TODO: Obtener del contexto de usuario
 
     // Fetch services on mount
     useEffect(() => {
@@ -309,6 +311,10 @@ export default function POSPage() {
 
     const updateQuantity = (index: number, newQuantity: number) => {
         if (newQuantity <= 0) return;
+        // Un par identificado (marca/modelo) es un renglón propio con su
+        // ubicación y sus fotos; agruparlos rompería ese vínculo.
+        const item = cart[index];
+        if (item.tipo === 'servicio' && (item.marca || item.modelo || item.descripcion)) return;
         const newCart = [...cart];
         newCart[index].cantidad = newQuantity;
         setCart(newCart);
@@ -329,27 +335,18 @@ export default function POSPage() {
         setIsClientFormOpen(false);
     };
 
-    // Función de checkout actualizada con modal de ubicaciones
-    const handleCheckout = async (paymentData: { metodoPago: string; monto: number }) => {
+    // Checkout: el servidor calcula los importes y devuelve el id de cada par
+    const handleCheckout = async (paymentData: {
+        metodoPago: string;
+        monto: number;
+        efectivoRecibido?: number;
+    }) => {
         if (!selectedClient) {
-            setError('Por favor selecciona un cliente');
+            setError('Selecciona un cliente antes de cobrar');
             return;
         }
-        if (cart.length === 0) {
-            setError('El carrito está vacío');
-            return;
-        }
-        const serviciosEnCarrito = cart.filter(item => item.tipo === 'servicio');
-        if (serviciosEnCarrito.length === 0) {
-            setError('Debe haber al menos un servicio en la orden');
-            return;
-        }
-
-        const calculosVerificados = verificarCalculos();
-        const totalOrden = calculosVerificados.totalConIvaTotal;
-        
-        if (paymentData.monto < totalOrden) {
-            setError(`El monto pagado (${paymentData.monto}) es menor al total de la orden (${totalOrden.toFixed(2)})`);
+        if (cart.filter((i) => i.tipo === 'servicio').length === 0) {
+            setError('La orden necesita al menos un servicio');
             return;
         }
 
@@ -357,239 +354,187 @@ export default function POSPage() {
             setIsLoading(true);
             setError(null);
 
+            // Se envían las líneas del carrito, no los importes. El total lo
+            // calcula el servidor a partir de los precios del catálogo: antes
+            // el navegador decidía cuánto costaba la orden.
             const servicios = cart
-                .filter(item => item.tipo === 'servicio')
-                .map(item => ({
-                    servicioId: typeof item.id === 'string' ? parseInt(item.id, 10) : item.id,
-                    cantidad: (item.marca || item.modelo || item.descripcion)
-                        ? 1
-                        : (typeof item.cantidad === 'string' ? parseInt(item.cantidad, 10) : item.cantidad),
-                    modeloId: item.modeloId ? (typeof item.modeloId === 'string' ? parseInt(item.modeloId, 10) : item.modeloId) : null,
-                    marca: item.marca || '',
-                    modelo: item.modelo || '',
+                .filter((item) => item.tipo === 'servicio')
+                .map((item) => ({
+                    servicioId: item.id,
+                    cantidad: (item.marca || item.modelo || item.descripcion) ? 1 : item.cantidad,
+                    modeloId: item.modeloId ?? null,
+                    marca: item.marca?.trim() || null,
+                    modelo: item.modelo?.trim() || null,
                     talla: item.talla?.trim() || null,
                     color: item.color?.trim() || null,
-                    descripcion: item.descripcion || ''
+                    descripcion: item.descripcion?.trim() || null,
                 }));
 
             const productos = cart
-                .filter(item => item.tipo === 'producto')
-                .map(item => ({
-                    productoId: typeof item.id === 'string' ? parseInt(item.id, 10) : item.id,
-                    cantidad: typeof item.cantidad === 'string' ? parseInt(item.cantidad, 10) : item.cantidad
-                }));
+                .filter((item) => item.tipo === 'producto')
+                .map((item) => ({ productoId: item.id, cantidad: item.cantidad }));
 
-            const clienteId = selectedClient.cliente_id ?? null;
-
-            let requiereIdentificacion = false;
-            for (const item of servicios) {
-                const servicioEncontrado = services.find(s => s.servicio_id === item.servicioId);
-                if (servicioEncontrado?.requiere_identificacion) {
-                    requiereIdentificacion = true;
-                    break;
-                }
-            }
-
-            const orderData = {
-                cliente: {
-                    cliente_id: clienteId,
-                    nombre: selectedClient.nombre,
-                    apellidos: selectedClient.apellidos || '',
-                    telefono: selectedClient.telefono || '',
-                    email: selectedClient.email || ''
-                },
-                servicios,
-                productos,
-                subtotal: calculosVerificados.subtotalTotal,
-                iva: calculosVerificados.ivaTotal,
-                total: calculosVerificados.totalConIvaTotal,
-                metodoPago: paymentData.metodoPago,
-                monto: typeof paymentData.monto === 'string' ? parseFloat(paymentData.monto) : paymentData.monto,
-                tieneIdentificacion: !!tieneIdentificacion,
-                notas: notas || ''
-            };
-
-            const response = await fetch('/api/admin/pos', {
+            const respuesta = await fetch('/api/admin/pos', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData),
+                body: JSON.stringify({
+                    cliente: {
+                        cliente_id: selectedClient.cliente_id ?? null,
+                        nombre: selectedClient.nombre,
+                        apellidos: selectedClient.apellidos || '',
+                        telefono: selectedClient.telefono || '',
+                        email: selectedClient.email || '',
+                    },
+                    servicios,
+                    productos,
+                    notas: notas || null,
+                    tieneIdentificacion: !!tieneIdentificacion,
+                    pago: {
+                        metodo: paymentData.metodoPago,
+                        monto: paymentData.monto,
+                        efectivoRecibido: paymentData.efectivoRecibido ?? null,
+                    },
+                }),
             });
-            
-            const result = await response.json();
 
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Error al procesar la orden');
+            const resultado = await respuesta.json();
+            if (!respuesta.ok || !resultado.success) {
+                throw new Error(resultado.error || 'No se pudo procesar la orden');
             }
 
-            // Verificar si hay servicios que requieren ubicación
-            const servicesRequiringLocation = cart.filter(item => 
-                item.tipo === 'servicio' && (item.marca || item.modelo)
+            setShowEnhancedPayment(false);
+
+            // Las fotos se suben ANTES de vaciar el carrito, emparejando por el
+            // índice que devuelve el servidor. La versión anterior buscaba en
+            // `result.servicios`, que la ruta nunca devolvía, así que todas las
+            // fotos se descartaban sin un solo mensaje de error.
+            const fallosFotos = await subirFotosDePares(
+                resultado.ordenId,
+                servicios,
+                resultado.servicios ?? []
             );
-            
-            if (servicesRequiringLocation.length > 0) {
-                // Obtener los detalles de servicios creados para el modal de ubicaciones
-                try {
-                    const detailsResponse = await fetch(`/api/admin/storage-locations?action=pending&ordenId=${result.ordenId}`);
-                    const detailsData = await detailsResponse.json();
-                    
-                    if (detailsData.success && detailsData.servicios.length > 0) {
-                        setOrderItemsForLocation(detailsData.servicios.map((servicio: any) => ({
-                            detalleServicioId: servicio.detalle_servicio_id,
-                            ordenId: result.ordenId,
-                            nombre: servicio.servicio_nombre,
-                            marca: servicio.marca,
-                            modelo: servicio.modelo,
-                            descripcion: servicio.descripcion_calzado
-                        })));
-                        
-                        setPendingLocationAssignment(servicesRequiringLocation);
-                        setShowEnhancedPayment(false);
-                        setShowStorageModal(true);
-                        
-                        setSuccessData({
-                            ordenId: result.ordenId,
-                            codigoOrden: result.codigoOrden,
-                            requiereIdentificacion: result.requiereIdentificacion || false
-                        });
-                    } else {
-                        // Si no se pueden obtener los detalles, proceder sin ubicaciones
-                        await completeOrder(result, paymentData, totalOrden);
-                    }
-                } catch (detailsError) {
-                    console.warn('No se pudieron obtener detalles para ubicaciones:', detailsError);
-                    await completeOrder(result, paymentData, totalOrden);
-                }
-            } else {
-                // Flujo normal sin ubicaciones
-                await completeOrder(result, paymentData, totalOrden);
+
+            const paresConDetalle = (resultado.servicios ?? []).filter(
+                (s: any) => s.marca || s.modelo
+            );
+
+            setSuccessData({
+                ordenId: resultado.ordenId,
+                codigoOrden: resultado.codigoOrden,
+                requiereIdentificacion: resultado.requiereIdentificacion || false,
+                total: resultado.total,
+                cambio: Math.max(0, (paymentData.efectivoRecibido ?? paymentData.monto) - resultado.total),
+                fallosFotos,
+            });
+
+            if (paresConDetalle.length > 0) {
+                setOrderItemsForLocation(
+                    paresConDetalle.map((s: any) => ({
+                        detalleServicioId: s.detalleServicioId,
+                        ordenId: resultado.ordenId,
+                        nombre: cart.find((c) => c.id === s.servicioId)?.nombre ?? 'Servicio',
+                        marca: s.marca,
+                        modelo: s.modelo,
+                    }))
+                );
+                setShowStorageModal(true);
             }
+
+            limpiarVenta();
         } catch (err) {
-            console.error('❌ Error al procesar orden:', err);
-            setError(err instanceof Error ? err.message : 'Error al procesar la orden');
+            console.error('Error al procesar la orden:', err);
+            setError(err instanceof Error ? err.message : 'No se pudo procesar la orden');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Función helper para completar la orden
-    const completeOrder = async (result: any, paymentData: any, totalOrden: number) => {
-        // Subir fotos de los servicios de calzado antes de limpiar el carrito
-        await uploadShoePhotos(result.ordenId, result.servicios);
-
+    const limpiarVenta = () => {
         setCart([]);
         setSelectedClient(null);
         setNotas('');
         setTieneIdentificacion(false);
         setSearchTerm('');
-
-        const cambio = paymentData.monto - totalOrden;
-        let mensajeExito = `¡Orden ${result.codigoOrden} creada exitosamente!`;
-        if (cambio > 0) {
-            mensajeExito += `\n\nCambio a entregar: ${cambio.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-        }
-        if (result.requiereIdentificacion && !tieneIdentificacion) {
-            mensajeExito += '\n\n⚠️ IMPORTANTE: Este servicio requiere identificación. Asegúrate de solicitarla al cliente.';
-        }
-        alert(mensajeExito);
     };
 
-    // Función para subir fotos de los servicios de calzado
-    const uploadShoePhotos = async (ordenId: number, serviciosCreados: any[]) => {
-        const serviciosConFotos = cart.filter(item =>
-            item.tipo === 'servicio' &&
-            item.fotos &&
-            item.fotos.length > 0
-        );
+    /**
+     * Sube las fotos de cada par y las ancla al renglón que le corresponde.
+     * Devuelve cuántas no se pudieron subir, para avisarlo en pantalla en vez
+     * de perderlas en silencio.
+     */
+    const subirFotosDePares = async (
+        ordenId: number,
+        lineasEnviadas: Array<Record<string, unknown>>,
+        detallesCreados: Array<{ detalleServicioId: number; indice: number }>
+    ): Promise<number> => {
+        const lineasServicio = cart.filter((item) => item.tipo === 'servicio');
+        let fallos = 0;
 
-        if (serviciosConFotos.length === 0) return;
+        for (let i = 0; i < lineasServicio.length; i++) {
+            const item = lineasServicio[i];
+            if (!item.fotos?.length) continue;
 
-        for (const servicioItem of serviciosConFotos) {
-            // Encontrar el detalle_servicio_id correspondiente
-            const servicioCreado = serviciosCreados.find(s =>
-                s.servicio_id === servicioItem.id &&
-                s.marca === servicioItem.marca &&
-                s.modelo === servicioItem.modelo
-            );
+            const detalle = detallesCreados.find((d) => d.indice === i);
+            if (!detalle) {
+                fallos += item.fotos.length;
+                continue;
+            }
 
-            if (!servicioCreado || !servicioItem.fotos) continue;
-
-            // Subir cada foto
-            for (const foto of servicioItem.fotos) {
+            for (const foto of item.fotos) {
                 try {
                     const formData = new FormData();
                     formData.append('file', foto);
                     formData.append('tipo', 'calzado_entrada');
                     formData.append('entidadTipo', 'orden');
-                    formData.append('entidadId', ordenId.toString());
-                    formData.append('descripcion', `Foto de ${servicioItem.marca} ${servicioItem.modelo} - ${foto.name}`);
+                    formData.append('entidadId', String(ordenId));
+                    formData.append('detalleServicioId', String(detalle.detalleServicioId));
+                    formData.append(
+                        'descripcion',
+                        `${item.marca ?? ''} ${item.modelo ?? ''}`.trim() || 'Foto de entrada'
+                    );
 
-                    const response = await fetch('/api/admin/upload', {
-                        method: 'POST',
-                        body: formData,
-                    });
-
-                    if (!response.ok) {
-                        console.error('Error al subir foto:', await response.text());
+                    const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                    if (!res.ok) {
+                        fallos++;
+                        console.error('No se pudo subir la foto:', await res.text());
                     }
-                } catch (error) {
-                    console.error('Error uploading photo:', error);
+                } catch (err) {
+                    fallos++;
+                    console.error('Error subiendo foto:', err);
                 }
             }
         }
+
+        return fallos;
     };
 
-    // Función para manejar ubicaciones de almacenamiento
     const handleStorageLocationSubmit = async (locations: LocationData[]) => {
         try {
-            const response = await fetch('/api/admin/storage-locations', {
+            const respuesta = await fetch('/api/admin/storage-locations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    locations: locations.map(loc => ({
+                    locations: locations.map((loc) => ({
                         detalleServicioId: loc.detalleServicioId,
                         ordenId: loc.ordenId,
                         cajaAlmacenamiento: loc.cajaAlmacenamiento,
-                        codigoUbicacion: loc.codigoUbicacion,
-                        notasEspeciales: loc.notasEspeciales
+                        codigoUbicacion: loc.codigoUbicacion || null,
+                        notasEspeciales: loc.notasEspeciales || null,
                     })),
-                    empleadoId: currentEmpleadoId
-                })
+                }),
             });
 
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Error al asignar ubicaciones');
-            }
-            
-            // Subir fotos antes de completar la orden
-            if (successData) {
-                await uploadShoePhotos(successData.ordenId, []);
+            const resultado = await respuesta.json();
+            if (!respuesta.ok || !resultado.success) {
+                throw new Error(resultado.error || 'No se pudieron asignar las ubicaciones');
             }
 
-            // Completar la orden
             setShowStorageModal(false);
-            setPendingLocationAssignment([]);
             setOrderItemsForLocation([]);
-
-            // Limpiar carrito
-            setCart([]);
-            setSelectedClient(null);
-            setNotas('');
-            setTieneIdentificacion(false);
-            setSearchTerm('');
-
-            // Mostrar mensaje de éxito
-            if (successData) {
-                let mensajeExito = `¡Orden ${successData.codigoOrden} creada exitosamente!`;
-                mensajeExito += '\n\n✅ Ubicaciones de almacenamiento asignadas correctamente.';
-                alert(mensajeExito);
-                setSuccessData(null);
-            }
-            
-        } catch (error) {
-            console.error('Error asignando ubicaciones:', error);
-            setError('Error al asignar ubicaciones. Intenta nuevamente.');
+            setSuccessData((prev) => (prev ? { ...prev, ubicacionesAsignadas: true } : prev));
+        } catch (err) {
+            console.error('Error asignando ubicaciones:', err);
+            setError(err instanceof Error ? err.message : 'No se pudieron asignar las ubicaciones');
         }
     };
 
@@ -602,7 +547,6 @@ export default function POSPage() {
         setActiveTab('servicios');
         setSuccessData(null);
         setError(null);
-        setPendingLocationAssignment([]);
         setOrderItemsForLocation([]);
     };
 
@@ -613,6 +557,9 @@ export default function POSPage() {
                 ordenId={successData.ordenId}
                 codigoOrden={successData.codigoOrden}
                 requiereIdentificacion={successData.requiereIdentificacion}
+                total={successData.total}
+                cambio={successData.cambio}
+                fallosFotos={successData.fallosFotos}
                 onStartNew={startNewOrder}
             />
         );
@@ -890,12 +837,10 @@ export default function POSPage() {
                     isOpen={showStorageModal}
                     onClose={() => {
                         setShowStorageModal(false);
-                        setPendingLocationAssignment([]);
                         setOrderItemsForLocation([]);
                     }}
                     onSubmit={handleStorageLocationSubmit}
                     orderItems={orderItemsForLocation}
-                    empleadoId={currentEmpleadoId}
                 />
             )}
         </div>

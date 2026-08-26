@@ -6,10 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:status": "node scripts/migrate.mjs status",
+    "db:seed": "node scripts/seed.mjs",
+    "db:migrate-from-mysql": "node scripts/migrate-from-mysql.mjs",
+    "typecheck": "tsc --noEmit",
+    "db:reset": "bash scripts/reset-dev.sh"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.913.0",
+    "@aws-sdk/client-s3": "^3.1118.0",
+    "@aws-sdk/s3-request-presigner": "^3.1118.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@types/nodemailer": "^6.4.17",
     "add": "^2.0.6",
@@ -21,10 +28,10 @@
     "dotenv": "^16.4.7",
     "framer-motion": "^12.6.3",
     "lucide-react": "^0.511.0",
-    "mysql2": "^3.14.0",
     "next": "15.2.4",
     "next-auth": "^4.24.11",
     "nodemailer": "^7.0.3",
+    "pg": "^8.23.0",
     "react": "^19.0.0-rc.1",
     "react-dom": "^19.0.0-rc.1",
     "react-router-dom": "^7.4.0",
@@ -32,17 +39,20 @@
     "server-only": "^0.0.1",
     "shadcn": "^2.5.0",
     "tailwind-merge": "^3.3.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@svgr/webpack": "^8.1.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.0",
     "typescript": "^5"

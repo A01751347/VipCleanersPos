@@ -16,10 +16,12 @@ import {
 import OrdersTable, { Order } from '../../../components/admin/OrdersTable';
 import StatusFilter from '../../../components/admin/StatusFilter';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 // Definir la interfaz completa para las órdenes
 
 export default function OrdersPage() {
+  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
@@ -160,7 +162,7 @@ console.log(loadOrders);
   const handleExportData = () => {
     // Aquí iría la lógica para exportar datos
     console.log('Exportando datos...');
-    alert('Funcionalidad de exportación no implementada aún');
+    toast.exito('Funcionalidad de exportación no implementada aún');
   };
 
   return (

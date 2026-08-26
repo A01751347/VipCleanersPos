@@ -269,7 +269,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
   };
 
   // Componentes de pasos optimizados
-  const StepPersonalInfo = React.memo(() => (
+  const renderStepPersonalInfo = () => (
     <div className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-[#313D52] mb-2">
@@ -313,9 +313,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
         />
       </div>
     </div>
-  ));
+  );
 
-  const StepService = React.memo(() => (
+  const renderStepService = () => (
     <div className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-[#313D52] mb-4">
@@ -373,9 +373,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
         />
       </div>
     </div>
-  ));
+  );
 
-  const StepDelivery = React.memo(() => (
+  const renderStepDelivery = () => (
     <div className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-[#313D52] mb-4">
@@ -421,9 +421,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
         </div>
       )}
     </div>
-  ));
+  );
 
-  const StepDateTime = React.memo(() => {
+  const renderStepDateTime = () => {
     const today = new Date().toISOString().split('T')[0];
     const timeSlots = [
       '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'
@@ -467,7 +467,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
         </div>
       </div>
     );
-  });
+  };
 
   const SuccessScreen = () => (
     <div className="text-center py-8">
@@ -496,11 +496,11 @@ const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) => {
 
   const renderCurrentStep = () => {
     switch (currentStep) {
-      case 1: return <StepPersonalInfo />;
-      case 2: return <StepService />;
-      case 3: return <StepDelivery />;
-      case 4: return <StepDateTime />;
-      default: return <StepPersonalInfo />;
+      case 1: return renderStepPersonalInfo();
+      case 2: return renderStepService();
+      case 3: return renderStepDelivery();
+      case 4: return renderStepDateTime();
+      default: return renderStepPersonalInfo();
     }
   };
 

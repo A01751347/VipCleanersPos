@@ -1,25 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAllServices, getServiceById } from '../../../lib/database';
+import { NextResponse } from 'next/server';
+import { rutaProtegida } from '@/lib/auth/guard';
+import { getServicios, getZonasCobertura } from '@/lib/db';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-    const onlyActive = searchParams.get('onlyActive') !== 'false';
+/** Catálogo público: sólo servicios activos y zonas de cobertura. */
+export const GET = rutaProtegida(async () => {
+  const [servicios, zonas] = await Promise.all([getServicios(true), getZonasCobertura()]);
 
-    if (id) {
-      const service = await getServiceById(parseInt(id, 10));
-      if (!service) {
-        return NextResponse.json({ error: 'Servicio no encontrado' }, { status: 404 });
-      }
-      // 🔒 Sanitiza campos si es necesario
-      return NextResponse.json({ service }, { status: 200 });
-    }
-
-    const services = await getAllServices(onlyActive);
-    // 🔒 Sanitiza campos si es necesario
-    return NextResponse.json({ services }, { status: 200 });
-  } catch (e) {
-    return NextResponse.json({ error: 'Error al procesar la solicitud' }, { status: 500 });
-  }
-}
+  return NextResponse.json({
+    success: true,
+    services: servicios.map((s: any) => ({
+      servicio_id: s.servicio_id,
+      nombre: s.nombre,
+      descripcion: s.descripcion,
+      precio: s.precio,
+      tiempo_estimado_minutos: s.tiempo_estimado_minutos,
+      requiere_identificacion: s.requiere_identificacion,
+      imagen_url: s.imagen_url,
+    })),
+    servicios,
+    zonas,
+  });
+});

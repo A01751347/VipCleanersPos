@@ -1,800 +1,148 @@
-// app/api/booking/route.ts - Versión actualizada para múltiples servicios correctos
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  createClient, 
-  getClientByEmail, 
-  createReservation,
-  getOrderByCode,
-  getReservationByCode,
-  createAddress,
-  executeQuery
-} from '../../../lib/database';
+import { rutaProtegida } from '@/lib/auth/guard';
+import {
+  crearOrden, crearOEncontrarCliente, crearDireccion,
+  validarFechaReserva, validarZonaPickup, getCalendarioDisponibilidad,
+  getDisponibilidad, BusinessError, ESTADO_PENDIENTE,
+} from '@/lib/db';
+import { validar, reservaSchema } from '@/lib/validation/schemas';
+import { verificarTurnstile } from '@/lib/turnstile';
+import { aplicarLimite, ipDe } from '@/lib/auth/rate-limit';
+import { notificarReservaCreada } from '@/lib/notifications';
 
-// Zonas de cobertura con costos de pickup
-const COVERAGE_ZONES = [
-  { zipRange: ['76000', '76099'], zone: 'Centro', cost: 49, time: '30-45 min' },
-  { zipRange: ['76100', '76199'], zone: 'Norte', cost: 69, time: '45-60 min' },
-  { zipRange: ['76200', '76299'], zone: 'Sur', cost: 79, time: '50-65 min' },
-  { zipRange: ['76300', '76399'], zone: 'Este', cost: 59, time: '35-50 min' },
-  { zipRange: ['76400', '76499'], zone: 'Oeste', cost: 64, time: '40-55 min' }
-];
-// Turnstile verification moved inside POST handler
-// Tipos para múltiples servicios
-interface ServiceRequest {
-  serviceId: string;
-  quantity: number;
-  shoesType: string;
-  serviceName?: string;
-  servicePrice?: number;
-}
+/**
+ * Reserva en línea.
+ *
+ * Antes esta ruta: no validaba fecha ni horario (se podía reservar en el
+ * pasado o en día cerrado), leía el id de la orden con una variable de sesión
+ * en otra conexión del pool, calculaba los importes con flotantes, no tenía
+ * límite de peticiones y no enviaba ningún correo de confirmación.
+ */
+export const POST = rutaProtegida(async (request: NextRequest) => {
+  await aplicarLimite(request, 'booking', 5, 600);
 
-// Función para validar zona de cobertura
-function validatePickupZone(zipCode: string) {
-  if (!zipCode || zipCode.length !== 5) {
-    return { available: false, zone: null, cost: 0, time: '' };
+  const cuerpo = await request.json();
+  const datos = validar(reservaSchema, cuerpo);
+  await verificarTurnstile(datos.turnstileToken, ipDe(request));
+
+  const totalPares = datos.services.reduce((s, x) => s + x.quantity, 0);
+  const cuando = await validarFechaReserva(datos.bookingDate, datos.bookingTime, totalPares);
+
+  // Zona y costo salen de la base, no de una lista escrita en el código.
+  let costoPickup = 0;
+  let zonaPickup: string | null = null;
+  let direccionId: number | null = null;
+  const requierePickup = datos.requiresPickup && datos.deliveryMethod === 'pickup';
+
+  if (requierePickup) {
+    if (!datos.address) throw new BusinessError('La dirección es obligatoria para recolección.');
+    const zona = await validarZonaPickup(datos.address.zipCode);
+    if (!zona.disponible) {
+      throw new BusinessError('Todavía no damos servicio de recolección en ese código postal.');
+    }
+    costoPickup = zona.costo;
+    zonaPickup = zona.zona;
   }
 
-  const zip = parseInt(zipCode);
-  const zone = COVERAGE_ZONES.find(z => {
-    return zip >= parseInt(z.zipRange[0]) && zip <= parseInt(z.zipRange[1]);
+  const partes = datos.fullName.trim().split(/\s+/);
+  const clienteId = await crearOEncontrarCliente({
+    nombre: partes[0],
+    apellidos: partes.slice(1).join(' '),
+    telefono: datos.phone,
+    email: datos.email,
   });
 
-  if (zone) {
-    return {
-      available: true,
-      zone: zone.zone,
-      cost: zone.cost,
-      time: zone.time
-    };
-  }
-
-  return { available: false, zone: null, cost: 0, time: '' };
-}
-
-// ============== POST - Crear Reserva con Múltiples Servicios como Orden ==============
-export async function POST(request: NextRequest) {
-  try {
-    const requestBody = await request.json();
-    
-    // Turnstile verification
-    if (process.env.SKIP_TURNSTILE !== 'true') {
-      const turnstileToken: string | undefined = requestBody.turnstileToken;
-      if (!turnstileToken) {
-        return NextResponse.json({ error: 'Falta verificación de seguridad' }, { status: 400 });
-      }
-    const turnstileResponse = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        // no-store evita resultados cacheados en serverless
-        cache: "no-store",
-        body: new URLSearchParams({
-          secret: process.env.TURNSTILE_SECRET_KEY ?? "",
-          response: turnstileToken,
-        }),
-      }
-    );
-    const turnstileData = await turnstileResponse.json();
-  if (!turnstileData.success) {
-    return NextResponse.json({ error: 'Verificación de seguridad falló' }, { status: 400 });
-  }
-}
-    
-    console.log('📥 Booking request received:', {
-      hasFullName: !!requestBody.fullName,
-      hasEmail: !!requestBody.email,
-      hasPhone: !!requestBody.phone,
-      deliveryMethod: requestBody.deliveryMethod,
-      servicesCount: requestBody.services?.length || 0,
-      // Mantener compatibilidad con versión anterior
-      serviceType: requestBody.serviceType,
-      shoesType: requestBody.shoesType
+  if (requierePickup && datos.address) {
+    direccionId = await crearDireccion({
+      clienteId,
+      tipo: 'pickup',
+      calle: datos.address.street,
+      numeroExterior: datos.address.number,
+      numeroInterior: datos.address.interior,
+      colonia: datos.address.neighborhood,
+      delegacionMunicipio: datos.address.municipality,
+      ciudad: datos.address.city,
+      estado: datos.address.state,
+      codigoPostal: datos.address.zipCode,
+      telefonoContacto: datos.address.phone || datos.phone,
+      destinatario: datos.fullName,
+      instrucciones: datos.address.instructions,
+      ventanaHoraInicio: datos.address.timeWindowStart,
+      ventanaHoraFin: datos.address.timeWindowEnd,
+      alias: 'Recolección',
     });
-    
-    const {
-      fullName,
-      email,
-      phone,
-      services, // Array de servicios nuevo
-      serviceType, // Mantener compatibilidad
-      shoesType, // Mantener compatibilidad  
-      totalServiceCost,
-      deliveryMethod,
-      bookingDate,
-      bookingTime,
-      address,
-      requiresPickup,
-      pickupCost,
-      pickupZone,
-      acceptTerms,
-  acceptWhatsapp
-
-  
-    } = requestBody;
-    
-    // Validaciones básicas
-    if ((!fullName || !email || !phone || !deliveryMethod || !bookingDate || !bookingTime) || (acceptTerms !== true)) {
-      return NextResponse.json(
-        { error: 'Todos los campos básicos son requeridos' },
-        { status: 400 }
-      );
-    
-    }
-
-    // Validar servicios - priorizar el array de servicios, pero mantener compatibilidad
-    let servicesToProcess: ServiceRequest[] = [];
-    
-    if (services && Array.isArray(services) && services.length > 0) {
-      // Nueva estructura con múltiples servicios
-      servicesToProcess = services;
-      
-      // Validar cada servicio
-      for (let i = 0; i < servicesToProcess.length; i++) {
-        const service = servicesToProcess[i];
-        if (!service.serviceId || !service.shoesType || service.quantity < 1) {
-          return NextResponse.json(
-            { error: `Servicio ${i + 1}: Todos los campos son requeridos y la cantidad debe ser mayor a 0` },
-            { status: 400 }
-          );
-        }
-      }
-    } else if (serviceType && shoesType) {
-      // Compatibilidad con versión anterior
-      servicesToProcess = [{
-        serviceId: serviceType,
-        quantity: 1,
-        shoesType: shoesType
-      }];
-    } else {
-      return NextResponse.json(
-        { error: 'Debe especificar al menos un servicio' },
-        { status: 400 }
-      );
-    }
-
-    // Validar formato de teléfono
-    const phoneClean = phone.replace(/\D/g, '');
-    if (phoneClean.length !== 10) {
-      return NextResponse.json(
-        { error: 'El número de teléfono debe tener 10 dígitos' },
-        { status: 400 }
-      );
-    }
-    
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'El correo electrónico no es válido' },
-        { status: 400 }
-      );
-    }
-
-    // Validar pickup si es necesario
-    if (requiresPickup && deliveryMethod === 'pickup') {
-      if (!address || !address.street || !address.number || !address.neighborhood || !address.zipCode) {
-        return NextResponse.json(
-          { error: 'La dirección completa es requerida para pickup' },
-          { status: 400 }
-        );
-      }
-
-      // Validar zona de cobertura
-      const zoneValidation = validatePickupZone(address.zipCode);
-      if (!zoneValidation.available) {
-        return NextResponse.json(
-          { error: 'La zona no tiene cobertura de pickup disponible' },
-          { status: 400 }
-        );
-      }
-
-      // Verificar que el costo enviado coincida
-      if (pickupCost !== zoneValidation.cost) {
-        return NextResponse.json(
-          { error: 'El costo de pickup no coincide con la zona' },
-          { status: 400 }
-        );
-      }
-    }
-    
-    // Extraer nombre y apellidos
-    const nameParts = fullName.trim().split(' ');
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-    const firstName = nameParts[0];
-    
-    // Buscar o crear cliente
-    let clientId;
-    const existingClient = await getClientByEmail(email);
-    
-    if (existingClient) {
-      clientId = existingClient.cliente_id;
-      console.log('✅ Cliente existente encontrado:', clientId);
-      
-      // Actualizar información del cliente si es necesario
-      try {
-        await executeQuery({
-          query: `
-            UPDATE clientes 
-            SET telefono = ?, nombre = ?, apellidos = ?, fecha_actualizacion = NOW()
-            WHERE cliente_id = ?
-          `,
-          values: [phoneClean, firstName, lastName, clientId]
-        });
-        console.log('✅ Cliente actualizado exitosamente');
-      } catch (updateError) {
-        console.log('⚠️ Error actualizando cliente (no crítico):', updateError);
-      }
-    } else {
-      console.log('🆕 Creando nuevo cliente...');
-      try {
-        clientId = await createClient(
-          firstName,
-          lastName,
-          phoneClean,
-          email,
-          "",  // direccion
-          "",  // codigo_postal
-          "",  // ciudad
-          ""   // estado
-        );
-        
-        console.log('✅ Nuevo cliente creado con ID:', clientId);
-      } catch (createError) {
-        console.error('❌ Error creando cliente:', createError);
-        throw new Error('Error al crear el cliente');
-      }
-    }
-    
-    // Verificar que clientId sea válido
-    if (!clientId || typeof clientId !== 'number') {
-      console.error('❌ Cliente ID inválido:', clientId, typeof clientId);
-      throw new Error('Error al obtener ID de cliente válido');
-    }
-    
-    // Crear dirección si es pickup
-    let addressId = null;
-    if (requiresPickup && address) {
-      console.log('🏠 Creando dirección de pickup...');
-      try {
-        addressId = await createAddress(
-          clientId,                                    // clienteId
-          'pickup',                                   // tipo
-          address.street || '',                       // calle
-          address.number || '',                       // numeroExterior
-          address.interior || '',                   // numeroInterior
-          address.neighborhood || '',               // colonia
-          address.municipality || '',               // delegacionMunicipio
-          address.city || 'Santiago de Querétaro',   // ciudad
-          address.state || 'Querétaro',              // estado
-          address.zipCode || '',                      // codigoPostal
-          'Dirección de pickup para reserva',        // alias
-          address.phone || phoneClean,               // telefonoContacto
-          fullName,                                  // destinatario
-          address.instructions || "",              // instrucciones
-          address.timeWindowStart || "",           // ventanaHoraInicio
-          address.timeWindowEnd || ""              // ventanaHoraFin
-        );
-        console.log('✅ Dirección creada con ID:', addressId);
-        
-        if (!addressId || typeof addressId !== 'number') {
-          throw new Error('No se pudo crear la dirección correctamente');
-        }
-      } catch (error) {
-        console.error('❌ Error creando dirección:', error);
-        return NextResponse.json(
-          { error: 'Error al guardar la dirección: ' + (error instanceof Error ? error.message : 'Error desconocido') },
-          { status: 500 }
-        );
-      }
-    }
-    
-    // Combinar fecha y hora para crear un datetime completo
-    const bookingDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
-    const estimatedDeliveryDate = new Date(bookingDateTime);
-    
-    // Calcular tiempo total estimado basado en los servicios
-    let totalEstimatedMinutes = 0;
-    for (const service of servicesToProcess) {
-      try {
-        const serviceResult = await executeQuery<any[]>({
-          query: 'SELECT tiempo_estimado_minutos FROM servicios WHERE servicio_id = ?',
-          values: [parseInt(service.serviceId)]
-        });
-        
-        if (serviceResult.length > 0 && serviceResult[0].tiempo_estimado_minutos) {
-          totalEstimatedMinutes += serviceResult[0].tiempo_estimado_minutos * service.quantity;
-        } else {
-          // Tiempo por defecto si no se encuentra
-          totalEstimatedMinutes += 60 * service.quantity; // 1 hora por servicio por defecto
-        }
-      } catch (error) {
-        console.log('⚠️ Error obteniendo información del servicio:', error);
-        totalEstimatedMinutes += 60 * service.quantity; // Fallback
-      }
-    }
-    
-    // Agregar tiempo estimado más 72 horas de procesamiento
-    estimatedDeliveryDate.setTime(
-      estimatedDeliveryDate.getTime() + 
-      (totalEstimatedMinutes * 60 * 1000) + 
-      (72 * 60 * 60 * 1000)
-    );
-    
-    // 🆕 NUEVA LÓGICA: Crear como ORDEN en lugar de reservación
-    console.log('💾 Creando orden directamente para múltiples servicios...');
-    
-    try {
-      // 1. Crear la orden principal usando el procedimiento almacenado
-      await executeQuery({
-        query: `CALL CrearOrden(?, ?, NULL, ?, ?,?,?, @orden_id, @codigo_orden)`,
-        values: [
-          clientId, 
-          1, // empleado_id por defecto para booking online
-          estimatedDeliveryDate, 
-          `Reservación online con ${servicesToProcess.length} servicio${servicesToProcess.length > 1 ? 's' : ''}`,
-          "RES",
-          9
-        ]
-      });
-      
-      const [orderResult] = await executeQuery<any>({
-        query: `SELECT @orden_id as orden_id, @codigo_orden as codigo_orden`,
-        values: []
-      });
-      
-      const ordenId = orderResult.orden_id;
-      const codigoOrden = orderResult.codigo_orden;
-      
-      console.log('✅ Orden creada:', { ordenId, codigoOrden });
-      
-      // 2. Agregar todos los servicios a la orden
-      let subtotalServicios = 0;
-      
-      for (const service of servicesToProcess) {
-        try {
-          // Obtener información del servicio
-          const serviceInfo = await executeQuery<any[]>({
-            query: 'SELECT * FROM servicios WHERE servicio_id = ?',
-            values: [parseInt(service.serviceId)]
-          });
-          
-          if (serviceInfo.length === 0) {
-            console.warn(`⚠️ Servicio ${service.serviceId} no encontrado`);
-            continue;
-          }
-          
-          const servicioData = serviceInfo[0];
-          const precioUnitario = Number(servicioData.precio) || 0;
-          
-          // Crear registros individuales para cada par de tenis
-          for (let i = 0; i < service.quantity; i++) {
-            await executeQuery({
-              query: `
-                INSERT INTO detalles_orden_servicios (
-                  orden_id, servicio_id, cantidad, precio_unitario, descuento, subtotal,
-                  modelo_id, marca, modelo, descripcion_calzado
-                ) VALUES (?, ?, 1, ?, 0.00, ?, ?, ?, ?, ?)
-              `,
-              values: [
-                ordenId,
-                parseInt(service.serviceId),
-                precioUnitario,
-                precioUnitario,
-                null, // modelo_id
-                null, // marca (extraer de shoesType si es necesario)
-                service.shoesType.trim(), // modelo
-                `Par ${i + 1} de ${service.quantity} - ${service.shoesType}` // descripcion
-              ]
-            });
-            
-            subtotalServicios += precioUnitario;
-
-            
-          }
-          
-          console.log(`✅ Servicio agregado: ${servicioData.nombre} x${service.quantity} = $${precioUnitario * service.quantity}`);
-        } catch (serviceError) {
-          console.error(`❌ Error agregando servicio ${service.serviceId}:`, serviceError);
-          throw serviceError;
-        }
-      }
-      
-      // 3. Calcular totales CORRECTAMENTE
-      console.log('💰 Calculando totales:', {
-        subtotalServicios,
-        pickupCost: pickupCost || 0,
-        requiresPickup
-      });
-      
-      // Subtotal = servicios + pickup (sin IVA)
-      const subtotalCompleto =( subtotalServicios + (requiresPickup ? (pickupCost || 0) : 0))/1.16;
-      
-      // IVA sobre el subtotal completo
-      const iva = subtotalCompleto * 0.16; // 16% IVA
-      
-      // Total final
-      const totalFinal = subtotalCompleto + iva;
-      
-      console.log('💰 Desglose de costos:', {
-        subtotalServicios: (Number(subtotalServicios) || 0).toFixed(2),
-        costoPickup: (requiresPickup ? (pickupCost || 0) : 0).toFixed(2),
-        subtotalCompleto: (Number(subtotalCompleto) || 0).toFixed(2),
-        iva: (Number(iva) || 0).toFixed(2),
-        totalFinal: (Number(totalFinal) || 0).toFixed(2)
-      });
-      
-      
-      // 4. Actualizar la orden con totales correctos
-      let notasAdicionales = `Reservación online - ${servicesToProcess.length} servicio${servicesToProcess.length > 1 ? 's' : ''}`;
-      notasAdicionales += `\nServicios: $${(Number(subtotalServicios) || 0).toFixed(2)}`;
-
-      
-      if (requiresPickup && pickupZone && pickupCost) {
-        notasAdicionales += `\nPickup: Zona ${pickupZone} (+$${pickupCost.toFixed(2)})`;
-      }
-      
-      notasAdicionales += `\nSubtotal: $${(Number(subtotalCompleto)||0).toFixed(2)}`;
-      notasAdicionales += `\nIVA (16%): $${(Number(iva)||0).toFixed(2)}`;
-      notasAdicionales += `\nTotal: $${(Number(totalFinal)||0).toFixed(2)}`;
-      
-      if (address && address.instructions) {
-        notasAdicionales += `\nInstrucciones: ${address.instructions}`;
-      }
-      
-      await executeQuery({
-        query: `
-          UPDATE ordenes 
-          SET 
-            subtotal = ?, 
-            impuestos = ?, 
-            total = ?, 
-            estado_pago = 'pendiente',
-            requiere_identificacion = FALSE,
-            metodo_pago = 'pendiente',
-            notas = ?,
-            direccion_id = ?,
-            costo_pickup = ?,
-            zona_pickup = ?,
-            requiere_pickup = ?,
-            acepta_terminos = ?,
-      acepta_whatsapp = ?,
-      consent_at = NOW()
-          WHERE orden_id = ?
-        `,
-        values: [
-          subtotalCompleto, // subtotal incluye servicios + pickup (sin IVA)
-          iva,              // IVA sobre el subtotal completo
-          totalFinal,       // total final con todo incluido
-          notasAdicionales,
-          addressId,
-          requiresPickup ? (pickupCost || 0) : 0,
-          requiresPickup ? pickupZone : null,
-          requiresPickup ? 1 : 0,
-          acceptTerms ? 1 : 0,
-    acceptWhatsapp ? 1 : 0,
-          ordenId
-        ]
-      });
-      
-      // 5. Registrar en costos adicionales si hay pickup
-      if (requiresPickup && pickupCost && pickupZone) {
-        try {
-          await executeQuery({
-            query: `
-              INSERT INTO costos_adicionales_orden (
-                orden_id,
-                concepto,
-                descripcion,
-                monto,
-                fecha_creacion
-              ) VALUES (?, 'pickup', ?, ?, NOW())
-            `,
-            values: [
-              ordenId,
-              `Servicio de pickup - Zona ${pickupZone}`,
-              pickupCost
-            ]
-          });
-          console.log('✅ Costo de pickup registrado en costos adicionales');
-        } catch (additionalCostError) {
-          console.warn('⚠️ Tabla costos_adicionales_orden no existe, usando solo campos de orden');
-        }
-      }
-      
-      console.log('🎉 Orden con múltiples servicios creada exitosamente:', codigoOrden);
-      
-      return NextResponse.json({ 
-        success: true, 
-        bookingReference: codigoOrden,
-        orderId: ordenId,
-        message: 'Orden creada exitosamente',
-        details: {
-          ordenId,
-          clientId,
-          addressId,
-          servicesCount: servicesToProcess.length,
-          totalServices: servicesToProcess.reduce((sum, s) => sum + s.quantity, 0),
-          deliveryMethod,
-          // 🆕 DESGLOSE CORRECTO DE COSTOS
-          costos: {
-            subtotalServicios: subtotalServicios,
-            costoPickup: requiresPickup ? (pickupCost || 0) : 0,
-            subtotalCompleto: subtotalCompleto,
-            iva: iva,
-            totalFinal: totalFinal
-          },
-          // Mantener compatibilidad
-          pickupCost: requiresPickup ? (pickupCost || 0) : 0,
-          totalServiceCost: subtotalServicios,
-          totalWithTax: totalFinal,
-          consent: {
-            acceptTerms: !!acceptTerms,
-            acceptWhatsapp: !!acceptWhatsapp,
-            consentAt: new Date().toISOString()
-          },
-          estimatedDelivery: estimatedDeliveryDate.toISOString()
-        }
-      }, { status: 201 });
-    } catch (orderError) {
-      console.error('❌ Error creando orden:', orderError);
-      return NextResponse.json(
-        { error: 'Error al crear la orden: ' + (orderError instanceof Error ? orderError.message : 'Error desconocido') },
-        { status: 500 }
-      );
-    }
-    
-  } catch (error) {
-    console.error('❌ Error en el endpoint de reserva:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor. Por favor, intenta nuevamente.' },
-      { status: 500 }
-    );
   }
-}
 
-// ============== GET - Obtener información de reserva/orden ==============
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const reference = searchParams.get('reference');
-    
-    console.log('🔍 Tracking request for reference:', reference);
-    
-    if (!reference) {
-      return NextResponse.json(
-        { error: 'Código de referencia es requerido' },
-        { status: 400 }
-      );
-    }
-    
-    const cleanReference = reference.trim().toUpperCase();
-    
-    // Intentar primero como orden
-    let bookingData = null;
-    let type = null;
-    
-    try {
-      const orderData = await getOrderByCode(cleanReference);
-      if (orderData) {
-        bookingData = orderData;
-        type = 'order';
-        console.log('✅ Found as order:', orderData.codigo_orden);
-      }
-    } catch (error) {
-      console.log('ℹ️ Not found as order, trying reservation...');
-    }
-    
-    // Si no es una orden, intentar como reservación
-    if (!bookingData) {
-      try {
-        const reservationData = await getReservationByCode(cleanReference);
-        if (reservationData) {
-          bookingData = reservationData;
-          type = 'reservation';
-          console.log('✅ Found as reservation:', reservationData.codigo_reservacion);
-        }
-      } catch (error) {
-        console.log('ℹ️ Not found as reservation either');
-      }
-    }
-    
-    if (!bookingData) {
-      return NextResponse.json(
-        { error: 'No se encontró ninguna orden o reserva con ese código' },
-        { status: 404 }
-      );
-    }
-    
-    // Obtener información adicional si es reserva
-    if (type === 'reservation') {
-      // Obtener información de la dirección si existe
-      if (bookingData.direccion_id) {
-        try {
-          const addressInfo = await executeQuery<any[]>({
-            query: 'SELECT * FROM direcciones WHERE direccion_id = ?',
-            values: [bookingData.direccion_id]
-          });
-          
-          if (addressInfo.length > 0) {
-            bookingData.direccion_pickup = addressInfo[0];
-          }
-        } catch (error) {
-          console.log('⚠️ Error obteniendo dirección:', error);
-        }
-      }
-      
-      // Obtener detalles de servicios si existen
-      try {
-        const serviceDetails = await executeQuery<any[]>({
-          query: `
-            SELECT 
-              drs.*,
-              s.nombre as servicio_nombre,
-              s.descripcion as servicio_descripcion
-            FROM detalles_reservacion_servicios drs
-            JOIN servicios s ON drs.servicio_id = s.servicio_id
-            WHERE drs.reservacion_id = ?
-          `,
-          values: [bookingData.reservacion_id]
-        });
-        
-        if (serviceDetails.length > 0) {
-          bookingData.servicios_detalle = serviceDetails;
-        }
-      } catch (error) {
-        console.log('⚠️ Error obteniendo detalles de servicios:', error);
-      }
-    }
-    
-    // Para órdenes, obtener servicios y detalles
-    if (type === 'order') {
-      try {
-        const serviceDetails = await executeQuery<any[]>({
-          query: `
-            SELECT 
-              dos.*,
-              s.nombre as servicio_nombre,
-              s.descripcion as servicio_descripcion
-            FROM detalles_orden_servicios dos
-            JOIN servicios s ON dos.servicio_id = s.servicio_id
-            WHERE dos.orden_id = ?
-            ORDER BY dos.detalle_servicio_id ASC
-          `,
-          values: [bookingData.orden_id]
-        });
-        
-        if (serviceDetails.length > 0) {
-          bookingData.servicios_detalle = serviceDetails;
-        }
-      } catch (error) {
-        console.log('⚠️ Error obteniendo detalles de servicios de orden:', error);
-      }
-    }
-    
-    // Normalizar la respuesta para el frontend
-    const normalizedResponse = {
-      // Datos básicos
-      id: bookingData.id || bookingData.orden_id || bookingData.reservacion_id,
-      type,
-      
-      // Códigos de referencia
-      codigo_orden: bookingData.codigo_orden,
-      codigo_reservacion: bookingData.codigo_reservacion,
-      booking_reference: bookingData.codigo_orden || bookingData.codigo_reservacion,
-      
-      // Información del cliente
-      cliente_nombre: bookingData.cliente_nombre || bookingData.nombre_cliente,
-      cliente_apellidos: bookingData.cliente_apellidos || bookingData.apellidos_cliente,
-      cliente_email: bookingData.cliente_email || bookingData.email,
-      cliente_telefono: bookingData.cliente_telefono || bookingData.telefono,
-      
-      // Información del servicio
-      servicio_nombre: bookingData.servicio_nombre || bookingData.servicio_solicitado,
-      marca: bookingData.marca || bookingData.marca_calzado,
-      modelo: bookingData.modelo || bookingData.modelo_calzado,
-      shoes_type: bookingData.shoes_type || bookingData.modelo_calzado || bookingData.modelo,
-      
-      // Estado y fechas
-      status: bookingData.estado_actual || bookingData.estado || 'pending',
-      estado: bookingData.estado_actual || bookingData.estado || 'pending',
-      fecha_recepcion: bookingData.fecha_recepcion,
-      fecha_reservacion: bookingData.fecha_reservacion,
-      fecha_entrega_estimada: bookingData.fecha_entrega_estimada,
-      created_at: bookingData.created_at || bookingData.fecha_creacion,
-      
-      // Información adicional
-      delivery_method: bookingData.delivery_method || bookingData.metodo_entrega,
-      total: bookingData.total,
-      estado_pago: bookingData.estado_pago,
-      costo_pickup: bookingData.costo_pickup,
-      zona_pickup: bookingData.zona_pickup,
+  const resultado = await crearOrden({
+    clienteId,
+    // La reserva la registra el sistema; queda como orden pendiente hasta que
+    // el calzado llega y un empleado la recibe.
+    empleadoId: await empleadoDelSistema(),
+    origen: 'online',
+    estadoInicialId: ESTADO_PENDIENTE,
+    servicios: datos.services.map((s) => ({
+      servicioId: s.serviceId,
+      cantidad: s.quantity,
+      descripcion: s.shoesType,
+    })),
+    requierePickup,
+    direccionId,
+    costoPickup,
+    zonaPickup,
+    fechaReservacion: cuando,
+    aceptaTerminos: datos.acceptTerms,
+    aceptaWhatsapp: datos.acceptWhatsapp,
+    notas: `Reserva en línea · ${totalPares} par${totalPares === 1 ? '' : 'es'}`,
+  });
 
-      consent: {
-        acceptTerms: bookingData.acepta_terminos ?? undefined,
-        acceptWhatsapp: bookingData.acepta_whatsapp ?? undefined,
-      },
-      
-      // Información de dirección para pickup
-      direccion_pickup: bookingData.direccion_pickup || null,
-      
-      // Detalles de servicios múltiples
-      servicios_detalle: bookingData.servicios_detalle || null,
-      
-      // Datos específicos para órdenes
-      ...(type === 'order' && {
-        servicios: bookingData.servicios,
-        historial: bookingData.historial,
-        productos: bookingData.productos,
-        pagos: bookingData.pagos
-      }),
-      
-      // Datos específicos para reservas
-      ...(type === 'reservation' && {
-        notas: bookingData.notas,
-        requiere_pickup: bookingData.requiere_pickup,
-        fecha_solicitud_pickup: bookingData.fecha_solicitud_pickup
-      })
-    };
-    
-    console.log('✅ Returning normalized response:', {
-      id: normalizedResponse.id,
-      type: normalizedResponse.type,
-      status: normalizedResponse.status,
-      reference: normalizedResponse.booking_reference,
-      servicesCount: normalizedResponse.servicios_detalle?.length || 0
-    });
-    
-    return NextResponse.json({ 
+  // La confirmación no bloquea la respuesta ni puede tumbar la reserva.
+  notificarReservaCreada(resultado.ordenId).catch((err) =>
+    console.error('[booking] no se pudo enviar la confirmación', err)
+  );
+
+  return NextResponse.json(
+    {
       success: true,
-      booking: normalizedResponse 
-    }, { status: 200 });
-    
-  } catch (error) {
-    console.error('❌ Error al obtener la reserva:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor. Por favor, intenta nuevamente.' },
-      { status: 500 }
-    );
-  }
-}
+      bookingReference: resultado.codigoOrden,
+      codigoSeguimiento: resultado.codigoSeguimiento,
+      total: resultado.total,
+      subtotal: resultado.subtotal,
+      impuestos: resultado.impuestos,
+      costoPickup,
+      zonaPickup,
+      fechaReservacion: cuando,
+      message: 'Reserva creada. Te enviamos la confirmación por correo.',
+    },
+    { status: 201 }
+  );
+});
 
-// ============== PUT - Validar zona de pickup ==============
-export async function PUT(request: NextRequest) {
-  try {
-    const { action, zipCode } = await request.json();
-    
-    if (action === 'validate-zone') {
-      if (!zipCode || zipCode.length !== 5) {
-        return NextResponse.json(
-          { error: 'Código postal debe tener 5 dígitos' },
-          { status: 400 }
-        );
-      }
-      
-      const zoneInfo = validatePickupZone(zipCode);
-      
-      return NextResponse.json({
-        success: true,
-        zoneInfo: {
-          zone: zoneInfo.zone,
-          isSupported: zoneInfo.available,
-          additionalCost: zoneInfo.cost,
-          estimatedTime: zoneInfo.time
-        }
-      }, { status: 200 });
-    }
-    
-    return NextResponse.json(
-      { error: 'Acción no válida' },
-      { status: 400 }
-    );
-    
-  } catch (error) {
-    console.error('❌ Error en validación:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
+/** Disponibilidad para pintar el calendario del formulario. */
+export const GET = rutaProtegida(async (request: NextRequest) => {
+  await aplicarLimite(request, 'booking-get', 60, 60);
+  const sp = request.nextUrl.searchParams;
+
+  const fecha = sp.get('fecha');
+  if (fecha) return NextResponse.json({ success: true, ...(await getDisponibilidad(fecha)) });
+
+  const dias = Math.min(60, Math.max(1, parseInt(sp.get('dias') ?? '30', 10)));
+  return NextResponse.json({ success: true, dias: await getCalendarioDisponibilidad(dias) });
+});
+
+/** Empleado bajo el que quedan las reservas automáticas. */
+async function empleadoDelSistema(): Promise<number> {
+  const { queryOne } = await import('@/lib/db');
+  const fila = await queryOne<{ empleado_id: number }>(
+    `SELECT e.empleado_id FROM empleados e
+     JOIN usuarios u ON u.usuario_id = e.usuario_id
+     WHERE e.activo AND u.rol = 'admin'
+     ORDER BY e.empleado_id LIMIT 1`
+  );
+  if (!fila) {
+    throw new BusinessError(
+      'No hay ningún administrador dado de alta para recibir reservas.',
+      503
     );
   }
+  return fila.empleado_id;
 }

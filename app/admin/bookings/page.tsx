@@ -1,317 +1,210 @@
-'use client'
+'use client';
 // app/admin/bookings/page.tsx
-import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  RefreshCw, 
-  ChevronLeft, 
-  ChevronRight, 
-  Download,
-  Loader2
+//
+// Las reservas en línea ya no viven en una tabla aparte: son órdenes con
+// `origen = 'online'`. Antes el formulario público escribía en `ordenes` pero
+// esta pantalla leía `reservaciones`, así que las reservas reales nunca
+// aparecían aquí y se perdían entre las ventas de mostrador.
+import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  Calendar, Search, RefreshCw, AlertCircle, Package, Clock, MapPin, ChevronRight,
 } from 'lucide-react';
-import BookingsTable from '../../../components/admin/BookingsTable';
-import StatusFilter from '../../../components/admin/StatusFilter';
 
-// Definir la interfaz para las reservaciones
-interface Booking {
-  id: number;
-  booking_reference: string;
-  full_name: string;
-  email: string;
-  service_type: string;
-  marca: string;
-  modelo: string;
-  shoes_type: string;
-  booking_date: string;
-  status: string;
-  created_at: string;
+interface Reserva {
+  orden_id: number;
+  codigo_orden: string;
+  cliente_nombre: string;
+  cliente_apellidos: string;
+  cliente_telefono: string | null;
+  estado_servicio: string;
+  color_estado: string;
+  total: number;
+  total_pares: number;
+  requiere_pickup: boolean;
+  zona_pickup: string | null;
+  fecha_reservacion: string | null;
+  fecha_recepcion: string;
+  fecha_entrega_estimada: string;
 }
 
-export default function BookingsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<{start: string, end: string}>({
-    start: '',
-    end: ''
-  });
-  
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [totalBookings, setTotalBookings] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [itemsPerPage] = useState(10); // Usar constante en lugar de setter
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+const formatoMXN = (n: number) =>
+  Number(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+
+const formatoFecha = (v: string | null) =>
+  v
+    ? new Date(v).toLocaleString('es-MX', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
+    : '—';
+
+export default function ReservasPage() {
+  const [reservas, setReservas] = useState<Reserva[]>([]);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  // Función para cargar los datos sin useCallback para evitar dependencias circulares
-  const loadBookings = async (
-    page: number = currentPage, 
-    status: string[] = selectedStatus, 
-    search: string = searchQuery, 
-    dates: {start: string, end: string} = dateRange
-  ) => {
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    setError(null);
     try {
-      setIsRefreshing(true);
-      
-      // Construir la URL con los parámetros de filtro
-      let url = `/api/admin/bookings?page=${page}&pageSize=${itemsPerPage}`;
-      
-      if (status && status.length > 0) {
-        url += `&status=${status.join(',')}`;
-      }
-      
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
-      }
-      
-      if (dates.start) {
-        url += `&startDate=${encodeURIComponent(dates.start)}`;
-      }
-      
-      if (dates.end) {
-        url += `&endDate=${encodeURIComponent(dates.end)}`;
-      }
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar las reservaciones');
-      }
-      
-      const data = await response.json();
-      
-      setBookings(data.bookings || []);
-      setTotalBookings(data.total || 0);
-      setTotalPages(data.totalPages || 1);
-      setError(null);
+      const params = new URLSearchParams({
+        origen: 'online',
+        page: String(pagina),
+        pageSize: '20',
+      });
+      if (busqueda.trim()) params.set('search', busqueda.trim());
+
+      const res = await fetch(`/api/admin/orders?${params}`);
+      const datos = await res.json();
+      if (!res.ok) throw new Error(datos.error || 'No se pudieron cargar las reservas');
+
+      setReservas(datos.ordenes ?? []);
+      setTotalPaginas(datos.totalPaginas ?? 1);
+      setTotal(datos.total ?? 0);
     } catch (err) {
-      console.error('Error fetching bookings:', err);
-      setError('Error al cargar las reservaciones. Intente nuevamente.');
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar las reservas');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      setCargando(false);
     }
-  };
+  }, [pagina, busqueda]);
 
-  // Cargar datos al montar el componente - solo una vez
   useEffect(() => {
-    loadBookings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Dependencia vacía para ejecutar solo al montar
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentPage(1); // Resetear a la primera página
-    loadBookings(1, selectedStatus, searchQuery, dateRange);
-  };
-
-  const handleStatusChange = (statuses: string[]) => {
-    setSelectedStatus(statuses);
-    setCurrentPage(1); // Resetear a la primera página
-    loadBookings(1, statuses, searchQuery, dateRange);
-  };
-
-  const handleDateRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    const newDateRange = {
-      ...dateRange,
-      [name]: value
-    };
-    setDateRange(newDateRange);
-    
-    // Si ambas fechas están definidas, actualizar la búsqueda
-    if ((name === 'start' && value && dateRange.end) || 
-        (name === 'end' && value && dateRange.start)) {
-      setCurrentPage(1); // Resetear a la primera página
-      loadBookings(1, selectedStatus, searchQuery, newDateRange);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      const newPage = currentPage - 1;
-      setCurrentPage(newPage);
-      loadBookings(newPage, selectedStatus, searchQuery, dateRange);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      const newPage = currentPage + 1;
-      setCurrentPage(newPage);
-      loadBookings(newPage, selectedStatus, searchQuery, dateRange);
-    }
-  };
-
-  const handleRefresh = () => {
-    loadBookings(currentPage, selectedStatus, searchQuery, dateRange);
-  };
-
-  const handleExportData = () => {
-    // Aquí iría la lógica para exportar datos
-    // Por ejemplo, generar un CSV de los datos actuales
-    console.log('Exportando datos...');
-    alert('Funcionalidad de exportación no implementada aún');
-  };
+    cargar();
+  }, [cargar]);
 
   return (
-    <div className="space-y-6">
-      {/* Cabecera y acciones */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+    <div className="p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[#313D52]">Administrar Reservaciones</h1>
-          <p className="text-sm text-[#6c7a89]">Visualiza y gestiona las reservaciones de los clientes</p>
+          <h1 className="text-2xl font-semibold text-[#313D52]">Reservas en línea</h1>
+          <p className="text-sm text-[#6c7a89] mt-1">
+            {total} reserva{total === 1 ? '' : 's'} recibida{total === 1 ? '' : 's'} desde el sitio
+          </p>
         </div>
-        
-        <div className="flex flex-wrap gap-3">
-          <button 
-            onClick={handleExportData}
-            className="inline-flex items-center px-4 py-2 bg-[#f5f9f8] text-[#313D52] rounded-lg border border-[#e0e6e5] hover:bg-[#e0e6e5] transition-colors"
+
+        <div className="flex items-center gap-2">
+          <form
+            onSubmit={(e) => { e.preventDefault(); setPagina(1); cargar(); }}
+            className="relative"
           >
-            <Download size={16} className="mr-2" />
-            Exportar
-          </button>
-          
-          <button 
-            className="inline-flex items-center px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6c7a89]" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Código, nombre o teléfono"
+              className="py-2 pl-10 pr-4 rounded-lg border border-[#e0e6e5] text-sm w-full sm:w-72
+                         focus:outline-none focus:ring-2 focus:ring-[#78f3d3]"
+            />
+          </form>
+          <button
+            onClick={cargar}
+            disabled={cargando}
+            className="p-2 rounded-lg border border-[#e0e6e5] text-[#6c7a89] hover:bg-[#f5f9f8] disabled:opacity-50"
+            aria-label="Recargar"
           >
-            {isRefreshing ? (
-              <>
-                <Loader2 size={16} className="mr-2 animate-spin" />
-                Actualizando...
-              </>
-            ) : (
-              <>
-                <RefreshCw size={16} className="mr-2" />
-                Actualizar
-              </>
-            )}
+            <RefreshCw size={18} className={cargando ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
-      
-      {/* Filtros y búsqueda */}
-      <div className="bg-white rounded-lg border border-[#e0e6e5] p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Búsqueda */}
-          <div className="md:flex-1">
-            <form onSubmit={handleSearch} className="flex items-center relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search size={18} className="text-[#6c7a89]" />
-              </div>
-              <input
-                type="text"
-                placeholder="Buscar por cliente, referencia o tipo de servicio..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="py-2 pl-10 pr-4 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] text-sm w-full"
-              />
-            </form>
-          </div>
-          
-          {/* Filtro por estado */}
-          <div className="flex-shrink-0">
-            <StatusFilter selectedStatus={selectedStatus} onChange={handleStatusChange} />
-          </div>
-          
-          {/* Filtro por fecha */}
-          <div className="flex-shrink-0 flex flex-col sm:flex-row gap-2">
-            <div>
-              <label htmlFor="startDate" className="block text-xs text-[#6c7a89] mb-1">Desde</label>
-              <input
-                type="date"
-                id="startDate"
-                name="start"
-                value={dateRange.start}
-                onChange={handleDateRangeChange}
-                className="py-2 px-3 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] text-sm w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="endDate" className="block text-xs text-[#6c7a89] mb-1">Hasta</label>
-              <input
-                type="date"
-                id="endDate"
-                name="end"
-                value={dateRange.end}
-                onChange={handleDateRangeChange}
-                className="py-2 px-3 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] text-sm w-full"
-              />
-            </div>
-          </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-start gap-2">
+          <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+          <span className="text-sm">{error}</span>
         </div>
-      </div>
-      
-      {/* Tabla de reservaciones */}
-      <div className="bg-white rounded-lg border border-[#e0e6e5] overflow-hidden">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 size={40} className="animate-spin text-[#78f3d3]" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-10 text-red-500">
-            <p>{error}</p>
-            <button 
-              onClick={handleRefresh} 
-              className="mt-4 px-4 py-2 bg-[#78f3d3] text-[#313D52] rounded-lg hover:bg-[#4de0c0] transition-colors"
+      )}
+
+      {cargando ? (
+        <div className="py-16 text-center text-[#6c7a89]">
+          <RefreshCw size={28} className="mx-auto mb-3 animate-spin" />
+          Cargando reservas…
+        </div>
+      ) : reservas.length === 0 ? (
+        <div className="py-16 text-center">
+          <Calendar size={40} className="mx-auto mb-3 text-[#e0e6e5]" />
+          <p className="text-[#313D52] font-medium">Todavía no hay reservas en línea</p>
+          <p className="text-sm text-[#6c7a89] mt-1">
+            Las que lleguen desde el sitio aparecerán aquí.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {reservas.map((r) => (
+            <Link
+              key={r.orden_id}
+              href={`/admin/orders/${r.orden_id}`}
+              className="flex items-center gap-4 bg-white border border-[#e0e6e5] rounded-lg p-4
+                         hover:border-[#78f3d3] transition-colors"
             >
-              Reintentar
-            </button>
-          </div>
-        ) : bookings.length === 0 ? (
-          <div className="text-center py-10 text-[#6c7a89]">
-            <p>No se encontraron reservaciones</p>
-          </div>
-        ) : (
-          <BookingsTable bookings={bookings} onStatusChange={handleRefresh} />
-        )}
-        
-        {/* Paginación */}
-        {!isLoading && !error && bookings.length > 0 && (
-          <div className="px-4 py-3 flex items-center justify-between border-t border-[#e0e6e5]">
-            <div className="text-sm text-[#6c7a89]">
-              Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalBookings)}</span> de <span className="font-medium">{totalBookings}</span> resultados
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handlePrevPage}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg ${
-                  currentPage === 1 
-                    ? 'text-[#e0e6e5] cursor-not-allowed' 
-                    : 'text-[#313D52] hover:bg-[#f5f9f8]'
-                }`}
-              >
-                <ChevronLeft size={20} />
-              </button>
-              
-              <span className="text-sm text-[#313D52]">
-                Página <span className="font-medium">{currentPage}</span> de <span className="font-medium">{totalPages}</span>
-              </span>
-              
-              <button
-                onClick={handleNextPage}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg ${
-                  currentPage === totalPages
-                    ? 'text-[#e0e6e5] cursor-not-allowed' 
-                    : 'text-[#313D52] hover:bg-[#f5f9f8]'
-                }`}
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-[#313D52]">{r.codigo_orden}</span>
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full text-white"
+                    style={{ backgroundColor: r.color_estado }}
+                  >
+                    {r.estado_servicio}
+                  </span>
+                  {r.requiere_pickup && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#e0f7f0] text-[#1f7a5c] inline-flex items-center gap-1">
+                      <MapPin size={11} /> {r.zona_pickup ?? 'Recolección'}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-sm text-[#313D52] mt-1 truncate">
+                  {r.cliente_nombre} {r.cliente_apellidos}
+                  {r.cliente_telefono && (
+                    <span className="text-[#6c7a89]"> · {r.cliente_telefono}</span>
+                  )}
+                </p>
+
+                <div className="flex items-center gap-4 text-xs text-[#6c7a89] mt-1 flex-wrap">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock size={12} /> Reserva: {formatoFecha(r.fecha_reservacion)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Package size={12} /> {r.total_pares} par{r.total_pares === 1 ? '' : 'es'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-right flex-shrink-0">
+                <div className="font-semibold text-[#313D52] tabular-nums">{formatoMXN(r.total)}</div>
+              </div>
+              <ChevronRight size={18} className="text-[#6c7a89] flex-shrink-0" />
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {totalPaginas > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button
+            onClick={() => setPagina((p) => Math.max(1, p - 1))}
+            disabled={pagina === 1}
+            className="px-4 py-2 rounded-lg border border-[#e0e6e5] text-sm disabled:opacity-40"
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-[#6c7a89]">
+            Página {pagina} de {totalPaginas}
+          </span>
+          <button
+            onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+            disabled={pagina === totalPaginas}
+            className="px-4 py-2 rounded-lg border border-[#e0e6e5] text-sm disabled:opacity-40"
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
     </div>
   );
 }

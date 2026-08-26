@@ -18,6 +18,7 @@ import {
   Clock
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 interface MessageDetails {
   id: number;
@@ -32,6 +33,7 @@ interface MessageDetails {
 }
 
 export default function MessageDetailsPage() {
+  const toast = useToast();
   const params = useParams();
   const router = useRouter();
   const [message, setMessage] = useState<MessageDetails | null>(null);
@@ -102,7 +104,7 @@ export default function MessageDetailsPage() {
       await fetchMessageDetails();
     } catch (err) {
       console.error('Error updating status:', err);
-      alert('Error al actualizar el estado del mensaje');
+      toast.error('Error al actualizar el estado del mensaje');
     } finally {
       setIsUpdating(false);
     }

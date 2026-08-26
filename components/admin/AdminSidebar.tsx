@@ -16,6 +16,8 @@ import {
   Warehouse,
   BaggageClaim,
   Box,
+  Calendar,
+  Settings,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -41,18 +43,26 @@ const groups: { label: string; items: readonly NavItem[] }[] = [
     label: 'Gestión',
     items: [
       { name: 'Órdenes', href: '/admin/orders', icon: Package },
+      { name: 'Reservas', href: '/admin/bookings', icon: Calendar },
       { name: 'Mensajes', href: '/admin/messages', icon: MessageSquare },
       { name: 'Clientes', href: '/admin/clients', icon: Users },
-      { name: 'Pagos', href: '/admin/payments', icon: CreditCard },
     ],
   },
   {
     label: 'Operación',
     items: [
+      { name: 'Caja', href: '/admin/payments', icon: CreditCard },
+      { name: 'Almacén', href: '/admin/warehouse', icon: Warehouse },
+      { name: 'Inventario', href: '/admin/inventory', icon: Box },
       { name: 'Reportes', href: '/admin/reports', icon: BarChart2 },
-      { name: 'Almacenamiento', href: '/admin/warehouse', icon: Warehouse },
+    ],
+  },
+  {
+    label: 'Configuración',
+    items: [
       { name: 'Servicios', href: '/admin/services', icon: BaggageClaim },
-      { name: 'Productos', href: '/admin/products', icon: Box },
+      { name: 'Productos', href: '/admin/products', icon: Package },
+      { name: 'Ajustes', href: '/admin/settings', icon: Settings },
     ],
   },
 ]

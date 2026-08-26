@@ -18,6 +18,7 @@ import {
   Grid,
   List
 } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface Product {
   producto_nombre: string;
@@ -45,6 +46,7 @@ interface Category {
 }
 
 export default function ProductsPage() {
+  const toast = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -207,7 +209,7 @@ export default function ProductsPage() {
       loadProducts();
     } catch (error: any) {
       console.error('Error saving product:', error);
-      alert(error.message || 'Error al guardar el producto');
+      toast.error(error.message || 'Error al guardar el producto');
     }
   };
 
@@ -227,11 +229,11 @@ export default function ProductsPage() {
       }
 
       const result = await response.json();
-      alert(result.message);
+      toast.exito(result.message);
       loadProducts();
     } catch (error: any) {
       console.error('Error deleting product:', error);
-      alert(error.message || 'Error al eliminar el producto');
+      toast.error(error.message || 'Error al eliminar el producto');
     }
   };
 console.log(products)

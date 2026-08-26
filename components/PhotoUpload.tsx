@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface PhotoUploadProps {
   entityType: 'orden' | 'cliente' | 'empleado' | 'producto' | 'servicio' | 'marca';
@@ -26,6 +27,7 @@ export default function PhotoUpload({
   maxPhotos = 5,
   existingPhotos = []
 }: PhotoUploadProps) {
+  const toast = useToast();
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -108,7 +110,7 @@ export default function PhotoUpload({
     const filesToProcess = files.slice(0, remainingSlots);
 
     if (filesToProcess.length === 0) {
-      alert(`Máximo ${maxPhotos} fotos permitidas`);
+      toast.exito(`Máximo ${maxPhotos} fotos permitidas`);
       return;
     }
 
@@ -156,7 +158,7 @@ export default function PhotoUpload({
         console.error('Error uploading photo:', error);
         // Remover la foto que falló
         setPhotos(prev => prev.filter(photo => photo.id !== tempId));
-        alert('Error al subir la foto. Intenta de nuevo.');
+        toast.error('Error al subir la foto. Intenta de nuevo.');
       }
     }
 

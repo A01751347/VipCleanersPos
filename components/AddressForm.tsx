@@ -334,7 +334,7 @@ const AddressForm: React.FC = () => {
           className="w-full px-4 py-3 rounded-lg border border-[#e0e6e5] focus:outline-none focus:ring-2 focus:ring-[#78f3d3] resize-none"
         />
         <p className="text-xs text-[#6c7a89] mt-1">
-          Ejemplo: "Casa azul con portón blanco", "Tocar el timbre dos veces", etc.
+          Ejemplo: &quot;Casa azul con portón blanco&quot;, &quot;Tocar el timbre dos veces&quot;, etc.
         </p>
       </div>
 
@@ -371,7 +371,7 @@ const AddressForm: React.FC = () => {
           </div>
           <p className="text-sm text-red-700">
             Lo sentimos, actualmente no ofrecemos servicio de pickup en tu zona. 
-            Puedes seleccionar "Traer a la tienda" como método de entrega.
+            Puedes seleccionar &quot;Traer a la tienda&quot; como método de entrega.
           </p>
         </div>
       )}

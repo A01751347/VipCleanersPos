@@ -16,6 +16,7 @@ import {
   Shield,
   AlertCircle
 } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface Service {
   servicio_id: number;
@@ -30,6 +31,7 @@ interface Service {
 }
 
 export default function ServicesPage() {
+  const toast = useToast();
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -137,7 +139,7 @@ export default function ServicesPage() {
       loadServices();
     } catch (error: any) {
       console.error('Error toggling service:', error);
-      alert(error.message || 'Error al actualizar el servicio');
+      toast.error(error.message || 'Error al actualizar el servicio');
     }
   };
 
@@ -170,7 +172,7 @@ export default function ServicesPage() {
       loadServices();
     } catch (error: any) {
       console.error('Error saving service:', error);
-      alert(error.message || 'Error al guardar el servicio');
+      toast.error(error.message || 'Error al guardar el servicio');
     }
   };
 
@@ -190,11 +192,11 @@ export default function ServicesPage() {
       }
 
       const result = await response.json();
-      alert(result.message);
+      toast.exito(result.message);
       loadServices();
     } catch (error: any) {
       console.error('Error deleting service:', error);
-      alert(error.message || 'Error al eliminar el servicio');
+      toast.error(error.message || 'Error al eliminar el servicio');
     }
   };
 

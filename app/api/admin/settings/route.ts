@@ -1,61 +1,28 @@
-// app/api/admin/settings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../../../auth';
-import { getAllSettings, updateSettings } from '../../../../lib/database';
+import { requireAdmin, rutaProtegida } from '@/lib/auth/guard';
+import { getTodaLaConfig, setConfigMultiple } from '@/lib/db';
 
-export async function GET(request: NextRequest) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    // Obtener todas las configuraciones organizadas
-    const settings = await getAllSettings();
-    
-    return NextResponse.json(settings, { status: 200 });
-  } catch (error) {
-    console.error('Error al obtener configuración:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
-  }
-}
+export const GET = rutaProtegida(async () => {
+  await requireAdmin();
+  return NextResponse.json({ success: true, settings: await getTodaLaConfig() });
+});
 
-export async function PUT(request: NextRequest) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const data = await request.json();
-    
-    // Actualizar configuraciones usando la función de la base de datos
-    await updateSettings(data);
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Configuración actualizada correctamente'
-    }, { status: 200 });
-    
-  } catch (error) {
-    console.error('Error al actualizar configuración:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar la solicitud' },
-      { status: 500 }
-    );
+export const PUT = rutaProtegida(async (request: NextRequest) => {
+  await requireAdmin();
+  const body = await request.json();
+
+  // Sólo se aceptan pares clave/valor planos; nada de objetos anidados.
+  const entradas: Record<string, string> = {};
+  for (const [clave, valor] of Object.entries(body ?? {})) {
+    if (valor === null || valor === undefined) continue;
+    if (typeof valor === 'object') continue;
+    entradas[clave] = String(valor);
   }
-}
+
+  await setConfigMultiple(entradas);
+  return NextResponse.json({
+    success: true,
+    settings: await getTodaLaConfig(),
+    message: 'Configuración guardada.',
+  });
+});

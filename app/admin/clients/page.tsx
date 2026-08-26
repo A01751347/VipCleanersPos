@@ -18,6 +18,7 @@ import {
   Eye
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 interface Client {
   cliente_id: number;
@@ -36,6 +37,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [clients, setClients] = useState<Client[]>([]);
@@ -130,7 +132,7 @@ export default function ClientsPage() {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Error al exportar:', error);
-      alert('Error al exportar los datos');
+      toast.error('Error al exportar los datos');
     }
   };
 
